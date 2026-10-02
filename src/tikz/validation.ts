@@ -54,6 +54,24 @@ export function isExportableObject(o: CircuitObject): boolean {
         })
       );
     }
+    case 'electrical':
+      return (
+        ['current', 'polarity', 'voltage'].includes(o.mode) &&
+        finitePoint(o.start) &&
+        finitePoint(o.end) &&
+        finitePoint(o.offset) &&
+        positive(o.width) &&
+        Number.isFinite(o.ratio) &&
+        o.ratio >= 0 &&
+        o.ratio <= 1 &&
+        typeof o.reversed === 'boolean' &&
+        !!o.label &&
+        typeof o.label.text === 'string' &&
+        finitePoint(o.label.offset) &&
+        !!normalizeHex(o.label.color) &&
+        positive(o.label.fontSize) &&
+        rotation(o.label.rotation)
+      );
     case 'junction':
       return finitePoint(o);
     case 'text':

@@ -693,9 +693,10 @@ describe('fast drawing interactions', () => {
     expect(useEditorStore.getState().document.objects.at(-1)).toMatchObject({
       direction: 'counterclockwise',
     });
-    expect(canvas().querySelectorAll('[data-layer]')[5].getAttribute('data-layer')).toBe(
-      'selection',
+    const layers = Array.from(canvas().querySelectorAll('[data-layer]')).map((el) =>
+      el.getAttribute('data-layer'),
     );
+    expect(layers.indexOf('selection')).toBeGreaterThan(layers.indexOf('annotations'));
   });
   it('adds, drags and removes a wire waypoint with Alt click', () => {
     render(<App />);

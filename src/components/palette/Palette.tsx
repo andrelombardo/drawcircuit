@@ -1,3 +1,5 @@
+import { usePersonalBlocks } from '../../personalBlocks/library';
+import { PersonalBlockPalette } from '../../personalBlocks/PersonalBlockPalette';
 import { useState } from 'react';
 import { ChevronDown, PanelLeftClose, Search, Shapes, X } from 'lucide-react';
 import { categories, catalog, matchesComponent } from '../../model/catalog';
@@ -7,6 +9,7 @@ import { circuitPresets, matchesPreset } from '../../presets/registry';
 import { presetCategories } from '../../presets/types';
 import { PresetThumbnail } from '../../presets/PresetThumbnail';
 export function Palette({ onHide }: { onHide: () => void }) {
+  const personalBlocks = usePersonalBlocks((s) => s.blocks);
   const [search, setSearch] = useState(''),
     [collapsed, setCollapsed] = useState<string[]>([]),
     [presetsOpen, setPresetsOpen] = useState(false),
@@ -98,6 +101,7 @@ export function Palette({ onHide }: { onHide: () => void }) {
               );
             })}
         </section>
+        <PersonalBlockPalette search={search} />
         {categories.map((group) => {
           const items = catalog.filter((c) => c.group === group && matchesComponent(c, search));
           if (!items.length) return null;
@@ -155,9 +159,10 @@ export function Palette({ onHide }: { onHide: () => void }) {
           );
         })}
         {!catalog.some((c) => matchesComponent(c, search)) &&
-          !circuitPresets.some((item) => matchesPreset(item, search)) && (
-            <p className="no-results">Nessun componente o blocco trovato.</p>
-          )}
+          !circuitPresets.some((item) => matchesPreset(item, search)) &&
+          !personalBlocks.some((b) =>
+            b.name.toLocaleLowerCase().includes(search.toLocaleLowerCase()),
+          ) && <p className="no-results">Nessun componente o blocco trovato.</p>}
       </div>
     </aside>
   );

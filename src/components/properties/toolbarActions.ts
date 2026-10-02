@@ -14,6 +14,11 @@ export function toolbarActions(o: CircuitObject | null) {
           ...(componentRegistry[o.type].internalText !== undefined ? ['bodyText'] : []),
         ],
       };
+    case 'electrical':
+      return {
+        primary: ['label', 'reverse', 'color', ...common],
+        secondary: ['textSize', 'annotationOffset'],
+      };
     case 'junction':
       return {
         primary: ['label', 'color', ...common],

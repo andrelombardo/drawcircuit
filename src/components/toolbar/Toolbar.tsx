@@ -32,6 +32,7 @@ export function Toolbar({ onExport, onHelp }: { onExport: () => void; onHelp: ()
     undo = useEditorStore((s) => s.undo),
     redo = useEditorStore((s) => s.redo);
   const [menu, setMenu] = useState(false),
+    [electricalMenu, setElectricalMenu] = useState(false),
     [newDialog, setNewDialog] = useState<'new' | 'demo' | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const loadRequest = useRef(0);
@@ -44,17 +45,18 @@ export function Toolbar({ onExport, onHelp }: { onExport: () => void; onHelp: ()
     [],
   );
   useEffect(() => {
-    if (!menu) return;
+    if (!menu && !electricalMenu) return;
     const escape = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         event.preventDefault();
         event.stopPropagation();
         setMenu(false);
+        setElectricalMenu(false);
       }
     };
     window.addEventListener('keydown', escape, true);
     return () => window.removeEventListener('keydown', escape, true);
-  }, [menu]);
+  }, [menu, electricalMenu]);
   const replace = (kind: 'new' | 'demo') => {
     loadRequest.current++;
     const s = useEditorStore.getState();
@@ -80,7 +82,10 @@ export function Toolbar({ onExport, onHelp }: { onExport: () => void; onHelp: ()
           className="file-trigger"
           aria-expanded={menu}
           aria-label="Menu file"
-          onClick={() => setMenu(!menu)}
+          onClick={() => {
+            setMenu(!menu);
+            setElectricalMenu(false);
+          }}
         >
           File
           <ChevronDown size={13} />
@@ -180,6 +185,52 @@ export function Toolbar({ onExport, onHelp }: { onExport: () => void; onHelp: ()
         >
           <Hand size={18} />
         </IconButton>
+        <div className="electrical-tools-wrap">
+          <button
+            className="icon-button"
+            aria-label="Annotazioni elettriche"
+            aria-expanded={electricalMenu}
+            title="Corrente e tensione"
+            onClick={() => setElectricalMenu((open) => !open)}
+          >
+            I/V
+          </button>
+          {electricalMenu && (
+            <>
+              <button
+                className="menu-backdrop"
+                aria-label="Chiudi annotazioni elettriche"
+                onClick={() => setElectricalMenu(false)}
+              />
+              <div className="file-menu electrical-tools-menu">
+                <button
+                  onClick={() => {
+                    setTool('current');
+                    setElectricalMenu(false);
+                  }}
+                >
+                  Current Arrow · Corrente
+                </button>
+                <button
+                  onClick={() => {
+                    setTool('polarity');
+                    setElectricalMenu(false);
+                  }}
+                >
+                  Voltage / Polarity · Polarità
+                </button>
+                <button
+                  onClick={() => {
+                    setTool('voltage');
+                    setElectricalMenu(false);
+                  }}
+                >
+                  Voltage Arrow · Tensione
+                </button>
+              </div>
+            </>
+          )}
+        </div>
         <div className="toolbar-divider" />
         <IconButton
           label="Annulla (⌘/Ctrl Z)"

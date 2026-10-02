@@ -1,3 +1,4 @@
+import { detachElectrical } from '../annotations/electrical';
 import type { CircuitDocument, Endpoint, Wire } from '../model/types';
 import { moveObject, resolveEndpoint, wirePoints } from '../utils/geometry';
 import { contentBounds, unionBounds } from '../utils/visualBounds';
@@ -30,6 +31,11 @@ export function selectionDocument(doc: CircuitDocument, ids: string[]): CircuitD
   const objects = doc.objects
     .filter((o) => included.has(o.id))
     .map((o) => {
+      if (
+        o.kind === 'electrical' &&
+        ((o.wireId && !included.has(o.wireId)) || (o.componentId && !included.has(o.componentId)))
+      )
+        return detachElectrical(o, doc);
       if (o.kind !== 'wire') return o;
       const startEndpoint = endpoint(o.startEndpoint),
         endEndpoint = endpoint(o.endEndpoint);

@@ -1,3 +1,4 @@
+import { electricalGeometry } from '../annotations/electrical';
 import { componentRegistry } from '../model/catalog';
 import { GRID } from '../model/types';
 import type {
@@ -178,6 +179,13 @@ export function moveObject(o: CircuitObject, delta: Point, moved: Set<string>): 
     o.kind === 'loop-arrow'
   )
     return { ...o, x: o.x + delta.x, y: o.y + delta.y };
+  if (o.kind === 'electrical') {
+    const attached =
+      (o.wireId && !moved.has(o.wireId)) || (o.componentId && !moved.has(o.componentId));
+    return attached
+      ? { ...o, offset: add(o.offset, delta) }
+      : { ...o, start: add(o.start, delta), end: add(o.end, delta) };
+  }
   if (o.kind === 'arrow')
     return {
       ...o,
@@ -230,7 +238,16 @@ export function objectBounds(
   doc: CircuitDocument,
 ): { x: number; y: number; width: number; height: number } {
   let points: Point[];
-  if (o.kind === 'wire') points = wirePoints(o, doc);
+  if (o.kind === 'electrical') {
+    const g = electricalGeometry(o, doc);
+    const w = Math.max(24, o.label.text.length * o.label.fontSize * 0.6);
+    points = [
+      g.start,
+      g.end,
+      { x: g.labelPoint.x - w / 2, y: g.labelPoint.y - o.label.fontSize },
+      { x: g.labelPoint.x + w / 2, y: g.labelPoint.y + o.label.fontSize },
+    ];
+  } else if (o.kind === 'wire') points = wirePoints(o, doc);
   else if (o.kind === 'loop-arrow') return { x: o.x, y: o.y, width: o.width, height: o.height };
   else if (o.kind === 'arrow') {
     if (o.type === 'arc') {

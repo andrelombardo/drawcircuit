@@ -1787,3 +1787,102 @@ kbd {
 .drawing-surface [data-handle='loopSE'] * {
   cursor: nwse-resize;
 }
+
+/* Additive block library, electrical tools and component picker. */
+.personal-blocks {
+  padding: 8px 0;
+  border-bottom: 1px solid #e7e9e5;
+}
+.personal-block-row {
+  display: flex;
+  gap: 3px;
+  align-items: center;
+  margin: 5px 0;
+}
+.personal-block-row button {
+  border: 1px solid #e5e8e4;
+  border-radius: 6px;
+  background: white;
+  padding: 7px;
+  color: #465168;
+}
+.personal-block-row button:first-child {
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+.personal-block-row .chosen {
+  background: #edf3ff;
+  border-color: #2463cb;
+}
+.personal-empty {
+  font-size: 11px;
+  color: #738075;
+  line-height: 1.5;
+  margin: 4px 0 8px;
+}
+.personal-library-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.personal-library-actions button {
+  background: none;
+  border: 0;
+  font-size: 10px;
+  color: #2463cb;
+  padding: 4px 0;
+}
+.personal-library-actions button:disabled {
+  color: #9baba7;
+}
+.block-name {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  color: #465168;
+  font-size: 13px;
+}
+.block-name input,
+.replace-search {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #d5dad6;
+  border-radius: 7px;
+}
+.replace-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+  max-height: 45vh;
+  overflow: auto;
+}
+.electrical-tools-wrap {
+  position: relative;
+}
+.electrical-tools-menu {
+  left: auto;
+  right: 0;
+  min-width: 235px;
+}
+.context-toolbar .secondary-property {
+  white-space: nowrap;
+}
+.pwa-notice {
+  position: fixed;
+  bottom: 45px;
+  right: 20px;
+  z-index: 100;
+  padding: 12px;
+  border: 1px solid #d7ded8;
+  border-radius: 10px;
+  background: white;
+  box-shadow: 0 5px 25px #0002;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  font-size: 12px;
+  max-width: calc(100vw - 40px);
+}

@@ -1,6 +1,6 @@
 # DrawCircuit
 
-Editor web per creare rapidamente circuiti elettrici didattici ed esportarli in TikZ.
+Editor web per creare rapidamente circuiti elettrici didattici ed esportarli in TikZ, Obsidian e SVG. Blocchi personali, annotazioni di corrente/tensione e modalità PWA offline.
 
 ## Live
 
@@ -35,4 +35,4 @@ npm run test
 
 Ogni push su `main` esegue installazione, lint, test e build; GitHub Pages viene aggiornato soltanto se tutti i controlli passano. Le modifiche locali diventano visibili sul sito dopo il deployment del relativo commit.
 
-[Manuale e dettagli tecnici](docs/manuale.md) · [Workflow](.github/workflows/deploy-pages.yml)
+[Nuove funzioni e offline](docs/nuove-feature.md) · [Manuale e dettagli tecnici](docs/manuale.md) · [Workflow](.github/workflows/deploy-pages.yml)

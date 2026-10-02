@@ -161,8 +161,29 @@ export interface LoopArrow {
   color: string;
   strokeWidth: number;
 }
+export interface ElectricalAnnotation {
+  kind: 'electrical';
+  id: string;
+  mode: 'current' | 'polarity' | 'voltage';
+  start: Point;
+  end: Point;
+  wireId?: string;
+  componentId?: string;
+  ratio: number;
+  offset: Point;
+  reversed: boolean;
+  label: Label;
+  color: string;
+  width: number;
+}
 export type CircuitObject =
-  CircuitComponent | Junction | Wire | TextAnnotation | ArrowAnnotation | LoopArrow;
+  | CircuitComponent
+  | Junction
+  | Wire
+  | TextAnnotation
+  | ArrowAnnotation
+  | LoopArrow
+  | ElectricalAnnotation;
 export interface CircuitDocument {
   version: 1;
   title: string;
@@ -175,6 +196,9 @@ export type Tool =
   | 'text'
   | 'arrow'
   | 'loop-arrow'
+  | 'current'
+  | 'polarity'
+  | 'voltage'
   | 'pan'
   | 'preset'
   | ComponentType;

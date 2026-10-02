@@ -1,3 +1,4 @@
+import { exportSVG } from '../../svg/exporter';
 import { useMemo, useRef, useState } from 'react';
 import { Check, Code2, Copy, Download, X } from 'lucide-react';
 import { useEditorStore } from '../../store/editorStore';
@@ -9,8 +10,8 @@ export function ExportDialog({ onClose }: { onClose: () => void }) {
   const doc = useEditorStore((s) => s.document),
     selection = useEditorStore((s) => s.selection),
     [scope, setScope] = useState<'all' | 'selection'>('all'),
-    [tab, setTab] = useState<'snippet' | 'obsidian' | 'standalone'>('snippet'),
-    [copied, setCopied] = useState<'snippet' | 'obsidian' | null>(null),
+    [tab, setTab] = useState<'snippet' | 'obsidian' | 'standalone' | 'svg'>('snippet'),
+    [copied, setCopied] = useState<'snippet' | 'obsidian' | 'svg' | null>(null),
     [copyError, setCopyError] = useState(false);
   const textarea = useRef<HTMLTextAreaElement>(null);
   const dialog = useRef<HTMLElement>(null);
@@ -18,18 +19,24 @@ export function ExportDialog({ onClose }: { onClose: () => void }) {
   const subset = useMemo(() => selectionDocument(doc, selection), [doc, selection]);
   const exportDoc = scope === 'selection' && subset.objects.length ? subset : doc;
   const code =
-    tab === 'snippet'
-      ? exportTikz(exportDoc)
-      : tab === 'obsidian'
-        ? exportObsidian(exportDoc)
-        : exportStandalone(exportDoc);
-  const copy = async (format: 'snippet' | 'obsidian') => {
+    tab === 'svg'
+      ? exportSVG(exportDoc)
+      : tab === 'snippet'
+        ? exportTikz(exportDoc)
+        : tab === 'obsidian'
+          ? exportObsidian(exportDoc)
+          : exportStandalone(exportDoc);
+  const copy = async (format: 'snippet' | 'obsidian' | 'svg') => {
     setTab(format);
     setCopied(null);
     setCopyError(false);
     try {
       await navigator.clipboard.writeText(
-        format === 'obsidian' ? exportObsidian(exportDoc) : exportTikz(exportDoc),
+        format === 'svg'
+          ? exportSVG(exportDoc)
+          : format === 'obsidian'
+            ? exportObsidian(exportDoc)
+            : exportTikz(exportDoc),
       );
       setCopied(format);
     } catch {
@@ -116,12 +123,15 @@ export function ExportDialog({ onClose }: { onClose: () => void }) {
           >
             File standalone .tex
           </button>
+          <button className={tab === 'svg' ? 'selected' : ''} onClick={() => selectTab('svg')}>
+            SVG
+          </button>
           <span>{exportDoc.objects.length} oggetti vettoriali</span>
         </div>
         <textarea
           ref={textarea}
           className="code-preview"
-          aria-label="Codice TikZ generato"
+          aria-label={tab === 'svg' ? 'Codice SVG generato' : 'Codice TikZ generato'}
           value={code}
           readOnly
           spellCheck={false}
@@ -131,39 +141,59 @@ export function ExportDialog({ onClose }: { onClose: () => void }) {
         )}
         <div className="export-dialog-footer">
           <span>
-            {tab === 'obsidian'
-              ? 'Scala canvas · font e geometria preservati'
-              : '1 cm = 40 px · orientamento preservato'}
+            {tab === 'svg'
+              ? 'SVG vettoriale · copia del codice XML'
+              : tab === 'obsidian'
+                ? 'Scala canvas · font e geometria preservati'
+                : '1 cm = 40 px · orientamento preservato'}
           </span>
-          <button className="secondary-button" onClick={() => copy('snippet')}>
-            {copied === 'snippet' ? <Check size={16} /> : <Copy size={16} />}{' '}
-            {copied === 'snippet'
-              ? 'Copiato'
-              : scope === 'selection'
-                ? 'Copia TikZ selezione'
-                : 'Copy TikZ'}
-          </button>
-          <button className="secondary-button" onClick={() => copy('obsidian')}>
-            {copied === 'obsidian' ? <Check size={16} /> : <Copy size={16} />}{' '}
-            {copied === 'obsidian'
-              ? 'Copiato per Obsidian'
-              : scope === 'selection'
-                ? 'Copia selezione per Obsidian'
-                : 'Copia per Obsidian'}
-          </button>
-          <button
-            className="primary-button"
-            onClick={() =>
-              download(
-                exportStandalone(exportDoc),
-                `${fileName(doc.title)}.tex`,
-                'application/x-tex',
-              )
-            }
-          >
-            <Download size={16} />
-            Download .tex
-          </button>
+          {tab === 'svg' ? (
+            <>
+              <button className="secondary-button" onClick={() => copy('svg')}>
+                {copied === 'svg' ? 'SVG copiato' : 'Copia codice SVG'}
+              </button>
+              <button
+                className="primary-button"
+                onClick={() =>
+                  download(exportSVG(exportDoc), `${fileName(doc.title)}.svg`, 'image/svg+xml')
+                }
+              >
+                Scarica SVG
+              </button>
+            </>
+          ) : (
+            <>
+              <button className="secondary-button" onClick={() => copy('snippet')}>
+                {copied === 'snippet' ? <Check size={16} /> : <Copy size={16} />}{' '}
+                {copied === 'snippet'
+                  ? 'Copiato'
+                  : scope === 'selection'
+                    ? 'Copia TikZ selezione'
+                    : 'Copy TikZ'}
+              </button>
+              <button className="secondary-button" onClick={() => copy('obsidian')}>
+                {copied === 'obsidian' ? <Check size={16} /> : <Copy size={16} />}{' '}
+                {copied === 'obsidian'
+                  ? 'Copiato per Obsidian'
+                  : scope === 'selection'
+                    ? 'Copia selezione per Obsidian'
+                    : 'Copia per Obsidian'}
+              </button>
+              <button
+                className="primary-button"
+                onClick={() =>
+                  download(
+                    exportStandalone(exportDoc),
+                    `${fileName(doc.title)}.tex`,
+                    'application/x-tex',
+                  )
+                }
+              >
+                <Download size={16} />
+                Download .tex
+              </button>
+            </>
+          )}
         </div>
       </section>
     </div>

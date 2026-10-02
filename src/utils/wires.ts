@@ -1,3 +1,4 @@
+import { createCurrent, electricalGeometry } from '../annotations/electrical';
 import { makeId } from '../model/catalog';
 import { createJunction } from '../model/factories';
 import type {
@@ -112,7 +113,9 @@ export function insertJunction(
     linked.add(key);
     objects.push({ ...wire, id: makeId(), startEndpoint: endpoint, endEndpoint: ep, vertices: [] });
   };
+  const splitIds = new Map<string, string[]>();
   for (const o of doc.objects) {
+    const before = objects.length;
     if (o.kind !== 'wire') {
       objects.push(o);
       continue;
@@ -136,6 +139,41 @@ export function insertJunction(
       objects.push({ ...o, endEndpoint: ep, vertices: pts.slice(1, segment + 1) });
       objects.push({ ...o, id: makeId(), startEndpoint: ep, vertices: pts.slice(segment + 1, -1) });
     }
+    splitIds.set(
+      o.id,
+      objects
+        .slice(before)
+        .filter((x) => x.kind === 'wire')
+        .map((x) => x.id),
+    );
   }
-  return { doc: normalizeDocumentWires({ ...doc, objects: [...objects, junction] }), junction };
+  let next = normalizeDocumentWires({ ...doc, objects: [...objects, junction] });
+  next = {
+    ...next,
+    objects: next.objects.map((o) => {
+      if (o.kind !== 'electrical' || !o.wireId || !splitIds.has(o.wireId)) return o;
+      const geometry = electricalGeometry(o, doc),
+        center = {
+          x: (geometry.start.x + geometry.end.x) / 2 - o.offset.x,
+          y: (geometry.start.y + geometry.end.y) / 2 - o.offset.y,
+        };
+      const ids = new Set(splitIds.get(o.wireId));
+      const candidate = nearestWire(
+        center,
+        next,
+        Infinity,
+        new Set(next.objects.filter((x) => !ids.has(x.id)).map((x) => x.id)),
+      );
+      if (!candidate) return o;
+      const attached = createCurrent(candidate.wire, center, next);
+      return {
+        ...o,
+        wireId: attached.wireId,
+        ratio: attached.ratio,
+        start: attached.start,
+        end: attached.end,
+      };
+    }),
+  };
+  return { doc: next, junction };
 }

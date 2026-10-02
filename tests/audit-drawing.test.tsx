@@ -119,7 +119,7 @@ function select(o: CircuitObject) {
   const p =
     o.kind === 'wire'
       ? resolveEndpoint(o.startEndpoint, current())
-      : o.kind === 'arrow'
+      : o.kind === 'arrow' || o.kind === 'electrical'
         ? o.start
         : o;
   fireEvent.pointerDown(hit, point(p.x, p.y));

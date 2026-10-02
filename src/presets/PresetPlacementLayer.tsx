@@ -1,3 +1,4 @@
+import { usePersonalBlocks, instantiatePersonalBlock } from '../personalBlocks/library';
 import { useMemo } from 'react';
 import { useEditorStore } from '../store/editorStore';
 import { CircuitLayer } from '../components/editor/CircuitLayer';
@@ -10,16 +11,24 @@ export function PresetPlacementLayer({ point, zoom }: { point: Point | null; zoo
   const id = useEditorStore((s) => (s.tool === 'preset' ? s.pendingPresetId : null));
   const rotation = useEditorStore((s) => s.placementRotation),
     existing = useEditorStore((s) => s.document);
+  const blocks = usePersonalBlocks((s) => s.blocks);
+  const personal = blocks.find((b) => b.id === id);
   const doc = useMemo(
     () =>
-      id && presetRegistry[id]
+      personal
         ? {
             version: 1 as const,
             title: '',
-            objects: instantiatePreset(presetRegistry[id], { x: 0, y: 0 }, rotation, existing),
+            objects: instantiatePersonalBlock(personal, { x: 0, y: 0 }, rotation, existing),
           }
-        : null,
-    [id, rotation, existing],
+        : id && presetRegistry[id]
+          ? {
+              version: 1 as const,
+              title: '',
+              objects: instantiatePreset(presetRegistry[id], { x: 0, y: 0 }, rotation, existing),
+            }
+          : null,
+    [id, rotation, existing, personal],
   );
   if (!point || !doc) return null;
   const bounds = documentBounds(doc);

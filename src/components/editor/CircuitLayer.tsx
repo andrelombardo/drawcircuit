@@ -1,3 +1,5 @@
+import { WireBridges } from '../../circuit/wires/WireBridges';
+import { ElectricalView } from '../../circuit/annotations/ElectricalView';
 import { memo, useMemo } from 'react';
 import type { CircuitDocument } from '../../model/types';
 import { wirePoints } from '../../utils/geometry';
@@ -36,6 +38,7 @@ export const CircuitLayer = memo(function CircuitLayer({
           <WireView key={object.id} object={object} points={points} />
         ))}
       </g>
+      <WireBridges doc={doc} />
       <g data-layer="components">
         {doc.objects.map((o) =>
           o.kind === 'component' ? (
@@ -75,7 +78,9 @@ export const CircuitLayer = memo(function CircuitLayer({
       </g>
       <g data-layer="annotations">
         {doc.objects.map((o) =>
-          o.kind === 'arrow' ? (
+          o.kind === 'electrical' ? (
+            <ElectricalView key={o.id} object={o} doc={doc} selected={selected.has(o.id)} />
+          ) : o.kind === 'arrow' ? (
             <ArrowView key={o.id} object={o} />
           ) : o.kind === 'loop-arrow' ? (
             <LoopArrowView key={o.id} object={o} />

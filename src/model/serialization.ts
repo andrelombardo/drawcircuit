@@ -112,6 +112,25 @@ export function deserializeDocument(raw: string): CircuitDocument {
         !positive(o.width, 20)
       )
         fail();
+    } else if (o.kind === 'electrical') {
+      if (
+        !['current', 'polarity', 'voltage'].includes(String(o.mode)) ||
+        !point(o.start) ||
+        !point(o.end) ||
+        !point(o.offset) ||
+        !label(o.label) ||
+        !num(o.ratio) ||
+        Number(o.ratio) < 0 ||
+        Number(o.ratio) > 1 ||
+        typeof o.reversed !== 'boolean' ||
+        !color(o.color) ||
+        !positive(o.width, 20) ||
+        (o.wireId !== undefined && (o.mode !== 'current' || !str(o.wireId) || !o.wireId)) ||
+        (o.componentId !== undefined &&
+          (o.mode !== 'polarity' || !str(o.componentId) || !o.componentId)) ||
+        (o.wireId !== undefined && o.componentId !== undefined)
+      )
+        fail();
     } else if (o.kind === 'text') {
       if (
         !num(o.x) ||
@@ -166,6 +185,17 @@ export function deserializeDocument(raw: string): CircuitDocument {
     if (o.kind === 'wire') {
       resolveEndpoint(o.startEndpoint, doc);
       resolveEndpoint(o.endEndpoint, doc);
+    }
+  for (const o of doc.objects)
+    if (o.kind === 'electrical') {
+      if (o.wireId && !doc.objects.some((t) => t.id === o.wireId && t.kind === 'wire')) fail();
+      if (
+        o.componentId &&
+        !doc.objects.some(
+          (t) => t.id === o.componentId && t.kind === 'component' && t.terminals.length === 2,
+        )
+      )
+        fail();
     }
   return doc;
 }

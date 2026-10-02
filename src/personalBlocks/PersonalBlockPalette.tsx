@@ -1,0 +1,111 @@
+import { useRef, useState } from 'react';
+import { Pencil, Trash2 } from 'lucide-react';
+import { usePersonalBlocks, serializePersonalBlocks } from './library';
+import { useEditorStore } from '../store/editorStore';
+import { BlockNameDialog } from '../components/toolbar/BlockNameDialog';
+import { download } from '../utils/files';
+export function PersonalBlockPalette({ search }: { search: string }) {
+  const blocks = usePersonalBlocks((s) => s.blocks),
+    error = usePersonalBlocks((s) => s.error);
+  const [renaming, setRenaming] = useState<string | null>(null),
+    [open, setOpen] = useState(true);
+  const file = useRef<HTMLInputElement>(null);
+  const pending = useEditorStore((s) => s.pendingPresetId);
+  return (
+    <section className="personal-blocks" aria-label="Blocchi personali">
+      <button
+        className="group-heading"
+        aria-expanded={open || !!search}
+        onClick={() => setOpen((v) => !v)}
+      >
+        Blocchi personali <span className="count">{blocks.length}</span>
+      </button>
+      {(open || !!search) && (
+        <>
+          {blocks
+            .filter((b) => b.name.toLocaleLowerCase().includes(search.toLocaleLowerCase()))
+            .map((b) => (
+              <div className="personal-block-row" key={b.id}>
+                <button
+                  className={pending === b.id ? 'chosen' : ''}
+                  aria-label={`Inserisci blocco personale: ${b.name}`}
+                  onClick={() => useEditorStore.getState().selectPreset(b.id)}
+                >
+                  {b.name}
+                </button>
+                <button
+                  aria-label={`Rinomina blocco ${b.name}`}
+                  title="Rinomina"
+                  onClick={() => setRenaming(b.id)}
+                >
+                  <Pencil size={14} />
+                </button>
+                <button
+                  aria-label={`Elimina blocco ${b.name}`}
+                  title="Elimina dalla libreria"
+                  onClick={() => {
+                    usePersonalBlocks.getState().remove(b.id);
+                    if (pending === b.id) useEditorStore.getState().setTool('select');
+                  }}
+                >
+                  <Trash2 size={14} />
+                </button>
+              </div>
+            ))}
+          {!blocks.length && (
+            <p className="personal-empty">
+              Seleziona elementi sul foglio e scegli “Salva come blocco”.
+            </p>
+          )}
+          <div className="personal-library-actions">
+            <button
+              onClick={() =>
+                download(
+                  serializePersonalBlocks(blocks),
+                  'drawcircuit-blocchi.json',
+                  'application/json',
+                )
+              }
+              disabled={!blocks.length}
+            >
+              Esporta blocchi
+            </button>
+            <button onClick={() => file.current?.click()}>Importa blocchi</button>
+          </div>
+        </>
+      )}
+      {error && (
+        <p role="alert" className="copy-error">
+          {error}
+        </p>
+      )}
+      <input
+        hidden
+        ref={file}
+        type="file"
+        accept=".json,application/json"
+        aria-label="Importa blocchi personali"
+        onChange={async (e) => {
+          const f = e.currentTarget.files?.[0];
+          e.currentTarget.value = '';
+          if (!f) return;
+          try {
+            if (f.size > 10_000_000) throw new Error('Il file supera 10 MB.');
+            usePersonalBlocks.getState().import(await f.text());
+          } catch (err) {
+            useEditorStore
+              .getState()
+              .notify(err instanceof Error ? err.message : 'Libreria non valida.');
+          }
+        }}
+      />
+      {renaming && (
+        <BlockNameDialog
+          initial={blocks.find((b) => b.id === renaming)?.name}
+          onSave={(name) => usePersonalBlocks.getState().rename(renaming, name)}
+          onClose={() => setRenaming(null)}
+        />
+      )}
+    </section>
+  );
+}

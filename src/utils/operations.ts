@@ -1,3 +1,4 @@
+import { detachElectrical } from '../annotations/electrical';
 import { wrapPosition } from './loops';
 import { makeId } from '../model/catalog';
 import { add, moveObject, objectBounds, resolveEndpoint, rotatePoint } from './geometry';
@@ -14,9 +15,12 @@ export function extractSelection(doc: CircuitDocument, ids: string[]): CircuitDo
     objects: doc.objects
       .filter((o) => selected.has(o.id))
       .map((o) =>
-        o.kind === 'wire'
-          ? { ...o, startEndpoint: ep(o.startEndpoint), endEndpoint: ep(o.endEndpoint) }
-          : o,
+        o.kind === 'electrical' &&
+        ((o.wireId && !selected.has(o.wireId)) || (o.componentId && !selected.has(o.componentId)))
+          ? detachElectrical(o, doc)
+          : o.kind === 'wire'
+            ? { ...o, startEndpoint: ep(o.startEndpoint), endEndpoint: ep(o.endEndpoint) }
+            : o,
       ),
   };
 }
@@ -47,6 +51,10 @@ export function cloneObjects(
         labels.add(copy.label.text);
       }
     }
+    if (copy.kind === 'electrical') {
+      if (copy.wireId) copy.wireId = ids.get(copy.wireId);
+      if (copy.componentId) copy.componentId = ids.get(copy.componentId);
+    }
     if (copy.kind === 'wire') {
       copy.startEndpoint = remap(copy.startEndpoint);
       copy.endEndpoint = remap(copy.endEndpoint);
@@ -66,9 +74,12 @@ export function removeObjects(doc: CircuitDocument, ids: string[]): CircuitDocum
     objects: doc.objects
       .filter((o) => !removed.has(o.id))
       .map((o) =>
-        o.kind === 'wire'
-          ? { ...o, startEndpoint: ep(o.startEndpoint), endEndpoint: ep(o.endEndpoint) }
-          : o,
+        o.kind === 'electrical' &&
+        ((o.wireId && removed.has(o.wireId)) || (o.componentId && removed.has(o.componentId)))
+          ? detachElectrical(o, doc)
+          : o.kind === 'wire'
+            ? { ...o, startEndpoint: ep(o.startEndpoint), endEndpoint: ep(o.endEndpoint) }
+            : o,
       ),
   };
 }
@@ -111,6 +122,18 @@ export function rotateObjects(doc: CircuitDocument, ids: string[]): CircuitDocum
           width: o.height,
           height: o.width,
           arrowPosition: wrapPosition(o.arrowPosition + 0.25),
+        };
+      }
+      if (o.kind === 'electrical') {
+        const attached =
+          (o.wireId && !selected.has(o.wireId)) || (o.componentId && !selected.has(o.componentId));
+        const base = attached ? detachElectrical(o, doc) : o;
+        return {
+          ...base,
+          start: rp(base.start),
+          end: rp(base.end),
+          offset: rotatePoint(base.offset, 90),
+          label: { ...base.label, offset: rotatePoint(base.label.offset, 90) },
         };
       }
       if (o.kind === 'arrow')

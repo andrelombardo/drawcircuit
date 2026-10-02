@@ -1,3 +1,7 @@
+import { createPersonalBlock, usePersonalBlocks } from '../../personalBlocks/library';
+import { BlockNameDialog } from '../toolbar/BlockNameDialog';
+import { ReplaceDialog } from './ReplaceDialog';
+import { compatibleReplacements } from '../../model/replacement';
 import {
   AlignCenter,
   AlignLeft,
@@ -73,7 +77,9 @@ export function ContextToolbar({
     update = useEditorStore((s) => s.update);
   const root = useRef<HTMLDivElement>(null),
     more = useRef<HTMLDetailsElement>(null);
-  const [dismissed, setDismissed] = useState(false);
+  const [dismissed, setDismissed] = useState(false),
+    [blockDialog, setBlockDialog] = useState(false),
+    [replaceDialog, setReplaceDialog] = useState(false);
   const objects = doc.objects.filter((o) => selection.includes(o.id));
   const o = objects.length === 1 ? objects[0] : null,
     actions = toolbarActions(o);
@@ -192,13 +198,13 @@ export function ContextToolbar({
       objects: s.document.objects.map((obj) => (selected.has(obj.id) ? fn(obj) : obj)),
     });
   };
-  const hasLabel = o?.kind === 'component' || o?.kind === 'junction';
+  const hasLabel = o?.kind === 'component' || o?.kind === 'junction' || o?.kind === 'electrical';
   const textSize = o?.kind === 'text' ? o.fontSize : hasLabel ? o.label.fontSize : 22;
   const setTextSize = (size: number) =>
     apply((obj) =>
       obj.kind === 'text'
         ? { ...obj, fontSize: size }
-        : obj.kind === 'component' || obj.kind === 'junction'
+        : obj.kind === 'component' || obj.kind === 'junction' || obj.kind === 'electrical'
           ? { ...obj, label: { ...obj.label, fontSize: size } }
           : obj,
     );
@@ -244,10 +250,16 @@ export function ContextToolbar({
           <PropertyText
             key={`${o.id}-${o.label.text}`}
             value={o.label.text}
-            label={o.kind === 'junction' ? 'Nome nodo' : 'Label componente'}
+            label={
+              o.kind === 'junction'
+                ? 'Nome nodo'
+                : o.kind === 'electrical'
+                  ? 'Label annotazione'
+                  : 'Label componente'
+            }
             onChange={(text) =>
               update(o.id, (obj) =>
-                obj.kind === 'component' || obj.kind === 'junction'
+                obj.kind === 'component' || obj.kind === 'junction' || obj.kind === 'electrical'
                   ? { ...obj, label: { ...obj.label, text } }
                   : obj,
               )
@@ -322,7 +334,7 @@ export function ContextToolbar({
           label="Inverti freccia"
           onClick={() =>
             update(o.id, (obj) =>
-              obj.kind === 'arrow'
+              obj.kind === 'arrow' || obj.kind === 'electrical'
                 ? { ...obj, reversed: !obj.reversed }
                 : obj.kind === 'loop-arrow'
                   ? reverseLoop(obj)
@@ -344,6 +356,25 @@ export function ContextToolbar({
       <IconButton label="Elimina (Delete)" onClick={() => useEditorStore.getState().remove()}>
         <Trash2 size={17} />
       </IconButton>
+      <button className="secondary-property" onClick={() => setBlockDialog(true)}>
+        Salva come blocco
+      </button>
+      {o?.kind === 'component' && compatibleReplacements(o).length > 0 && (
+        <button className="secondary-property" onClick={() => setReplaceDialog(true)}>
+          Sostituisci…
+        </button>
+      )}
+      {blockDialog && (
+        <BlockNameDialog
+          onClose={() => setBlockDialog(false)}
+          onSave={(name) =>
+            usePersonalBlocks.getState().add(createPersonalBlock(doc, selection, name))
+          }
+        />
+      )}
+      {replaceDialog && o?.kind === 'component' && (
+        <ReplaceDialog component={o} onClose={() => setReplaceDialog(false)} />
+      )}
       {!!actions.secondary.length && (
         <details ref={more} className="context-more">
           <summary
@@ -355,6 +386,44 @@ export function ContextToolbar({
           </summary>
           <div className="context-popover">
             {actions.secondary.includes('textSize') && sizeControl}
+            {o?.kind === 'electrical' && (
+              <>
+                <label className="property-control">
+                  Offset X
+                  <input
+                    aria-label="Offset annotazione X"
+                    type="number"
+                    value={o.offset.x}
+                    onChange={(e) => {
+                      const x = Number(e.target.value);
+                      if (Number.isFinite(x))
+                        update(o.id, (obj) =>
+                          obj.kind === 'electrical'
+                            ? { ...obj, offset: { ...obj.offset, x } }
+                            : obj,
+                        );
+                    }}
+                  />
+                </label>
+                <label className="property-control">
+                  Offset Y
+                  <input
+                    aria-label="Offset annotazione Y"
+                    type="number"
+                    value={o.offset.y}
+                    onChange={(e) => {
+                      const y = Number(e.target.value);
+                      if (Number.isFinite(y))
+                        update(o.id, (obj) =>
+                          obj.kind === 'electrical'
+                            ? { ...obj, offset: { ...obj.offset, y } }
+                            : obj,
+                        );
+                    }}
+                  />
+                </label>
+              </>
+            )}
             {actions.secondary.includes('bodyText') && o?.kind === 'component' && (
               <label className="property-control">
                 <span>Testo interno</span>
@@ -390,7 +459,9 @@ export function ContextToolbar({
                   value={o.label.color}
                   onChange={(e) =>
                     update(o.id, (obj) =>
-                      obj.kind === 'junction' || obj.kind === 'component'
+                      obj.kind === 'junction' ||
+                      obj.kind === 'component' ||
+                      obj.kind === 'electrical'
                         ? { ...obj, label: { ...obj.label, color: e.target.value } }
                         : obj,
                     )
@@ -406,7 +477,7 @@ export function ContextToolbar({
                 aria-label="Ruota solo label"
                 onClick={() =>
                   update(o.id, (obj) =>
-                    obj.kind === 'component' || obj.kind === 'junction'
+                    obj.kind === 'component' || obj.kind === 'junction' || obj.kind === 'electrical'
                       ? {
                           ...obj,
                           label: {

@@ -1,3 +1,6 @@
+import { usePersonalBlocks, instantiatePersonalBlock } from '../personalBlocks/library';
+import { replaceComponent as replaceComponentInDocument } from '../model/replacement';
+import type { ComponentType } from '../model/types';
 import { create } from 'zustand';
 import { demoDocument } from '../model/demo';
 import { deserializeDocument, serializeDocument } from '../model/serialization';
@@ -26,6 +29,7 @@ interface EditorState {
   selection: string[];
   tool: Tool;
   pendingPresetId: string | null;
+  replaceComponent: (id: string, type: ComponentType) => void;
   selectPreset: (id: string) => void;
   insertPreset: (point: Point) => void;
   placementRotation: Rotation;
@@ -62,18 +66,27 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   tool: 'select',
   pendingPresetId: null,
   selectPreset: (id) => {
-    if (!Object.hasOwn(presetRegistry, id)) return;
+    if (
+      !Object.hasOwn(presetRegistry, id) &&
+      !usePersonalBlocks.getState().blocks.some((b) => b.id === id)
+    )
+      return;
     get().setTool('preset');
     set({ pendingPresetId: id });
   },
   insertPreset: (point) => {
     const s = get(),
-      preset = s.pendingPresetId && presetRegistry[s.pendingPresetId];
-    if (!preset) return;
-    const objects = instantiatePreset(preset, point, s.placementRotation, s.document);
+      preset = s.pendingPresetId ? presetRegistry[s.pendingPresetId] : undefined;
+    const personal = usePersonalBlocks.getState().blocks.find((b) => b.id === s.pendingPresetId);
+    if (!preset && !personal) return;
+    const objects = personal
+      ? instantiatePersonalBlock(personal, point, s.placementRotation, s.document)
+      : instantiatePreset(preset!, point, s.placementRotation, s.document);
     s.setTool('select');
     s.add(objects);
   },
+  replaceComponent: (id, type) =>
+    get().commit(replaceComponentInDocument(get().document, id, type)),
   placementRotation: 0,
   rotatePlacement: () =>
     set((s) => ({ placementRotation: ((s.placementRotation + 90) % 360) as Rotation })),
@@ -204,3 +217,17 @@ useEditorStore.subscribe((state, previous) => {
     }
   }, 400);
 });
+
+/** Flush the committed document before a user-requested PWA update; never reload a gesture. */
+export function saveDocumentNow(): boolean {
+  const state = useEditorStore.getState();
+  if (state.gestureStart) return false;
+  try {
+    localStorage.setItem(STORAGE_KEY, serializeDocument(state.document));
+    clearTimeout(saveTimer);
+    return true;
+  } catch {
+    useEditorStore.setState({ storageError: true });
+    return false;
+  }
+}

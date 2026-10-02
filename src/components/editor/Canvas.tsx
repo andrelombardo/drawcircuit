@@ -1,3 +1,5 @@
+import { ElectricalView } from '../../circuit/annotations/ElectricalView';
+import { usePersonalBlocks } from '../../personalBlocks/library';
 import { CIRCUIT_FONT } from '../../model/fonts';
 import { LatexPreview } from '../../circuit/annotations/MathText';
 import { useRef } from 'react';
@@ -5,7 +7,7 @@ import { Check, ChevronRight, Grid2X2, Maximize, Minus, Plus } from 'lucide-reac
 import { useEditorStore } from '../../store/editorStore';
 import { catalog, componentRegistry } from '../../model/catalog';
 import { COLORS, componentTypes, GRID } from '../../model/types';
-import { wirePoints, pointsPath } from '../../utils/geometry';
+import { wirePoints, pointsPath, nearestWire } from '../../utils/geometry';
 import type { ComponentType, Wire } from '../../model/types';
 import { wireCandidate } from '../../utils/wires';
 import { DistanceGuideLayer } from './DistanceGuideLayer';
@@ -30,6 +32,8 @@ export function Canvas() {
     selection = useEditorStore((s) => s.selection),
     arrowType = useEditorStore((s) => s.arrowType),
     storageError = useEditorStore((s) => s.storageError);
+  const personalBlocks = usePersonalBlocks((s) => s.blocks);
+  const personalName = personalBlocks.find((b) => b.id === pendingPresetId)?.name;
   const interactions = useCanvasInteractions(svgRef),
     { viewport: v, overlay, draft, editing } = interactions;
   const isComponent = componentTypes.includes(tool as ComponentType),
@@ -62,24 +66,32 @@ export function Canvas() {
     };
     previewPath = pointsPath(wirePoints(wire, doc));
   }
+  const currentHover =
+    tool === 'current' && overlay.mouse ? nearestWire(overlay.mouse, doc, 16 / v.zoom) : null;
   const hint =
     tool === 'preset'
-      ? `${pendingPresetId ? presetRegistry[pendingPresetId]?.name : 'Blocco rapido'} · clicca per inserire · R ruota · Esc annulla`
-      : tool === 'wire'
-        ? draft
-          ? 'Aggiungi una svolta · clic su terminale, nodo o filo per collegare · Enter per terminare'
-          : 'Clicca un terminale, un nodo o un filo per iniziare'
-        : tool === 'junction'
-          ? 'Clicca per inserire un nodo · Shift + clic per più nodi'
-          : tool === 'text'
-            ? 'Clicca sul foglio per scrivere un’annotazione'
-            : tool === 'loop-arrow'
-              ? 'Trascina un’area per la maglia · handle sulla punta per spostarla'
-              : tool === 'arrow'
-                ? 'Trascina per disegnare · seleziona per modificare gli handle'
-                : isComponent
-                  ? `${catalog.find((c) => c.type === tool)?.name} · clicca per inserire · R ruota · Esc termina`
-                  : 'Space + trascina per spostarti · rotellina per zoomare';
+      ? `${pendingPresetId ? (presetRegistry[pendingPresetId]?.name ?? personalName) : 'Blocco rapido'} · clicca per inserire · R ruota · Esc annulla`
+      : tool === 'current'
+        ? 'Clicca un filo per indicare la corrente'
+        : tool === 'polarity'
+          ? 'Clicca un componente a due terminali per indicare la polarità'
+          : tool === 'voltage'
+            ? 'Trascina dal primo al secondo punto per indicare la tensione'
+            : tool === 'wire'
+              ? draft
+                ? 'Aggiungi una svolta · clic su terminale, nodo o filo per collegare · Enter per terminare'
+                : 'Clicca un terminale, un nodo o un filo per iniziare'
+              : tool === 'junction'
+                ? 'Clicca per inserire un nodo · Shift + clic per più nodi'
+                : tool === 'text'
+                  ? 'Clicca sul foglio per scrivere un’annotazione'
+                  : tool === 'loop-arrow'
+                    ? 'Trascina un’area per la maglia · handle sulla punta per spostarla'
+                    : tool === 'arrow'
+                      ? 'Trascina per disegnare · seleziona per modificare gli handle'
+                      : isComponent
+                        ? `${catalog.find((c) => c.type === tool)?.name} · clicca per inserire · R ruota · Esc termina`
+                        : 'Space + trascina per spostarti · rotellina per zoomare';
   return (
     <main className="editor" aria-label="Editor circuito">
       <div className="document-heading">
@@ -244,7 +256,9 @@ export function Canvas() {
               </>
             )}
             {overlay.arrow &&
-              (overlay.arrow.kind === 'loop-arrow' ? (
+              (overlay.arrow.kind === 'electrical' ? (
+                <ElectricalView object={overlay.arrow} doc={doc} />
+              ) : overlay.arrow.kind === 'loop-arrow' ? (
                 <LoopArrowView object={overlay.arrow} />
               ) : (
                 <ArrowView object={overlay.arrow} />
@@ -258,6 +272,17 @@ export function Canvas() {
             viewport={v}
             size={interactions.surfaceSize}
           />
+          {currentHover && (
+            <path
+              data-current-hover={currentHover.wire.id}
+              d={pointsPath(wirePoints(currentHover.wire, doc))}
+              fill="none"
+              stroke="#2463cb"
+              strokeWidth={6 / v.zoom}
+              opacity={0.4}
+              pointerEvents="none"
+            />
+          )}
           <PresetPlacementLayer point={overlay.mouse} zoom={v.zoom} />
         </g>
       </svg>

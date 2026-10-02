@@ -1,3 +1,6 @@
+import { wireCrossings } from '../utils/crossings';
+import { electricalGeometry } from '../annotations/electrical';
+import { chevron } from './arrowheads';
 import { mathContent, normalizeLatex, renderLatex } from '../math/latex';
 import { symbolText } from '../model/symbolGeometry';
 import type { CircuitDocument, Label, Point, Rotation } from '../model/types';
@@ -159,6 +162,28 @@ function generateTikz(source: CircuitDocument, canvas: boolean): string {
       if (!wires.has(line)) lines.push(line);
       wires.add(line);
     }
+  for (const c of wireCrossings(doc)) {
+    const r = c.radius,
+      left = { x: c.x - r, y: c.y },
+      right = { x: c.x + r, y: c.y },
+      a = { x: c.x - r * 0.6, y: c.y - r },
+      b = { x: c.x + r * 0.6, y: c.y - r },
+      whiteWidth = pixelsToPt(Math.max(c.horizontal.width, c.vertical.width) + 4);
+    lines.push('% Unconnected wire crossing: horizontal bridge');
+    lines.push(
+      `\\draw[draw=white,line width=${whiteWidth}pt] ${tikzCoordinate(left)} -- ${tikzCoordinate(right)};`,
+    );
+    lines.push(
+      `\\draw[draw=${col(c.vertical.color)},line width=${pixelsToPt(c.vertical.width)}pt] ${tikzCoordinate({ x: c.x, y: c.y - r })} -- ${tikzCoordinate({ x: c.x, y: c.y + r })};`,
+    );
+    for (const [color, width] of [
+      ['white', whiteWidth],
+      [col(c.horizontal.color), pixelsToPt(c.horizontal.width)],
+    ])
+      lines.push(
+        `\\draw[draw=${color},line width=${width}pt] ${tikzCoordinate(left)} .. controls ${tikzCoordinate(a)} and ${tikzCoordinate(b)} .. ${tikzCoordinate(right)};`,
+      );
+  }
   let index = 0;
   const rank = (o: CircuitDocument['objects'][number]) =>
     o.kind === 'component' ? 0 : o.kind === 'junction' ? 1 : 2;
@@ -227,6 +252,25 @@ function generateTikz(source: CircuitDocument, canvas: boolean): string {
     } else if (o.kind === 'junction') {
       lines.push(`\\fill[${col(o.color)}] ${tikzCoordinate(o)} circle (${pixelsToPt(4.5)}pt);`);
       labels.push(() => label(o));
+    } else if (o.kind === 'electrical') {
+      const g = electricalGeometry(o, doc);
+      lines.push(`% Electrical annotation: ${o.mode}`);
+      if (o.mode === 'polarity') {
+        node(o.reversed ? '-' : '+', g.start, o.color, 22, 0, 'middle', false, true);
+        node(o.reversed ? '+' : '-', g.end, o.color, 22, 0, 'middle', false, true);
+      } else {
+        lines.push(
+          `\\draw[draw=${col(o.color)},line width=${pixelsToPt(o.width)}pt] ${tikzCoordinate(g.start)} -- ${tikzCoordinate(g.end)};`,
+        );
+        const head = chevron(g.arrowEnd, {
+          x: g.arrowEnd.x - g.arrowStart.x,
+          y: g.arrowEnd.y - g.arrowStart.y,
+        });
+        lines.push(
+          `\\draw[draw=${col(o.color)},line width=${pixelsToPt(o.width)}pt] ${head.map(tikzCoordinate).join(' -- ')};`,
+        );
+      }
+      node(o.label.text, g.labelPoint, o.label.color, o.label.fontSize, o.label.rotation);
     } else if (o.kind === 'text') node(o.text, o, o.color, o.fontSize, o.rotation, o.align);
     else if (o.kind === 'loop-arrow') {
       const g = loopGeometry({ ...o, arrowPosition: wrapPosition(o.arrowPosition) });

@@ -1,3 +1,10 @@
+import {
+  createCurrent,
+  createElectrical,
+  createPolarity,
+  electricalGeometry,
+} from '../../annotations/electrical';
+import type { ElectricalAnnotation } from '../../model/types';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { DragEvent, PointerEvent as ReactPointerEvent, RefObject } from 'react';
 import { useEditorStore } from '../../store/editorStore';
@@ -43,7 +50,7 @@ type Drag =
       moveContext?: MoveContext;
     }
   | { type: 'marquee'; origin: Point; additive: boolean }
-  | { type: 'arrow' | 'loop-arrow'; origin: Point };
+  | { type: 'arrow' | 'loop-arrow' | 'voltage'; origin: Point };
 export interface WireDraft {
   start: Endpoint;
   vertices: Point[];
@@ -53,7 +60,7 @@ export interface Overlay {
   target: Point | null;
   box: { x: number; y: number; width: number; height: number } | null;
   guides: { x?: number; y?: number };
-  arrow: ArrowAnnotation | LoopArrow | null;
+  arrow: ArrowAnnotation | LoopArrow | ElectricalAnnotation | null;
   distances: DistanceGuide[];
 }
 const blank: Overlay = {
@@ -307,6 +314,13 @@ export function useCanvasInteractions(svgRef: RefObject<SVGSVGElement | null>) {
         if (o?.kind === 'component' || o?.kind === 'junction') {
           e.preventDefault();
           setEditing({ id: o.id, text: o.label.text, point: add(o, o.label.offset) });
+        } else if (o?.kind === 'electrical') {
+          e.preventDefault();
+          setEditing({
+            id: o.id,
+            text: o.label.text,
+            point: electricalGeometry(o, s.document).labelPoint,
+          });
         } else if (o?.kind === 'text') {
           e.preventDefault();
           setEditing({ id: o.id, text: o.text, point: o });
@@ -456,6 +470,24 @@ export function useCanvasInteractions(svgRef: RefObject<SVGSVGElement | null>) {
       });
       return;
     }
+    if (s.tool === 'current') {
+      const near = nearestWire(p, s.document, 16 / viewport.zoom);
+      if (near) {
+        s.add([createCurrent(near.wire, near.point, s.document)]);
+        s.setTool('select');
+      } else s.notify('Clicca un filo per associare la freccia di corrente.');
+      return;
+    }
+    if (s.tool === 'polarity') {
+      const id = (e.target as Element).closest('[data-object]')?.getAttribute('data-object');
+      const c = s.document.objects.find((o) => o.id === id);
+      const annotation = c?.kind === 'component' ? createPolarity(c) : null;
+      if (annotation) {
+        s.add([annotation]);
+        s.setTool('select');
+      } else s.notify('Scegli un componente a due terminali, oppure usa Freccia tensione.');
+      return;
+    }
     if (s.tool === 'junction') {
       addJunction(p);
       if (!e.shiftKey) s.setTool('select');
@@ -469,7 +501,7 @@ export function useCanvasInteractions(svgRef: RefObject<SVGSVGElement | null>) {
       setEditing({ id, text: 'Testo', point });
       return;
     }
-    if (s.tool === 'arrow' || s.tool === 'loop-arrow') {
+    if (s.tool === 'arrow' || s.tool === 'loop-arrow' || s.tool === 'voltage') {
       svg.setPointerCapture(e.pointerId);
       drag.current = { type: s.tool, origin: snapPoint(p) };
       return;
@@ -542,6 +574,13 @@ export function useCanvasInteractions(svgRef: RefObject<SVGSVGElement | null>) {
       setOverlay({ ...blank, box });
       return;
     }
+    if (d?.type === 'voltage') {
+      setOverlay({
+        ...blank,
+        arrow: { ...createElectrical('voltage', d.origin, snapPoint(p), 'V_{AB}'), id: 'preview' },
+      });
+      return;
+    }
     if (d?.type === 'loop-arrow') {
       const end = snapPoint(p);
       setOverlay({
@@ -604,7 +643,10 @@ export function useCanvasInteractions(svgRef: RefObject<SVGSVGElement | null>) {
       const { delta, alignment: guides, distances, target } = feedback;
       const objects = d.doc.objects.map((o) => {
         if (!selected.has(o.id)) return o;
-        if (d.type === 'label' && (o.kind === 'component' || o.kind === 'junction'))
+        if (
+          d.type === 'label' &&
+          (o.kind === 'component' || o.kind === 'junction' || o.kind === 'electrical')
+        )
           return {
             ...o,
             label: {
@@ -674,6 +716,11 @@ export function useCanvasInteractions(svgRef: RefObject<SVGSVGElement | null>) {
       });
       s.preview({ ...d.doc, objects });
       setOverlay({ ...blank, guides, distances, target });
+      return;
+    }
+    if (s.tool === 'current') {
+      const near = nearestWire(p, s.document, 16 / viewport.zoom);
+      setOverlay({ ...blank, mouse: p, target: near?.point ?? null });
       return;
     }
     if (s.tool === 'preset') {
@@ -756,7 +803,7 @@ export function useCanvasInteractions(svgRef: RefObject<SVGSVGElement | null>) {
       }
     }
     if (
-      (d?.type === 'arrow' || d?.type === 'loop-arrow') &&
+      (d?.type === 'arrow' || d?.type === 'loop-arrow' || d?.type === 'voltage') &&
       overlay.arrow &&
       (overlay.arrow.kind === 'loop-arrow'
         ? distance(d.origin, world(e.clientX, e.clientY)) > 20
@@ -790,6 +837,12 @@ export function useCanvasInteractions(svgRef: RefObject<SVGSVGElement | null>) {
     if (!o) return;
     if (o.kind === 'component' || o.kind === 'junction')
       setEditing({ id: o.id, text: o.label.text, point: add(o, o.label.offset) });
+    else if (o.kind === 'electrical')
+      setEditing({
+        id: o.id,
+        text: o.label.text,
+        point: electricalGeometry(o, s.document).labelPoint,
+      });
     else if (o.kind === 'text') setEditing({ id: o.id, text: o.text, point: { x: o.x, y: o.y } });
     else if (o.kind === 'wire') {
       const p = world(e.clientX, e.clientY),
@@ -820,7 +873,7 @@ export function useCanvasInteractions(svgRef: RefObject<SVGSVGElement | null>) {
       .update(editing.id, (o) =>
         o.kind === 'text'
           ? { ...o, text: editing.text }
-          : o.kind === 'component' || o.kind === 'junction'
+          : o.kind === 'component' || o.kind === 'junction' || o.kind === 'electrical'
             ? { ...o, label: { ...o.label, text: editing.text } }
             : o,
       );
