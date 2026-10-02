@@ -318,7 +318,12 @@ describe('dedicated electrical annotations', () => {
     const doc = documentFor([c, o]),
       rotated = rotateObjects(doc, [c.id, o.id]),
       g = electricalGeometry(rotated.objects[1] as ElectricalAnnotation, rotated);
+    const horizontal = electricalGeometry(o, doc);
+    expect(horizontal.labelPoint.y).toBeGreaterThan(c.y);
+    expect(horizontal.start.y).toBeLessThan(c.y);
     expect(g.start.x).toBe(g.end.x);
+    expect(g.labelPoint.x).toBeLessThan(c.x);
+    expect(g.start.x).toBeGreaterThan(c.x);
     expect(exportSVG(documentFor([c, { ...o, reversed: true }]))).toContain('&#8722;');
   });
   it.each(['current', 'polarity', 'voltage'] as const)(

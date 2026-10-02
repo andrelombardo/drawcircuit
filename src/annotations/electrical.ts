@@ -57,8 +57,9 @@ export function electricalGeometry(o: ElectricalAnnotation, doc: CircuitDocument
   const length = distance(start, end) || 1;
   const normal = { x: (end.y - start.y) / length, y: -(end.x - start.x) / length };
   const middle = midpoint(start, end);
+  const labelDistance = o.mode === 'polarity' ? -48 : 24;
   const labelPoint = add(
-    { x: middle.x + normal.x * 24, y: middle.y + normal.y * 24 },
+    { x: middle.x + normal.x * labelDistance, y: middle.y + normal.y * labelDistance },
     o.label.offset,
   );
   return {
