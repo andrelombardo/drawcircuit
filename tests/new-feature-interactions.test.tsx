@@ -286,3 +286,70 @@ describe('new feature UI integrates with the existing editor', () => {
     expect(useEditorStore.getState().tool).toBe('wire');
   });
 });
+
+it('flushes an immediate reload and preserves the committed document during a gesture', () => {
+  const saved = vi.fn();
+  vi.stubGlobal('localStorage', { getItem: () => null, setItem: saved });
+  const c = createComponent('resistor', { x: 0, y: 0 }, 1);
+  useEditorStore.getState().add([c]);
+  window.dispatchEvent(new Event('beforeunload'));
+  expect(saved.mock.calls.at(-1)?.[1]).toContain(c.id);
+  const committed = doc();
+  useEditorStore.getState().beginGesture();
+  useEditorStore.getState().preview({ ...committed, objects: [] });
+  window.dispatchEvent(new Event('pagehide'));
+  expect(saved.mock.calls.at(-1)?.[1]).toContain(c.id);
+});
+
+it('exports existing Arrow and Loop Arrow geometry and escapes authored text in SVG', () => {
+  const arrows = {
+    ...emptyDocument(),
+    objects: [
+      {
+        kind: 'arrow' as const,
+        id: 'arrow',
+        type: 'curve' as const,
+        start: { x: 0, y: 0 },
+        end: { x: 120, y: 0 },
+        controlPoints: [
+          { x: 30, y: -80 },
+          { x: 90, y: -80 },
+        ] as [{ x: number; y: number }, { x: number; y: number }],
+        color: '#df4949',
+        width: 3,
+        reversed: true,
+      },
+      {
+        kind: 'loop-arrow' as const,
+        id: 'loop',
+        x: 160,
+        y: 0,
+        width: 140,
+        height: 80,
+        direction: 'counterclockwise' as const,
+        arrowPosition: 0.4,
+        color: '#8855c2',
+        strokeWidth: 2,
+      },
+      {
+        kind: 'text' as const,
+        id: 'text',
+        x: 100,
+        y: 150,
+        text: '<script>alert("x")</script>',
+        fontSize: 24,
+        rotation: 0 as const,
+        align: 'start' as const,
+        color: '#171a20',
+      },
+    ],
+  };
+  const svg = exportSVG(arrows),
+    parsed = new DOMParser().parseFromString(svg, 'image/svg+xml');
+  expect(parsed.querySelector('parsererror')).toBeNull();
+  expect(parsed.querySelectorAll('path')).toHaveLength(4);
+  expect(parsed.querySelector('script')).toBeNull();
+  expect(parsed.querySelector('text')?.textContent).toBe('<script>alert("x")</script>');
+  expect(svg).toContain('#8855c2');
+  expect(svg).not.toContain('NaN');
+});

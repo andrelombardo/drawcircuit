@@ -231,3 +231,19 @@ export function saveDocumentNow(): boolean {
     return false;
   }
 }
+
+/** Closing/reloading must not outrun the autosave debounce. Save the committed state,
+ * including when a pointer gesture was still previewing changes. */
+function saveOnExit() {
+  const state = useEditorStore.getState();
+  try {
+    localStorage.setItem(STORAGE_KEY, serializeDocument(state.gestureStart ?? state.document));
+    clearTimeout(saveTimer);
+  } catch {
+    /* The normal autosave already reports storage errors in the UI. */
+  }
+}
+if (typeof window !== 'undefined') {
+  window.addEventListener('pagehide', saveOnExit);
+  window.addEventListener('beforeunload', saveOnExit);
+}
