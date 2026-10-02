@@ -119,6 +119,36 @@ describe('personal blocks', () => {
     expect(labels.filter((l) => /^R_\d+$/.test(l))).toEqual(['R_1', 'R_2', 'R_3', 'R_4']);
     expect(labels.filter((l) => l === 'R_{th}')).toHaveLength(3);
   });
+  it.each([false, true])(
+    'reserves preserved labels before naming a mixed block (reverse: %s)',
+    (reverse) => {
+      const retained = createComponent('capacitor', { x: 0, y: 0 }, 1),
+        automatic = createComponent('resistor', { x: 160, y: 0 }, 2);
+      // Replace preserves labels, so a capacitor may legitimately retain R_1.
+      retained.label.text = 'R_1';
+      const source = reverse ? [automatic, retained] : [retained, automatic],
+        block = createPersonalBlock(
+          documentFor(source),
+          source.map((o) => o.id),
+          'Bipoli',
+        );
+      let existing = emptyDocument();
+      for (let i = 0; i < 2; i++) {
+        const inserted = instantiatePersonalBlock(block, { x: 0, y: i * 200 }, 0, existing);
+        expect(
+          inserted.find((o) => o.kind === 'component' && o.type === 'capacitor'),
+        ).toMatchObject({
+          label: { text: 'R_1' },
+        });
+        expect(inserted.find((o) => o.kind === 'component' && o.type === 'resistor')).toMatchObject(
+          {
+            label: { text: `R_${i + 2}` },
+          },
+        );
+        existing = { ...existing, objects: [...existing.objects, ...inserted] };
+      }
+    },
+  );
   it('rotates wire-only, arrow and loop blocks about their relative origin', () => {
     const objects: CircuitObject[] = [
       straight(100, 100, 200, 100),

@@ -147,8 +147,17 @@ export function insertJunction(
         .map((x) => x.id),
     );
   }
-  let next = normalizeDocumentWires({ ...doc, objects: [...objects, junction] });
-  next = {
+  const next = normalizeDocumentWires({ ...doc, objects: [...objects, junction] });
+  return { doc: remapSplitWireCurrents(doc, next, splitIds), junction };
+}
+
+/** Keep current annotations on the corresponding physical branch after a wire is split. */
+export function remapSplitWireCurrents(
+  doc: CircuitDocument,
+  next: CircuitDocument,
+  splitIds: Map<string, string[]>,
+): CircuitDocument {
+  return {
     ...next,
     objects: next.objects.map((o) => {
       if (o.kind !== 'electrical' || !o.wireId || !splitIds.has(o.wireId)) return o;
@@ -175,5 +184,4 @@ export function insertJunction(
       };
     }),
   };
-  return { doc: next, junction };
 }

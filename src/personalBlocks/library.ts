@@ -119,6 +119,13 @@ export function instantiatePersonalBlock(
   const used = new Set(
     existing.objects.flatMap((o) => (o.kind === 'component' ? [o.label.text] : [])),
   );
+  // Reserve retained labels across the whole block before allocating any automatic label.
+  for (const o of doc.objects)
+    if (
+      o.kind === 'component' &&
+      !new RegExp(`^${componentRegistry[o.type].prefix}_\\d+$`).test(o.label.text)
+    )
+      used.add(o.label.text);
   objects.forEach((o, i) => {
     const old = doc.objects[i];
     if (o.kind === 'component' && old.kind === 'component') {

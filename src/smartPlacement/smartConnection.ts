@@ -10,7 +10,7 @@ import type {
 } from '../model/types';
 import { createWire } from '../model/factories';
 import { rotatePoint } from '../utils/geometry';
-import { insertJunction, normalizeDocumentWires } from '../utils/wires';
+import { insertJunction, normalizeDocumentWires, remapSplitWireCurrents } from '../utils/wires';
 import type { PlacementPreview } from './types';
 
 export function placementComponent(
@@ -67,7 +67,15 @@ export function smartPlacement(
         .flatMap((o) => (o.id === original.id ? [first, second] : [o]))
         .concat(component),
     };
-    return { doc: normalizeDocumentWires(result), component, continueEndpoint: null };
+    return {
+      doc: remapSplitWireCurrents(
+        doc,
+        normalizeDocumentWires(result),
+        new Map([[original.id, [first.id, second.id]]]),
+      ),
+      component,
+      continueEndpoint: null,
+    };
   }
   let target: Endpoint | null = null,
     terminalId: string | null = null,

@@ -8,6 +8,7 @@ export function compatibleReplacements(c: CircuitComponent): ComponentType[] {
     ['opAmp', 'comparator'],
   ];
   const group = pairs.find((types) => types.includes(c.type));
+  const originalPins = componentRegistry[c.type].terminals;
   return Object.keys(componentRegistry).filter((type): type is ComponentType => {
     if (type === c.type) return false;
     if (group) return group.includes(type as ComponentType);
@@ -19,7 +20,7 @@ export function compatibleReplacements(c: CircuitComponent): ComponentType[] {
         (t, i) =>
           t.localX === c.terminals[i].localX &&
           t.localY === c.terminals[i].localY &&
-          t.direction === c.terminals[i].direction,
+          t.direction === (c.terminals[i].direction ?? originalPins[i]?.direction),
       )
     );
   });
