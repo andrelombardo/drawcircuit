@@ -29,8 +29,12 @@ jobs:
         run: npm ci
       - name: Lint
         run: npm run lint
+      # Existing audit tests write generated evidence to the macOS temp path.
+      - name: Prepare audit output directory
+        run: sudo install -d -o "$(id -u)" -g "$(id -g)" /private/tmp
       - name: Test
-        run: npm run test
+        # DOM stress workflows need more time on the shared Linux runner.
+        run: npm run test -- --maxWorkers=2 --testTimeout=30000
       - name: Build
         run: npm run build
       - name: Configure Pages
