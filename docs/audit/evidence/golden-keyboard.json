@@ -1,0 +1,17 @@
+{
+  "fileClosed": true,
+  "selectionPreserved": true,
+  "helpFocusStart": {
+    "first": "Chiudi guida",
+    "inside": true
+  },
+  "helpShiftTab": {
+    "inside": true,
+    "label": "Chiudi guida"
+  },
+  "helpTab": {
+    "inside": true,
+    "label": "Chiudi guida"
+  },
+  "helpFocusReturn": true
+}

@@ -1,0 +1,833 @@
+import { COLORS, componentTypes } from './types';
+import type { CircuitComponent, ComponentType, Point, Terminal } from './types';
+import * as g from './symbolGeometry';
+export const categories = [
+  'Passivi',
+  'Generatori',
+  'Diodi',
+  'Transistor',
+  'Interruttori',
+  'Misura',
+  'Riferimenti',
+  'Trasformatori',
+  'Analogici',
+  'Digitali',
+  'Utilità',
+  'Blocchi',
+] as const;
+export type Category = (typeof categories)[number];
+export type TikzMapping =
+  | { kind: 'bipole'; symbol: string; extraAnchors?: Record<string, string>; text?: boolean }
+  | {
+      kind: 'node';
+      symbol: string;
+      anchors: Record<string, string>;
+      scale?: number;
+      bodyText?: string;
+      mirrorY?: boolean;
+    }
+  | { kind: 'reference'; symbol: string }
+  | { kind: 'geometry'; reason: string };
+export interface ComponentDefinition {
+  type: ComponentType;
+  name: string;
+  shortName: string;
+  group: Category;
+  prefix: string;
+  searchTerms: string[];
+  terminals: Terminal[];
+  shapes: g.SymbolShape[];
+  bounds: { x: number; y: number; width: number; height: number };
+  labelOffset: Point;
+  tikz: TikzMapping;
+  internalText?: string;
+}
+const terminal = (id: string, x: number, y: number, direction: 'x' | 'y' = 'x'): Terminal => ({
+  id,
+  name: id,
+  localX: x,
+  localY: y,
+  direction,
+});
+// Existing IDs and positions are retained, including the old transformer and wiper.
+const two = [terminal('a', -40, 0), terminal('b', 40, 0)];
+const reference = [terminal('a', 0, -40, 'y')];
+const transformerTerminals = [
+  terminal('a', -40, -40),
+  terminal('b', -40, 40),
+  terminal('c', 40, -40),
+  terminal('d', 40, 40),
+];
+const transistorTerminals = (control: string, upper: string, lower: string) => [
+  terminal(control, -40, 0),
+  terminal(upper, 20, -40, 'y'),
+  terminal(lower, 20, 40, 'y'),
+];
+const analogTerminals = [
+  terminal('inverting', -40, -20),
+  terminal('nonInverting', -40, 20),
+  terminal('output', 40, 0),
+];
+const gateTerminals = [
+  terminal('input1', -40, -20),
+  terminal('input2', -40, 20),
+  terminal('output', 40, 0),
+];
+const unaryTerminals = [terminal('input', -40, 0), terminal('output', 40, 0)];
+const bi = (symbol: string, extraAnchors?: Record<string, string>, text = false): TikzMapping => ({
+  kind: 'bipole',
+  symbol,
+  extraAnchors,
+  text,
+});
+const nativeNode = (
+  symbol: string,
+  anchors: Record<string, string>,
+  scale = 0.7,
+  bodyText?: string,
+  mirrorY = false,
+): TikzMapping => ({ kind: 'node', symbol, anchors, scale, bodyText, mirrorY });
+const ref = (symbol: string): TikzMapping => ({ kind: 'reference', symbol });
+const fallback = (reason: string): TikzMapping => ({ kind: 'geometry', reason });
+const def = (
+  type: ComponentType,
+  name: string,
+  group: Category,
+  prefix: string,
+  shapes: g.SymbolShape[],
+  tikz: TikzMapping,
+  aliases: string[],
+  terminals = two,
+  internalText?: string,
+): ComponentDefinition => {
+  const xs = terminals.map((t) => t.localX),
+    ys = terminals.map((t) => t.localY);
+  const x = Math.min(-46, ...xs.map((x) => x - 6)),
+    y = Math.min(-34, ...ys.map((y) => y - 6));
+  const right = Math.max(46, ...xs.map((x) => x + 6)),
+    bottom = Math.max(34, ...ys.map((y) => y + 6));
+  return {
+    type,
+    name,
+    shortName: name,
+    group,
+    prefix,
+    shapes,
+    tikz,
+    searchTerms: [type, ...aliases],
+    terminals,
+    bounds: { x, y, width: right - x, height: bottom - y },
+    labelOffset: { x: 0, y: y - 14 },
+    ...(internalText !== undefined ? { internalText } : {}),
+  };
+};
+const transAnchors = (bjt: boolean): Record<string, string> =>
+  bjt ? { base: 'B', collector: 'C', emitter: 'E' } : { gate: 'G', drain: 'D', source: 'S' };
+const logic = (symbol: string, unary = false) =>
+  nativeNode(
+    `${symbol} port`,
+    unary ? { input: 'in 1', output: 'out' } : { input1: 'in 1', input2: 'in 2', output: 'out' },
+    0.8,
+  );
+/** Authoritative registry: metadata, SVG geometry, semantic pins and verified TikZ strategy. */
+export const componentRegistry: Record<ComponentType, ComponentDefinition> = {
+  resistor: def('resistor', 'Resistenza', 'Passivi', 'R', g.resistor, bi('R'), [
+    'resistor',
+    'resistenza',
+  ]),
+  americanResistor: def(
+    'americanResistor',
+    'Resistenza statunitense',
+    'Passivi',
+    'R',
+    g.americanResistor,
+    bi('R, american resistors'),
+    ['american resistor', 'resistenza americana', 'resistor us', 'zig zag', 'zig-zag', 'usa'],
+  ),
+  capacitor: def('capacitor', 'Condensatore', 'Passivi', 'C', g.capacitor, bi('C'), [
+    'capacitor',
+    'capacity',
+  ]),
+  polarizedCapacitor: def(
+    'polarizedCapacitor',
+    'Condensatore polarizzato',
+    'Passivi',
+    'C',
+    g.polarizedCapacitor,
+    bi('elko'),
+    ['polarized capacitor', 'electrolytic', 'elettrolitico'],
+  ),
+  inductor: def('inductor', 'Induttore', 'Passivi', 'L', g.inductor, bi('L'), [
+    'inductor',
+    'coil',
+    'bobina',
+  ]),
+  variableResistor: def(
+    'variableResistor',
+    'Resistenza variabile',
+    'Passivi',
+    'R',
+    [...g.resistor, ...g.variable],
+    bi('vR'),
+    ['variable resistor', 'rheostat', 'reostato'],
+  ),
+  potentiometer: def(
+    'potentiometer',
+    'Potenziometro',
+    'Passivi',
+    'P',
+    [...g.resistor, g.path('M0-40V-11'), g.head(0, -11, 90)],
+    bi('pR', { w: 'wiper' }),
+    ['potentiometer', 'pot'],
+    [...two, terminal('w', 0, -40, 'y')],
+  ),
+  voltageSource: def(
+    'voltageSource',
+    'Generatore di tensione DC',
+    'Generatori',
+    'V',
+    g.source(g.voltage),
+    bi('american voltage source'),
+    ['dc voltage source', 'tensione continua'],
+  ),
+  currentSource: def(
+    'currentSource',
+    'Generatore di corrente DC',
+    'Generatori',
+    'I',
+    g.source(g.current),
+    bi('american current source'),
+    ['dc current source', 'corrente continua'],
+  ),
+  battery: def(
+    'battery',
+    'Batteria multicella',
+    'Generatori',
+    'E',
+    [g.path('M-40 0H-12M12 0H40M-12-19V19M-4-10V10M4-19V19M12-10V10')],
+    bi('battery'),
+    ['battery', 'multi-cell battery', 'batteria'],
+  ),
+  dependentVoltage: def(
+    'dependentVoltage',
+    'Tensione dipendente',
+    'Generatori',
+    'V',
+    g.source(g.voltage, true),
+    bi('american controlled voltage source'),
+    ['dependent voltage source', 'controlled voltage'],
+  ),
+  dependentCurrent: def(
+    'dependentCurrent',
+    'Corrente dipendente',
+    'Generatori',
+    'I',
+    g.source(g.current, true),
+    bi('american controlled current source'),
+    ['dependent current source', 'controlled current'],
+  ),
+  diode: def('diode', 'Diodo', 'Diodi', 'D', g.diode, bi('D'), ['diode', 'standard diode']),
+  led: def('led', 'LED', 'Diodi', 'D', [...g.diode, ...g.lightRays()], bi('leD'), [
+    'light emitting diode',
+    'diodo luminoso',
+  ]),
+  zener: def(
+    'zener',
+    'Diodo Zener',
+    'Diodi',
+    'D',
+    [g.diodeBody, g.diodeLeads, g.path('M6-18H12V14H18')],
+    bi('zD'),
+    ['zener diode'],
+  ),
+  openSwitch: def(
+    'openSwitch',
+    'Interruttore aperto',
+    'Interruttori',
+    'S',
+    g.switchShape(),
+    bi('nos'),
+    ['spst open switch'],
+  ),
+  closedSwitch: def(
+    'closedSwitch',
+    'Interruttore chiuso',
+    'Interruttori',
+    'S',
+    g.switchShape(true),
+    bi('ncs'),
+    ['spst closed switch'],
+  ),
+  ground: def(
+    'ground',
+    'Massa / terra',
+    'Riferimenti',
+    '',
+    g.earthGround,
+    ref('ground'),
+    ['earth ground', 'ground', 'gnd', 'terra'],
+    reference,
+  ),
+  ammeter: def('ammeter', 'Amperometro', 'Misura', 'A', g.source([g.text('A')]), bi('ammeter'), [
+    'ammeter',
+  ]),
+  voltmeter: def(
+    'voltmeter',
+    'Voltmetro',
+    'Misura',
+    'V',
+    g.source([g.text('V')]),
+    bi('voltmeter'),
+    ['voltmeter'],
+  ),
+  transformer: def(
+    'transformer',
+    'Trasformatore',
+    'Trasformatori',
+    'T',
+    g.transformer,
+    fallback('Transformer: explicit four-terminal TikZ symbol; retains legacy terminal geometry.'),
+    ['transformer'],
+    transformerTerminals,
+  ),
+  blackBox: def(
+    'blackBox',
+    'Blocco rettangolare',
+    'Blocchi',
+    'Z',
+    g.block(),
+    bi('generic', undefined, true),
+    ['generic rectangle block', 'black box', 'blocco generico'],
+    two,
+    'BLACK BOX',
+  ),
+  thermistor: def(
+    'thermistor',
+    'Termistore',
+    'Passivi',
+    'R',
+    [...g.resistor, g.path('M-20 23L20-23H30'), g.text('T', 28, -10, 10)],
+    bi('thR'),
+    ['thermistor', 'ntc', 'ptc', 'resistor'],
+  ),
+  photoresistor: def(
+    'photoresistor',
+    'Fotoresistenza / LDR',
+    'Passivi',
+    'R',
+    [...g.resistor, ...g.lightRays(true)],
+    bi('phR'),
+    ['photoresistor', 'ldr', 'resistenza'],
+  ),
+  variableCapacitor: def(
+    'variableCapacitor',
+    'Condensatore variabile',
+    'Passivi',
+    'C',
+    [...g.capacitor, ...g.variable],
+    bi('vC'),
+    ['variable capacitor'],
+  ),
+  variableInductor: def(
+    'variableInductor',
+    'Induttore variabile',
+    'Passivi',
+    'L',
+    [...g.inductor, ...g.variable],
+    bi('vL'),
+    ['variable inductor'],
+  ),
+  acVoltageSource: def(
+    'acVoltageSource',
+    'Generatore di tensione AC',
+    'Generatori',
+    'V',
+    g.source([...g.sine, g.text('V', 0, 12, 9)]),
+    bi('sV'),
+    ['ac voltage source', 'tensione alternata'],
+  ),
+  acCurrentSource: def(
+    'acCurrentSource',
+    'Generatore di corrente AC',
+    'Generatori',
+    'I',
+    g.source([...g.sine, g.text('I', 0, 12, 9)]),
+    bi('sI'),
+    ['ac current source', 'corrente alternata'],
+  ),
+  genericVoltageSource: def(
+    'genericVoltageSource',
+    'Tensione generica',
+    'Generatori',
+    'V',
+    g.source([g.text('V')]),
+    bi('esource', undefined, true),
+    ['generic voltage source'],
+  ),
+  genericCurrentSource: def(
+    'genericCurrentSource',
+    'Corrente generica',
+    'Generatori',
+    'I',
+    g.source([g.text('I')]),
+    bi('esource', undefined, true),
+    ['generic current source'],
+  ),
+  singleCellBattery: def(
+    'singleCellBattery',
+    'Batteria a cella singola',
+    'Generatori',
+    'E',
+    [g.path('M-40 0H-4M4 0H40M-4-19V19M4-10V10')],
+    bi('battery1'),
+    ['single cell battery', 'battery', 'batteria'],
+  ),
+  photodiode: def(
+    'photodiode',
+    'Fotodiodo',
+    'Diodi',
+    'D',
+    [...g.diode, ...g.lightRays(true)],
+    bi('pD'),
+    ['photodiode'],
+  ),
+  schottky: def(
+    'schottky',
+    'Diodo Schottky',
+    'Diodi',
+    'D',
+    [g.diodeBody, g.diodeLeads, g.path('M6-10V-16H12V16H18V10')],
+    bi('sD'),
+    ['schottky diode'],
+  ),
+  varactor: def(
+    'varactor',
+    'Diodo varicap',
+    'Diodi',
+    'D',
+    [g.diodeBody, g.path('M-40 0H-14M18 0H40M12-14V14M18-14V14')],
+    bi('VC'),
+    ['varactor', 'varicap diode'],
+  ),
+  npn: def(
+    'npn',
+    'Transistor NPN',
+    'Transistor',
+    'Q',
+    g.bjt(),
+    nativeNode('npn', transAnchors(true)),
+    ['bjt', 'npn transistor'],
+    transistorTerminals('base', 'collector', 'emitter'),
+  ),
+  pnp: def(
+    'pnp',
+    'Transistor PNP',
+    'Transistor',
+    'Q',
+    g.bjt(true),
+    nativeNode('pnp', transAnchors(true), 0.7, undefined, true),
+    ['bjt', 'pnp transistor'],
+    transistorTerminals('base', 'collector', 'emitter'),
+  ),
+  nmos: def(
+    'nmos',
+    'MOSFET NMOS',
+    'Transistor',
+    'Q',
+    g.fet(),
+    nativeNode('nmos', transAnchors(false)),
+    ['nmos', 'mosfet', 'n channel'],
+    transistorTerminals('gate', 'drain', 'source'),
+  ),
+  pmos: def(
+    'pmos',
+    'MOSFET PMOS',
+    'Transistor',
+    'Q',
+    g.fet(true),
+    nativeNode('pmos', transAnchors(false), 0.7, undefined, true),
+    ['pmos', 'mosfet', 'p channel'],
+    transistorTerminals('gate', 'drain', 'source'),
+  ),
+  njfet: def(
+    'njfet',
+    'JFET canale N',
+    'Transistor',
+    'Q',
+    g.fet(false, true),
+    nativeNode('njfet', transAnchors(false)),
+    ['n channel jfet'],
+    transistorTerminals('gate', 'drain', 'source'),
+  ),
+  pjfet: def(
+    'pjfet',
+    'JFET canale P',
+    'Transistor',
+    'Q',
+    g.fet(true, true),
+    nativeNode('pjfet', transAnchors(false), 0.7, undefined, true),
+    ['p channel jfet'],
+    transistorTerminals('gate', 'drain', 'source'),
+  ),
+  spdt: def(
+    'spdt',
+    'Commutatore SPDT',
+    'Interruttori',
+    'S',
+    g.spdt(),
+    nativeNode('cute spdt up', { common: 'in', throw1: 'out 1', throw2: 'out 2' }, 0.8),
+    ['spdt switch'],
+    [terminal('common', -40, 0), terminal('throw1', 40, -20), terminal('throw2', 40, 20)],
+  ),
+  pushButtonNO: def(
+    'pushButtonNO',
+    'Pulsante normalmente aperto',
+    'Interruttori',
+    'S',
+    g.switchShape(false, true),
+    bi('nopb'),
+    ['push button normally open', 'no pushbutton'],
+  ),
+  pushButtonNC: def(
+    'pushButtonNC',
+    'Pulsante normalmente chiuso',
+    'Interruttori',
+    'S',
+    g.switchShape(true, true),
+    bi('ncpb'),
+    ['push button normally closed', 'nc pushbutton'],
+  ),
+  dpst: def(
+    'dpst',
+    'Interruttore DPST',
+    'Interruttori',
+    'S',
+    [
+      ...g.switchShape(false, false, -20),
+      ...g.switchShape(false, false, 20),
+      g.path('M0-27V13', undefined, true),
+    ],
+    fallback('Mechanically linked DPST contacts: no reliable native equivalent.'),
+    ['dpst switch'],
+    [
+      terminal('common1', -40, -20),
+      terminal('output1', 40, -20),
+      terminal('common2', -40, 20),
+      terminal('output2', 40, 20),
+    ],
+  ),
+  dpdt: def(
+    'dpdt',
+    'Commutatore DPDT',
+    'Interruttori',
+    'S',
+    [...g.spdt(-30), ...g.spdt(30), g.path('M0-40V20', undefined, true)],
+    fallback('Mechanically linked DPDT contacts: six stable terminals.'),
+    ['dpdt switch'],
+    [
+      terminal('common1', -40, -30),
+      terminal('throw1a', 40, -50),
+      terminal('throw1b', 40, -10),
+      terminal('common2', -40, 30),
+      terminal('throw2a', 40, 10),
+      terminal('throw2b', 40, 50),
+    ],
+  ),
+  ohmmeter: def('ohmmeter', 'Ohmmetro', 'Misura', 'Ω', g.source([g.text('Ω')]), bi('ohmmeter'), [
+    'ohmmeter',
+    'ohm meter',
+  ]),
+  galvanometer: def(
+    'galvanometer',
+    'Galvanometro',
+    'Misura',
+    'G',
+    g.source([g.text('G')]),
+    fallback('Circular G meter: no documented dedicated galvanometer bipole.'),
+    ['galvanometer'],
+  ),
+  signalGround: def(
+    'signalGround',
+    'Massa segnale',
+    'Riferimenti',
+    '',
+    g.signalGround,
+    ref('sground'),
+    ['signal ground', 'gnd'],
+    reference,
+  ),
+  chassisGround: def(
+    'chassisGround',
+    'Massa telaio',
+    'Riferimenti',
+    '',
+    g.chassisGround,
+    ref('cground'),
+    ['chassis ground', 'gnd'],
+    reference,
+  ),
+  centerTapTransformer: def(
+    'centerTapTransformer',
+    'Trasformatore a presa centrale',
+    'Trasformatori',
+    'T',
+    [...g.transformer, g.path('M20 0H60')],
+    fallback('Center-tap transformer with five exact semantic terminals.'),
+    ['center tap transformer', 'centertap'],
+    [...transformerTerminals, terminal('centerTap', 60, 0)],
+  ),
+  coupledInductors: def(
+    'coupledInductors',
+    'Induttori accoppiati',
+    'Trasformatori',
+    'L',
+    [g.path(g.transformerCoils)],
+    nativeNode('transformer', { a: 'A1', b: 'A2', c: 'B1', d: 'B2' }, 0.65),
+    ['coupled inductors', 'coupled coils'],
+    transformerTerminals,
+  ),
+  opAmp: def(
+    'opAmp',
+    'Amplificatore operazionale',
+    'Analogici',
+    'U',
+    g.analog(),
+    nativeNode('op amp', { inverting: '-', nonInverting: '+', output: 'out' }, 0.6),
+    ['op amp', 'opamp', 'operational amplifier'],
+    analogTerminals,
+  ),
+  comparator: def(
+    'comparator',
+    'Comparatore',
+    'Analogici',
+    'U',
+    g.analog(true),
+    nativeNode('op amp', { inverting: '-', nonInverting: '+', output: 'out' }, 0.6, '>'),
+    ['comparator'],
+    analogTerminals,
+  ),
+  andGate: def(
+    'andGate',
+    'Porta AND',
+    'Digitali',
+    'U',
+    g.gate('and'),
+    logic('and'),
+    ['and gate', 'logic', 'logica'],
+    gateTerminals,
+  ),
+  orGate: def(
+    'orGate',
+    'Porta OR',
+    'Digitali',
+    'U',
+    g.gate('or'),
+    logic('or'),
+    ['or gate', 'logic', 'logica'],
+    gateTerminals,
+  ),
+  notGate: def(
+    'notGate',
+    'Porta NOT',
+    'Digitali',
+    'U',
+    g.gate('buffer', true),
+    logic('not', true),
+    ['not gate', 'inverter', 'logic', 'logica'],
+    unaryTerminals,
+  ),
+  nandGate: def(
+    'nandGate',
+    'Porta NAND',
+    'Digitali',
+    'U',
+    g.gate('and', true),
+    logic('nand'),
+    ['nand gate', 'logic', 'logica'],
+    gateTerminals,
+  ),
+  norGate: def(
+    'norGate',
+    'Porta NOR',
+    'Digitali',
+    'U',
+    g.gate('or', true),
+    logic('nor'),
+    ['nor gate', 'logic', 'logica'],
+    gateTerminals,
+  ),
+  xorGate: def(
+    'xorGate',
+    'Porta XOR',
+    'Digitali',
+    'U',
+    g.gate('xor'),
+    logic('xor'),
+    ['xor gate', 'logic', 'logica'],
+    gateTerminals,
+  ),
+  xnorGate: def(
+    'xnorGate',
+    'Porta XNOR',
+    'Digitali',
+    'U',
+    g.gate('xor', true),
+    logic('xnor'),
+    ['xnor gate', 'logic', 'logica'],
+    gateTerminals,
+  ),
+  buffer: def(
+    'buffer',
+    'Buffer',
+    'Digitali',
+    'U',
+    g.gate('buffer'),
+    logic('buffer', true),
+    ['buffer gate', 'logic', 'logica'],
+    unaryTerminals,
+  ),
+  terminal: def(
+    'terminal',
+    'Terminale',
+    'Utilità',
+    '',
+    [g.path('M-40 0H-5'), g.circle(0, 0, 5)],
+    ref('ocirc'),
+    ['terminal', 'connection'],
+    [terminal('a', -40, 0)],
+  ),
+  testPoint: def(
+    'testPoint',
+    'Punto di test',
+    'Utilità',
+    'TP',
+    [g.path('M0 40V5'), g.circle(0, 0, 5)],
+    ref('ocirc'),
+    ['test point', 'testpoint'],
+    [terminal('a', 0, 40, 'y')],
+  ),
+  connector2: def(
+    'connector2',
+    'Connettore 2 pin',
+    'Utilità',
+    'J',
+    g.connector(2),
+    fallback('Connector socket with two exact, independent pins.'),
+    ['connector 2 pin', 'connettore'],
+    [terminal('pin1', -40, -20), terminal('pin2', -40, 20)],
+  ),
+  connector3: def(
+    'connector3',
+    'Connettore 3 pin',
+    'Utilità',
+    'J',
+    g.connector(3),
+    fallback('Connector socket with three exact, independent pins.'),
+    ['connector 3 pin', 'connettore'],
+    [terminal('pin1', -40, -20), terminal('pin2', -40, 0), terminal('pin3', -40, 20)],
+  ),
+  port: def(
+    'port',
+    'Porta generica',
+    'Utilità',
+    '',
+    [g.path('M-40 0H-20'), g.path('M-20-12H10L22 0 10 12H-20Z', 'white')],
+    fallback('Single-connection diagram port outline.'),
+    ['generic port', 'porta'],
+    [terminal('connection', -40, 0)],
+  ),
+  fuse: def('fuse', 'Fusibile', 'Utilità', 'F', [...g.resistor, g.path('M-20 0H20')], bi('fuse'), [
+    'fuse',
+  ]),
+  lamp: def(
+    'lamp',
+    'Lampadina',
+    'Utilità',
+    'H',
+    g.source([g.path('M-14-14L14 14M-14 14L14-14')]),
+    bi('lamp'),
+    ['lamp', 'light bulb', 'lampadina'],
+  ),
+  motor: def(
+    'motor',
+    'Motore',
+    'Utilità',
+    'M',
+    g.source([g.text('M')]),
+    nativeNode('elmech', { a: 'west', b: 'east' }, 0.65, 'M'),
+    ['motor'],
+  ),
+  speaker: def(
+    'speaker',
+    'Altoparlante',
+    'Utilità',
+    'LS',
+    [
+      g.path('M-40 0H-12M12 0H40'),
+      g.rect(-12, -7, 24, 14),
+      g.path('M-12-7L-21-20H21L12-7Z', 'white'),
+    ],
+    bi('loudspeaker'),
+    ['speaker', 'loudspeaker'],
+  ),
+  buzzer: def(
+    'buzzer',
+    'Buzzer',
+    'Utilità',
+    'BZ',
+    [g.leads, g.rect(-20, -12, 40, 24), g.path('M-10-19Q0-29 10-19M-15-25Q0-40 15-25')],
+    fallback(
+      'Buzzer: native symbol unavailable in the bundled CircuitikZ compiler; shared SVG-equivalent geometry.',
+    ),
+    ['buzzer', 'cicalino'],
+  ),
+  circleBlock: def(
+    'circleBlock',
+    'Blocco circolare',
+    'Blocchi',
+    'Z',
+    g.block(true),
+    bi('esource', undefined, true),
+    ['generic circle block', 'blocco'],
+    two,
+    'BLOCK',
+  ),
+};
+// Preserve the existing label position for every legacy two-terminal component.
+for (const type of componentTypes.slice(0, 21))
+  componentRegistry[type].labelOffset = { x: 0, y: type === 'transformer' ? -60 : -30 };
+export const catalog: ComponentDefinition[] = Object.values(componentRegistry);
+const normalized = (s: string) =>
+  s
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+export const matchesComponent = (definition: ComponentDefinition, search: string) =>
+  normalized([definition.name, ...definition.searchTerms].join(' ')).includes(
+    normalized(search.trim()),
+  );
+export const makeId = () => crypto.randomUUID();
+export function terminalsFor(type: ComponentType): Terminal[] {
+  return componentRegistry[type].terminals.map((t) => ({ ...t }));
+}
+export function createComponent(type: ComponentType, point: Point, index = 1): CircuitComponent {
+  const definition = componentRegistry[type];
+  return {
+    kind: 'component',
+    id: makeId(),
+    type,
+    ...point,
+    rotation: 0,
+    terminals: terminalsFor(type),
+    label: {
+      text: definition.prefix ? `${definition.prefix}_${index}` : '',
+      offset: { ...definition.labelOffset },
+      color: COLORS.blue,
+      fontSize: 22,
+      rotation: 0,
+    },
+    color: COLORS.ink,
+    width: 2,
+    ...(definition.internalText !== undefined ? { bodyText: definition.internalText } : {}),
+  };
+}

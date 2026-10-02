@@ -1,0 +1,155 @@
+# DrawCircuit
+
+Un editor di circuiti elettrici per appunti e materiale didattico. React, TypeScript, Vite, Zustand e SVG: componenti, fili e annotazioni sono oggetti vettoriali modificabili. Funziona interamente nel browser, con font Inter per la UI e KaTeX per la matematica inclusi nel bundle. La libreria comprende **72 simboli generici** in 12 categorie. Comic Sans MS è disponibile tramite il font di sistema, senza file proprietari nel progetto.
+
+## Avvio
+
+Richiede Node.js 22.12+ o 24+ e npm.
+
+```sh
+npm install
+npm run dev
+```
+
+Apri http://127.0.0.1:5173. Per generare e provare la versione di produzione:
+
+```sh
+npm run build
+npm run preview
+```
+
+Verifiche e formattazione:
+
+```sh
+npm run lint
+npm test
+npm run format:check
+```
+
+## Uso
+
+- Scegli un componente nella palette, poi clicca sul foglio; puoi anche trascinarlo. Ogni clic continua a inserirlo. **R** ruota l’anteprima, **Esc** termina.
+- **W**: clic su un terminale, nodo o filo, poi su un altro terminale, nodo o filo. I clic su punti liberi aggiungono svolte; doppio clic oppure Enter termina il filo su un punto libero.
+- **N**: inserisci un nodo sul foglio o su un filo; **Shift + clic** continua a inserire nodi. Sul filo viene creato un vero collegamento e il filo viene diviso.
+- **T**: aggiungi testo. **A**: freccia dritta o Bézier. **L**: trascina un’area per una maglia ellittica; gli angoli ne cambiano larghezza e altezza, il punto sulla punta la sposta continuamente. La toolbar inverte il verso mantenendo il percorso.
+- **V** o Esc: selezione. Shift + clic seleziona più oggetti; trascinare sullo sfondo crea una selezione rettangolare.
+- Trascina un oggetto per spostarlo, oppure la sua label per riposizionarla. I fili seguono i terminali e i nodi. Trascinare un filo collegato modifica il suo percorso; doppio clic sul filo aggiunge una svolta modificabile. Gli handle alle estremità consentono di ricollegare il filo.
+- Doppio clic su una label o un testo per modificarlo. Conferma con Enter o ✓. Esc annulla. Una piccola preview mostra la formula durante l’editing. La toolbar contestuale permette di cambiare label, colore, spessore, dimensione e allineamento. Per i blocchi, il menu **••• → Testo interno** modifica il testo nel simbolo.
+- **R** ruota di 90°. **Delete/Backspace** elimina. **Cmd/Ctrl D** duplica. **Cmd/Ctrl C/V** copia/incolla. **Cmd/Ctrl A** seleziona tutto.
+- **Cmd/Ctrl Z** annulla; **Cmd/Ctrl Shift Z** oppure **Ctrl Y** ripete. Uno spostamento completo occupa una sola voce di cronologia.
+- **Space + trascina** o **H** sposta la vista. Rotellina/trackpad e i pulsanti +/− controllano lo zoom. **1** adatta alla vista. **G** nasconde la griglia.
+- **File** contiene Nuovo, Apri JSON, Salva JSON e il circuito di esempio. Il circuito viene salvato automaticamente in localStorage dopo 400 ms di inattività. La cronologia conserva le ultime 100 operazioni durante la sessione.
+
+La sidebar si nasconde e riapre dal bordo, si ridimensiona tra 200 e 480 px e si ripristina con doppio clic sul separatore. Visibilità e larghezza sono preferenze locali separate dal JSON; pan e zoom si conservano durante il resize.
+
+L'esempio iniziale è la rete con nodi A/B/C/D, sei resistenze, label con pedici e annotazioni di maglia richiesta. Una copia riapribile è in `examples/rete-quattro-nodi.json`.
+
+## Architettura e file principali
+
+| Area        | File                                                           | Responsabilità                                                                                            |
+| ----------- | -------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| Modello     | `src/model/types.ts`, `catalog.ts`, `serialization.ts`         | Unione discriminata degli oggetti, 72 tipi di componente, terminali locali, JSON versionato e validazione |
+| Stato       | `src/store/editorStore.ts`                                     | Documento immutabile, selezione, strumenti, transazioni drag, undo/redo, salvataggio locale               |
+| Geometria   | `src/utils/geometry.ts`, `operations.ts`                       | Trasformazioni, rotazioni, routing ortogonale, snapping, bounds, duplicazione e cancellazione             |
+| Editor      | `src/components/editor/Canvas.tsx`, `useCanvasInteractions.ts` | SVG, viewport, pointer events, scorciatoie, drag, nodi su fili, handle e anteprime                        |
+| Rendering   | `src/circuit/`, `CircuitLayer.tsx`                             | Simboli SVG riutilizzabili, fili, nodi, testo con pedici e frecce; componenti React memoizzati            |
+| Interfaccia | `src/components/toolbar/`, `palette/`, `properties/`           | Palette ricercabile, toolbar, proprietà contestuali, export e guida                                       |
+| TikZ        | `src/tikz/exporter.ts`, `componentMappings.ts`                 | Conversione coordinate, simboli CircuitikZ, colori, label, Bézier, archi e standalone                     |
+| Test        | `tests/`                                                       | Geometria, modello, riferimenti, esportazione, cronologia e workflow completi nel DOM                     |
+
+Il documento contiene `objects[]`: componenti, junction, wire, testi e frecce. Gli endpoint dei fili sono riferimenti `{kind:'terminal', componentId, terminalId}`, `{kind:'junction', junctionId}` oppure punti liberi. Le coordinate dei terminali vengono risolte al rendering e durante l'export; non sono copie assolute da aggiornare manualmente. Rimuovere un componente o nodo conserva i fili, trasformando le estremità collegate in punti liberi alle posizioni precedenti.
+
+Le anteprime del mouse e la viewport sono separate dal documento. Il rendering dei simboli è memoizzato; un indice del documento rende costante la ricerca dei componenti collegati. Pan, zoom e anteprime non ricreano i simboli. Durante il drag vengono aggiornati gli oggetti spostati e i percorsi dei fili; la cronologia registra solo la fine del gesto.
+
+## TikZ / CircuitikZ
+
+**Copy TikZ** copia le definizioni dei colori e l'ambiente `circuitikz`. Nel documento ospite includi `\usepackage{circuitikz}`. **Download .tex** genera un documento standalone; il formato standard non richiede font personalizzati.
+
+**Copia per Obsidian** copia un blocco Markdown completo, direttamente incollabile in una nota con [Inline TikZ](https://github.com/lachlanharrisdev/obsidian-inline-tikz) o TikZJax: delimitatori ` ```tikz `, package, preambolo, `\begin{document}`, circuito e `\end{document}`. Questa modalità riproduce i 72 simboli del canvas con TikZ puro, preservando proporzioni, terminali, label, nodi e punte delle frecce. La scheda **Obsidian** mostra il testo copiato; se il browser nega l'accesso agli appunti viene selezionata per la copia manuale. Non include `documentclass` o file di font.
+
+I formati condividono il traversal, le coordinate, i colori, la validazione e gli helper geometrici; la modalità Obsidian sceglie la geometria SVG originale. L'export omette fili senza lunghezza, subpath vuoti, ID ripetuti, fili duplicati e oggetti invalidi. Definisce solo i colori usati, normalizzati in HEX maiuscolo e senza duplicati. Le label mantengono il source matematico valido e l'alias `\ohm`; testo e formule non valide vengono escapati. Questi controlli non modificano il documento o il canvas.
+
+Il [report WYSIWYG](../docs/obsidian-wysiwyg/report.md) contiene il confronto canvas/render compilato, le misure geometriche, le verifiche dei font e i risultati della suite. Sono disponibili il [circuito di riferimento JSON](../docs/obsidian-wysiwyg/evidence/golden.json) e il [blocco Obsidian immediatamente incollabile](../docs/obsidian-wysiwyg/evidence/golden.md). Il [report precedente](../docs/obsidian-export/report.md) documenta l'introduzione del formato incollabile.
+
+Scala standard: **40 px = 1 cm**, con inversione dell'asse Y. Le label sono nodi indipendenti. 63 simboli usano componenti nativi CircuitikZ; nove usano geometria condivisa con SVG: i due trasformatori con geometria vincolata, DPST, DPDT, galvanometro, connettori 2/3 pin, porta generica e buzzer. I nomi nativi sono verificati nella [documentazione ufficiale CircuitikZ](https://rmano.github.io/circuitikz/node-The-components-list.html).
+
+Scala Obsidian: **1 unità canvas = 0,75 pt TeX = 0,0263595 cm**, quindi 1 CSS px nell'SVG del renderer verificato. La stessa conversione si applica a geometria, stroke e font. Il testo usa Comic Sans di sistema tramite SVG vettoriale, mantenendo il layout KaTeX dei pedici e delle formule. In un ambiente senza DOM o con un driver TeX diverso viene usato un fallback sans serif diritto; su dispositivi senza Comic Sans il browser sceglie il font disponibile nella famiglia `cursive`. Il preambolo non richiede `fontspec`.
+
+Non ci sono scelte font. Lo standalone funziona con pdfLaTeX e i pacchetti standard `standalone`, `amsmath`, `amssymb` e `circuitikz`. Con XeLaTeX o LuaLaTeX usa automaticamente Comic Sans di sistema quando presente, altrimenti il font LaTeX disponibile; non include font proprietari.
+
+Il documento di verifica con **72 simboli × 4 rotazioni = 288 componenti** compila con successo. Anche `examples/schema-libreria-mista.tex` e `examples/label-kalam-comic.tex` sono stati compilati.
+
+## Verifiche
+
+**401 test automatici** verificano geometria e terminali dei 72 componenti, Smart Placement, fili, junction, frecce/maglie, storia, JSON, migrazione di valore e font legacy, rendering KaTeX, export e sidebar. Il [report label e sidebar](../docs/labels-sidebar/report.md) documenta il Golden Workflow nel browser reale, le tre viewport richieste e le compilazioni LaTeX.
+
+L’audit del 1–2 ottobre 2026 ha usato quattro agenti indipendenti e il browser reale tramite il tunnel HTTPS fornito dall’utente. Il golden workflow, download JSON/TEX, riapertura, reload, stress di 400 oggetti e viewport laptop sono verificati. Sono stati corretti 12 problemi riprodotti. Le compilazioni usano Tectonic/XeTeX; pdfLaTeX, FPS/heap e il percorso keyboard clipboard nel browser controllato rimangono limiti espliciti. Il [report finale](../docs/audit/report-finale.md) contiene risultati, evidenze e TOP 5 problemi.
+
+Per rigenerare gli esempi e i file di verifica:
+
+```sh
+npm run fixtures
+```
+
+Il fixture di carico viene scritto in `/private/tmp/drawcircuit-stress.json` e può essere aperto tramite File → Apri JSON. I test DOM verificano correttezza e rendering; non costituiscono una garanzia di frame rate su qualsiasi hardware.
+
+## Limiti intenzionali
+
+- Il routing è ortogonale e prevedibile; non cerca di evitare automaticamente ostacoli o incroci. Gli incroci sono scollegati finché non inserisci una junction.
+- Le nuove maglie sono ellissi di 324° con apertura di 36°; quelle circolari della prima versione rimangono compatibili. L’export usa archi ellittici vettoriali secondo la [documentazione TikZ](https://tikz.dev/tikz-paths#sec-14.7).
+- Il testo matematico usa KaTeX: pedici, apici, frazioni, radici e i comandi supportati dall’engine. Il source rimane nel JSON; il LaTeX non valido appare letterale e resta modificabile. `\ohm` è l’unico alias dell’editor e diventa `\Omega` durante rendering ed export. Il testo normale usa `"Comic Sans MS", "Comic Sans", cursive`, anche i caratteri delle formule e della preview usano Comic Sans; la UI mantiene Inter.
+- I simboli nativi CircuitikZ possono differire leggermente nelle proporzioni rispetto agli SVG; terminali, orientamento, colori e posizioni delle annotazioni rimangono coerenti.
+- Clipboard e download dipendono dai permessi del browser. Copia/incolla ha un fallback interno durante la sessione; il dialogo TikZ seleziona il codice se la copia negli appunti non è disponibile. Il browser integrato può limitare i test automatici di clipboard e download; questi percorsi sono verificati anche tramite test DOM.
+- Il salvataggio locale appartiene a quel browser e a quell'origine. Per archiviare o trasferire lo schema usa JSON. Nessun backend, account, simulazione o servizio cloud.
+
+### Secondo passaggio: interazioni
+
+- **W + clic su filo** crea un nodo e avvia o termina un ramo. Tutti i fili che passano per il punto vengono divisi e riferiti al nodo. Nodo e ramo sono una sola operazione Annulla; Esc o cambio strumento annulla i nodi provvisori. Space + trascina mantiene il filo in corso.
+- **Enter** su un nodo, componente o testo selezionato apre l’editor inline. Enter conferma, Esc cancella; il doppio clic continua a funzionare.
+- Doppio clic sul filo aggiunge una svolta, trascina il quadrato per modificarla, **Alt/Option + clic** sul quadrato la rimuove. La normalizzazione rimuove ridondanze solo quando il percorso visibile rimane identico, senza eliminare ritorni intenzionali.
+- Snap: terminale vicino, nodo/terminale, filo, griglia; soglie in pixel dello schermo. Hit area di fili, terminali e handle indipendenti dallo zoom.
+- **Cmd/Ctrl D** genera nuovi ID e numeri di label automatiche, mantenendo le label personalizzate. Le connessioni esterne alla selezione vengono scollegate dalle copie.
+- Toolbar contestuale con controlli frequenti e menu **•••** per dimensione, allineamento e proprietà rare.
+- Livelli SVG e TikZ: fili, componenti, nodi, label, annotazioni; selezione e handle sono sempre sopra e non entrano nell’export.
+- Il JSON v1 rimane compatibile con i documenti precedenti; aggiunge l’oggetto `loop-arrow` con bounding box, verso, posizione della punta, colore e spessore.
+
+### Terzo passaggio: libreria e font
+
+In **Passivi** trovi anche **Resistenza statunitense**, il simbolo a zig zag, ricercabile con `zig zag` o `americana`.
+
+La palette usa categorie collassabili, anteprime del vero simbolo, tooltip e alias italiani/inglesi (ad esempio `res`, `mos`, `ground`). Ora si può nascondere, riaprire e ridimensionare. Comic Sans è il font unico del circuito; KaTeX compone le formule; i loro caratteri usano Comic Sans anche nella preview inline.
+
+Il JSON rimane alla versione 1. Al caricamento una label non vuota prevale sul vecchio `value`; una label vuota o mancante usa il valore legacy. Il campo `value` e le scelte `fontFamily` vengono rimossi dal modello interno. Nei nuovi dati rimane il source originale, con posizione, colore e dimensione della label. Le preferenze sidebar sono separate, sotto `drawcircuit.sidebar.v1`.
+
+Il registry centrale in `src/model/catalog.ts` raccoglie nomi, categorie, alias, terminali, assi di uscita, bounds, label offset, geometria e strategia TikZ. `src/model/symbolGeometry.ts` contiene primitive vettoriali comuni; il canvas renderizza solo gli oggetti presenti. `componentMappings.ts` è una vista derivata del registry. I terminali nuovi hanno ID e nomi semantici; quelli dei 21 componenti iniziali conservano le coordinate e gli ID originali.
+
+- Riepilogo completo: [docs/terzo-passaggio.md](../docs/terzo-passaggio.md).
+- Catalogo visuale SVG: [docs/libreria-componenti.svg](../docs/libreria-componenti.svg), rigenerabile con `node scripts/create-library-preview.mjs`.
+- Schema misto riapribile: [examples/schema-libreria-mista.json](../examples/schema-libreria-mista.json), con [TikZ](../examples/schema-libreria-mista.tex).
+- Label A/B/r_AB in Comic Sans: [examples/label-kalam-comic.json](../examples/label-kalam-comic.json), con [TikZ portabile](../examples/label-kalam-comic.tex).
+
+### Smart Placement
+
+Durante l’inserimento sono visibili i terminali e i nodi collegabili: avvicina un terminale del ghost al target, verifica l’alone verde e clicca per inserire e collegare. Il clic diretto su un terminale/nodo avvia invece un’ancora; sposta il componente e conferma con un secondo clic. I bipoli si orientano durante l’ancoraggio; **R** ruota l’anteprima e dà priorità alla scelta manuale. **Alt/Option** ignora temporaneamente le assistenze, **Esc** torna a Select.
+
+**Inserisci in filo** abilita esplicitamente l’inserimento inline dei bipoli: conferma solo quando l’anteprima mostra il filo interrotto ai due terminali. Segmenti troppo corti o attraversati da rami/incroci conservano il placement libero. Per transistor, trasformatori, op amp, connettori e porte scegli prima il pin in **Collega terminale**. Il normale placement, il drag degli oggetti esistenti e Wire mantengono le loro interazioni.
+
+Le connessioni usano gli endpoint semantici esistenti e ogni smart placement occupa una sola voce di Undo. JSON v1, localStorage ed export restano compatibili. [Report e Golden UX Test](../docs/smart-placement/report.md), con circuito riapribile e prove browser. **334 test automatici**, inclusi i 281 test precedenti invariati.
+
+### Blocchi rapidi
+
+La sezione **Blocchi rapidi** aggiunge 23 configurazioni nella palette, separate dai 72 componenti. È inizialmente chiusa e offre categorie collassabili, miniature circuitali e ricerca con alias italiani/inglesi. Scegli un blocco, sposta la ghost sulla griglia, usa **R** per ruotarla di 90° e clicca per inserire; **Esc** annulla.
+
+Sono disponibili serie/parallelo di 2 o 3 resistenze, stella, delta, partitori V/I, Wheatstone, generatori reali V/I, Thévenin, Norton, RC/RL/RLC serie e parallelo, generatore + R, due maglie, tre rami e generatore + resistenza serie + carico.
+
+Il registro dichiarativo in `src/presets/registry.ts` genera normali componenti, fili e junction con factory condivise, nuovi UUID e label senza collisioni. Tutti gli oggetti vengono selezionati dopo l’inserimento e costituiscono una sola operazione Undo. Puoi poi modificarli individualmente usando gli strumenti esistenti. JSON v1, LaTeX, Comic Sans e TikZ seguono i percorsi normali dell’editor.
+
+**478 test passano**, inclusi 77 nuovi test sui preset. Il [report completo](../docs/presets/report.md) descrive i 23 blocchi e il Golden Test nel browser, con JSON riapribili ed export TikZ compilati.
+
+### Polish UX: selezione, guide e export selezione
+
+La selezione singola evidenzia il simbolo senza cornice; quella multipla conserva un bounds comune. Corpo e label usano grab/grabbing, con drag indipendente delle label. Durante lo spostamento compaiono quote locali e allineamenti: la spaziatura uniforme scatta entro 7 pixel dello schermo; Alt/Option ignora le assistenze. Le quote spariscono a fine gesto e non entrano nel documento, negli export o nella cronologia.
+
+Nel dialogo Export scegli **Tutto il circuito** oppure **Solo selezione** per TikZ, Obsidian e standalone. La selezione include automaticamente i fili interni; esclude i collegamenti verso oggetti esterni se non selezionati esplicitamente. La toolbar mostra proprietà comprensibili per il tipo di oggetto, con tooltip; More conserva soltanto controlli secondari e non compare su wire, Loop Arrow o gruppi.
+
+**788 test passano**, inclusi 48 nuovi test. Il [report UX completo](../docs/ux-refinement/report.md) contiene audit delle azioni, regole geometriche, Golden Workflow nel browser, screenshot ed evidenze di export.

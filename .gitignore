@@ -1,0 +1,18 @@
+node_modules/
+dist/
+
+.env
+.env.*
+!.env.example
+
+.DS_Store
+coverage/
+.vite/
+*.tsbuildinfo
+
+# Local editor and temporary files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~

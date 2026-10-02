@@ -1,0 +1,14 @@
+{
+  "quickAfter": {
+    "nodes": 5,
+    "wires": 14
+  },
+  "quickUndo": {
+    "nodes": 4,
+    "wires": 12
+  },
+  "quickRedo": {
+    "nodes": 5,
+    "wires": 14
+  }
+}
