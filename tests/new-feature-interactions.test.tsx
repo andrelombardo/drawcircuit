@@ -131,7 +131,7 @@ describe('new feature UI integrates with the existing editor', () => {
     const w = line(-200, 0, 200, 0);
     useEditorStore.setState({ document: { ...emptyDocument(), objects: [w] } });
     render(<App />);
-    chooseElectrical('Current Arrow · Corrente');
+    chooseElectrical('Corrente su un filo');
     move(50, 0);
     expect(canvas().querySelector(`[data-current-hover="${w.id}"]`)).toBeTruthy();
     click(50, 0);
@@ -160,14 +160,14 @@ describe('new feature UI integrates with the existing editor', () => {
     const w = line(0, -200, 0, 200);
     useEditorStore.setState({ document: { ...emptyDocument(), objects: [w] } });
     render(<App />);
-    chooseElectrical('Current Arrow · Corrente');
+    chooseElectrical('Corrente su un filo');
     click(0, 50);
     expect(doc().objects.at(-1)).toMatchObject({
       kind: 'electrical',
       mode: 'current',
       wireId: w.id,
     });
-    chooseElectrical('Voltage Arrow · Tensione');
+    chooseElectrical('Tensione tra due punti');
     fireEvent.pointerDown(canvas(), client(120, -100));
     move(120, 100);
     fireEvent.pointerUp(canvas(), client(120, 100));
@@ -183,7 +183,7 @@ describe('new feature UI integrates with the existing editor', () => {
       multi = createComponent('npn', { x: 200, y: 0 }, 1);
     useEditorStore.setState({ document: { ...emptyDocument(), objects: [c, multi] } });
     render(<App />);
-    chooseElectrical('Voltage / Polarity · Polarità');
+    chooseElectrical('Polarità + / −');
     fireEvent.pointerDown(
       canvas().querySelector(`[data-object="${multi.id}"] .object-hit`)!,
       client(200, 0),
@@ -236,7 +236,7 @@ describe('new feature UI integrates with the existing editor', () => {
       selection: [c.id],
     });
     render(<App />);
-    fireEvent.click(screen.getByRole('button', { name: /Esporta TikZ$/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Esporta circuito$/ }));
     fireEvent.click(screen.getByRole('button', { name: 'SVG' }));
     const full = (screen.getByLabelText('Codice SVG generato') as HTMLTextAreaElement).value;
     const parsed = new DOMParser().parseFromString(full, 'image/svg+xml');
@@ -277,7 +277,7 @@ describe('new feature UI integrates with the existing editor', () => {
     render(<App />);
     fireEvent.click(screen.getByRole('button', { name: 'Annotazioni elettriche' }));
     key('Escape');
-    expect(screen.queryByRole('button', { name: 'Current Arrow · Corrente' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Corrente su un filo' })).toBeNull();
     key('a');
     expect(useEditorStore.getState().tool).toBe('arrow');
     key('l');

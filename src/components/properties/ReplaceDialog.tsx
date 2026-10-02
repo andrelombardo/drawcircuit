@@ -28,7 +28,12 @@ export function ReplaceDialog({
         aria-modal="true"
         aria-label="Sostituisci componente"
       >
-        <button className="modal-close" aria-label="Chiudi sostituzione" onClick={onClose}>
+        <button
+          className="modal-close"
+          aria-label="Chiudi sostituzione"
+          title="Chiudi sostituzione"
+          onClick={onClose}
+        >
           <X size={20} />
         </button>
         <h2>Sostituisci con</h2>

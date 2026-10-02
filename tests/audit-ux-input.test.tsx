@@ -161,7 +161,7 @@ describe('audit UX/input evidence', () => {
     expect(
       screen.getByRole('button', { name: 'Inserisci batteria a cella singola' }),
     ).toBeDefined();
-    expect(screen.getByRole('button', { name: /Esporta TikZ/ })).toBeDefined();
+    expect(screen.getByRole('button', { name: /Esporta circuito/ })).toBeDefined();
     expect(document.body.textContent).toContain('Scegli un componente dalla palette.');
   });
   it('attempts the student circuit using the rendered UI before production source inspection', () => {
@@ -355,7 +355,7 @@ describe('audit UX/input evidence', () => {
     expect(serializeDocument(useEditorStore.getState().document)).toBe(before);
   });
 
-  for (const label of ['Guida e scorciatoie', 'Esporta TikZ']) {
+  for (const label of ['Guida e scorciatoie', 'Esporta circuito']) {
     it(`AUDIT P2: ${label} contains Tab/Shift Tab and restores keyboard focus on close`, () => {
       render(<App />);
       const trigger = screen.getByRole('button', { name: new RegExp(label) });
@@ -367,7 +367,7 @@ describe('audit UX/input evidence', () => {
       const last =
         label === 'Guida e scorciatoie'
           ? first
-          : screen.getByRole('button', { name: 'Download .tex' });
+          : screen.getByRole('button', { name: 'Scarica .tex' });
       expect(document.activeElement).toBe(first);
       const reverseTab = new KeyboardEvent('keydown', {
         key: 'Tab',
@@ -402,7 +402,7 @@ describe('audit UX/input evidence', () => {
     render(<App />);
     placeResistor();
     const before = serializeDocument(useEditorStore.getState().document);
-    fireEvent.click(screen.getByRole('button', { name: /Esporta TikZ/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Esporta circuito/ }));
     for (const shortcut of ['R', 'Delete', 'Backspace', 'g', 'n'])
       fireEvent.keyDown(screen.getByRole('dialog'), { key: shortcut });
     expect(serializeDocument(useEditorStore.getState().document)).toBe(before);

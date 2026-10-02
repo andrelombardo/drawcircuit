@@ -346,7 +346,7 @@ describe('selection export scope in the existing dialog', () => {
     expect(clipboard).not.toContain('R_4');
     expect(screen.getByText('3 oggetti vettoriali')).toBeDefined();
     fireEvent.click(screen.getByRole('button', { name: 'Tutto il circuito' }));
-    expect(screen.getByRole('button', { name: 'Copy TikZ' })).toBeDefined();
+    expect(screen.getByRole('button', { name: 'Copia TikZ' })).toBeDefined();
   });
   it('disables empty selection export with a clear explanation', () => {
     render(<ExportDialog onClose={() => {}} />);

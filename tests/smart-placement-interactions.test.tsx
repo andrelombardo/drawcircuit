@@ -398,7 +398,7 @@ describe('Smart Placement through palette and canvas', () => {
     Object.defineProperty(file, 'text', { value: async () => saved });
     fireEvent.change(screen.getByLabelText('Apri file JSON'), { target: { files: [file] } });
     await waitFor(() => expect(serializeDocument(useEditorStore.getState().document)).toBe(saved));
-    fireEvent.click(screen.getByRole('button', { name: /Esporta TikZ/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Esporta circuito/ }));
     expect(
       (screen.getByLabelText('Codice TikZ generato') as HTMLTextAreaElement).value,
     ).not.toMatch(/NaN|undefined/);

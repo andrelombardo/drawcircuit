@@ -210,9 +210,8 @@ export function ContextToolbar({
     );
   const sizeControl = (
     <label className="property-control">
-      <span>
+      <span title="Dimensione testo">
         <Type size={13} />
-        Testo
       </span>
       <select
         aria-label="Dimensione testo"
@@ -353,7 +352,11 @@ export function ContextToolbar({
       <IconButton label="Duplica (⌘/Ctrl D)" onClick={() => useEditorStore.getState().duplicate()}>
         <Copy size={17} />
       </IconButton>
-      <IconButton label="Elimina (Delete)" onClick={() => useEditorStore.getState().remove()}>
+      <IconButton
+        label="Elimina (Delete)"
+        className="destructive-button"
+        onClick={() => useEditorStore.getState().remove()}
+      >
         <Trash2 size={17} />
       </IconButton>
       <button className="secondary-property" onClick={() => setBlockDialog(true)}>

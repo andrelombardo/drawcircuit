@@ -24,7 +24,12 @@ export function BlockNameDialog({
         aria-modal="true"
         aria-label={initial ? 'Rinomina blocco' : 'Salva come blocco'}
       >
-        <button className="modal-close" aria-label="Chiudi blocco" onClick={onClose}>
+        <button
+          className="modal-close"
+          aria-label="Chiudi blocco"
+          title="Chiudi blocco"
+          onClick={onClose}
+        >
           <X size={20} />
         </button>
         <h2>{initial ? 'Rinomina blocco' : 'Salva come blocco'}</h2>

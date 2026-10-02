@@ -36,11 +36,12 @@ export function Palette({ onHide }: { onHide: () => void }) {
         <input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Cerca componenti o blocchi…"
+          placeholder="Cerca componenti…"
           aria-label="Cerca componenti"
+          title="Cerca componenti e blocchi"
         />
         {search && (
-          <button aria-label="Svuota ricerca" onClick={() => setSearch('')}>
+          <button aria-label="Svuota ricerca" title="Svuota ricerca" onClick={() => setSearch('')}>
             <X size={14} />
           </button>
         )}

@@ -164,7 +164,6 @@ export function Toolbar({ onExport, onHelp }: { onExport: () => void; onHelp: ()
         >
           <CircleDot size={18} />
         </IconButton>
-        <div className="toolbar-divider" />
         <IconButton label="Testo (T)" active={tool === 'text'} onClick={() => setTool('text')}>
           <Type size={19} />
         </IconButton>
@@ -178,19 +177,13 @@ export function Toolbar({ onExport, onHelp }: { onExport: () => void; onHelp: ()
         >
           <RefreshCw size={19} />
         </IconButton>
-        <IconButton
-          label="Sposta vista (H o Space)"
-          active={tool === 'pan'}
-          onClick={() => setTool('pan')}
-        >
-          <Hand size={18} />
-        </IconButton>
         <div className="electrical-tools-wrap">
           <button
-            className="icon-button"
+            className={`icon-button${['current', 'polarity', 'voltage'].includes(tool) ? ' active' : ''}`}
             aria-label="Annotazioni elettriche"
             aria-expanded={electricalMenu}
             title="Corrente e tensione"
+            data-tooltip="Corrente e tensione"
             onClick={() => setElectricalMenu((open) => !open)}
           >
             I/V
@@ -209,7 +202,7 @@ export function Toolbar({ onExport, onHelp }: { onExport: () => void; onHelp: ()
                     setElectricalMenu(false);
                   }}
                 >
-                  Current Arrow · Corrente
+                  Corrente su un filo
                 </button>
                 <button
                   onClick={() => {
@@ -217,7 +210,7 @@ export function Toolbar({ onExport, onHelp }: { onExport: () => void; onHelp: ()
                     setElectricalMenu(false);
                   }}
                 >
-                  Voltage / Polarity · Polarità
+                  Polarità + / −
                 </button>
                 <button
                   onClick={() => {
@@ -225,7 +218,7 @@ export function Toolbar({ onExport, onHelp }: { onExport: () => void; onHelp: ()
                     setElectricalMenu(false);
                   }}
                 >
-                  Voltage Arrow · Tensione
+                  Tensione tra due punti
                 </button>
               </div>
             </>
@@ -242,6 +235,14 @@ export function Toolbar({ onExport, onHelp }: { onExport: () => void; onHelp: ()
         <IconButton label="Ripeti (⌘/Ctrl Shift Z)" disabled={!future.length} onClick={redo}>
           <Redo2 size={18} />
         </IconButton>
+        <div className="toolbar-divider" />
+        <IconButton
+          label="Sposta vista (H o Space)"
+          active={tool === 'pan'}
+          onClick={() => setTool('pan')}
+        >
+          <Hand size={18} />
+        </IconButton>
       </div>
       <div className="topbar-actions">
         <span className="local-badge">
@@ -251,12 +252,14 @@ export function Toolbar({ onExport, onHelp }: { onExport: () => void; onHelp: ()
         <IconButton label="Guida e scorciatoie" onClick={onHelp}>
           <HelpCircle size={18} />
         </IconButton>
-        <button className="export-button" onClick={onExport}>
-          <span className="tex-icon">
-            T<span>e</span>X
-          </span>
-          <span>Esporta TikZ</span>
+        <button
+          className="export-button"
+          aria-label="Esporta circuito"
+          title="Esporta in TikZ, Obsidian o SVG"
+          onClick={onExport}
+        >
           <ArrowUpRight size={16} />
+          <span>Export</span>
         </button>
       </div>
       <input
@@ -296,12 +299,15 @@ export function Toolbar({ onExport, onHelp }: { onExport: () => void; onHelp: ()
             aria-modal="true"
             aria-label="Sostituisci circuito"
           >
-            <button className="modal-close" aria-label="Annulla" onClick={() => setNewDialog(null)}>
+            <button
+              className="modal-close"
+              aria-label="Annulla"
+              title="Annulla"
+              onClick={() => setNewDialog(null)}
+            >
               <X size={20} />
             </button>
-            <h2>
-              {newDialog === 'new' ? 'Un nuovo foglio, una nuova idea.' : 'Apri la rete di esempio'}
-            </h2>
+            <h2>{newDialog === 'new' ? 'Nuovo circuito' : 'Apri la rete di esempio'}</h2>
             <p>
               Il circuito corrente sarà sostituito. Puoi recuperarlo con Annulla oppure salvarlo
               prima come JSON.

@@ -26,7 +26,7 @@ describe('Obsidian copy in the existing export dialog', () => {
     expect(preview().value).toBe(exportTikz(doc));
     fireEvent.click(screen.getByRole('button', { name: 'Obsidian' }));
     expect(preview().value).toBe(exportObsidian(doc));
-    fireEvent.click(screen.getByRole('button', { name: 'File standalone .tex' }));
+    fireEvent.click(screen.getByRole('button', { name: 'File .tex' }));
     expect(preview().value).toBe(exportStandalone(doc));
     fireEvent.click(screen.getByRole('button', { name: 'Codice TikZ' }));
     expect(preview().value).toBe(exportTikz(doc));
@@ -52,7 +52,7 @@ describe('Obsidian copy in the existing export dialog', () => {
     await waitFor(() =>
       expect(screen.getByRole('button', { name: 'Copiato per Obsidian' })).toBeTruthy(),
     );
-    fireEvent.click(screen.getByRole('button', { name: 'Copy TikZ' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Copia TikZ' }));
     await waitFor(() => expect(screen.getByRole('button', { name: 'Copiato' })).toBeTruthy());
     expect(writeText).toHaveBeenLastCalledWith(exportTikz(useEditorStore.getState().document));
     expect(preview().value).not.toContain('```');
@@ -63,10 +63,10 @@ describe('Obsidian copy in the existing export dialog', () => {
     async (format) => {
       writeText.mockRejectedValue(new Error('Clipboard unavailable'));
       render(<ExportDialog onClose={() => {}} />);
-      fireEvent.click(screen.getByRole('button', { name: 'File standalone .tex' }));
+      fireEvent.click(screen.getByRole('button', { name: 'File .tex' }));
       fireEvent.click(
         screen.getByRole('button', {
-          name: format === 'obsidian' ? 'Copia per Obsidian' : 'Copy TikZ',
+          name: format === 'obsidian' ? 'Copia per Obsidian' : 'Copia TikZ',
         }),
       );
       await waitFor(() =>
@@ -101,7 +101,7 @@ describe('Obsidian copy in the existing export dialog', () => {
     const anchorClick = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
     render(<ExportDialog onClose={() => {}} />);
     fireEvent.click(screen.getByRole('button', { name: 'Obsidian' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Download .tex' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Scarica .tex' }));
     expect(createUrl).toHaveBeenCalledOnce();
     expect(createUrl.mock.calls[0][0]).toBeInstanceOf(Blob);
     expect(anchorClick).toHaveBeenCalledOnce();

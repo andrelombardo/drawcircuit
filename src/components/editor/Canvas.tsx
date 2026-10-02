@@ -309,7 +309,7 @@ export function Canvas() {
               }
             }}
           />
-          <button type="submit" aria-label="Conferma testo">
+          <button type="submit" aria-label="Conferma testo" title="Conferma testo">
             <Check size={16} />
           </button>
           <div className="inline-latex-preview" aria-label="Anteprima etichetta">
@@ -341,6 +341,7 @@ export function Canvas() {
           <button
             className="zoom-number"
             aria-label="Adatta circuito alla vista"
+            title="Adatta circuito alla vista"
             onClick={interactions.fit}
           >
             {Math.round(v.zoom * 100)}%

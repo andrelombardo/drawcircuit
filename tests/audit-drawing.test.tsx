@@ -273,8 +273,8 @@ describe('audit: actual rendered drawing workflows (jsdom, not manual browser)',
     fireEvent.click(screen.getByRole('button', { name: 'Crea nuovo' }));
     expect(current().objects).toHaveLength(0);
     await importJson(saved);
-    fireEvent.click(screen.getByRole('button', { name: /Esporta TikZ/ }));
-    fireEvent.click(screen.getByRole('button', { name: 'File standalone .tex' }));
+    fireEvent.click(screen.getByRole('button', { name: /Esporta circuito/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'File .tex' }));
     expect((screen.getByLabelText('Codice TikZ generato') as HTMLTextAreaElement).value).toContain(
       'arc[',
     );

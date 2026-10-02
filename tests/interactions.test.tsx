@@ -272,10 +272,10 @@ describe('complete editor workflows', () => {
     Object.defineProperty(URL, 'revokeObjectURL', { configurable: true, value: vi.fn() });
     const anchorClick = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
     render(<App />);
-    fireEvent.click(screen.getByRole('button', { name: /Esporta TikZ/ }));
-    fireEvent.click(screen.getByRole('button', { name: 'Copy TikZ' }));
+    fireEvent.click(screen.getByRole('button', { name: /Esporta circuito/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Copia TikZ' }));
     await waitFor(() => expect(clipboardText).toContain('\\begin{circuitikz}'));
-    fireEvent.click(screen.getByRole('button', { name: 'Download .tex' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Scarica .tex' }));
     expect(createUrl).toHaveBeenCalledOnce();
     expect(anchorClick).toHaveBeenCalledOnce();
   });
@@ -528,8 +528,8 @@ describe('fast drawing interactions', () => {
     const complete = useEditorStore.getState().document;
     expect(complete.objects.filter((o) => o.kind === 'junction')).toHaveLength(5);
     expect(deserializeDocument(serializeDocument(complete))).toEqual(complete);
-    fireEvent.click(screen.getByRole('button', { name: /Esporta TikZ/ }));
-    fireEvent.click(screen.getByRole('button', { name: 'File standalone .tex' }));
+    fireEvent.click(screen.getByRole('button', { name: /Esporta circuito/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'File .tex' }));
     const code = (screen.getByLabelText('Codice TikZ generato') as HTMLTextAreaElement).value;
     expect(code).toBe(exportStandalone(complete));
     expect(code.match(/x radius=/g)).toHaveLength(2);
@@ -819,8 +819,8 @@ describe('expanded library and annotation fonts in the rendered interface', () =
       '/private/tmp/drawcircuit-font-labels.tex',
       exportStandalone(useEditorStore.getState().document),
     );
-    fireEvent.click(screen.getByRole('button', { name: /Esporta TikZ/ }));
-    fireEvent.click(screen.getByRole('button', { name: 'File standalone .tex' }));
+    fireEvent.click(screen.getByRole('button', { name: /Esporta circuito/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'File .tex' }));
     expect((screen.getByLabelText('Codice TikZ generato') as HTMLTextAreaElement).value).toContain(
       '\\ifPDFTeX',
     );
@@ -954,12 +954,12 @@ describe('expanded library and annotation fonts in the rendered interface', () =
     Object.defineProperty(file, 'text', { value: async () => saved });
     fireEvent.change(screen.getByLabelText('Apri file JSON'), { target: { files: [file] } });
     await waitFor(() => expect(serializeDocument(useEditorStore.getState().document)).toBe(saved));
-    fireEvent.click(screen.getByRole('button', { name: /Esporta TikZ/ }));
-    fireEvent.click(screen.getByRole('button', { name: 'File standalone .tex' }));
+    fireEvent.click(screen.getByRole('button', { name: /Esporta circuito/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'File .tex' }));
     const code = (screen.getByLabelText('Codice TikZ generato') as HTMLTextAreaElement).value;
     expect(code).not.toMatch(/undefined|NaN/);
     for (const type of types) expect(code).toContain(`% Component: ${type}`);
-    fireEvent.click(screen.getByRole('button', { name: 'Download .tex' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Scarica .tex' }));
     expect(createUrl).toHaveBeenCalledTimes(2);
     const fs = await vi.importActual<{ writeFileSync: (path: string, data: string) => void }>(
       'node:fs',

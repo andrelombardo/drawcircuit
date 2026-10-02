@@ -28,7 +28,11 @@ export default function App() {
       {notice && (
         <div className="toast" role="status">
           {notice}
-          <button aria-label="Chiudi notifica" onClick={() => useEditorStore.getState().notify('')}>
+          <button
+            aria-label="Chiudi notifica"
+            title="Chiudi notifica"
+            onClick={() => useEditorStore.getState().notify('')}
+          >
             <X size={15} />
           </button>
         </div>

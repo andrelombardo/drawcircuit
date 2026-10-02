@@ -29,6 +29,7 @@ export function PersonalBlockPalette({ search }: { search: string }) {
                 <button
                   className={pending === b.id ? 'chosen' : ''}
                   aria-label={`Inserisci blocco personale: ${b.name}`}
+                  title={`${b.name} · clicca e posiziona · R ruota`}
                   onClick={() => useEditorStore.getState().selectPreset(b.id)}
                 >
                   {b.name}
@@ -41,6 +42,7 @@ export function PersonalBlockPalette({ search }: { search: string }) {
                   <Pencil size={14} />
                 </button>
                 <button
+                  className="destructive-button"
                   aria-label={`Elimina blocco ${b.name}`}
                   title="Elimina dalla libreria"
                   onClick={() => {

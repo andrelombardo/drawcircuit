@@ -13,7 +13,12 @@ export function HelpDialog({ onClose }: { onClose: () => void }) {
         aria-modal="true"
         aria-labelledby="help-heading"
       >
-        <button className="modal-close" aria-label="Chiudi guida" onClick={onClose}>
+        <button
+          className="modal-close"
+          aria-label="Chiudi guida"
+          title="Chiudi guida"
+          onClick={onClose}
+        >
           <X size={20} />
         </button>
         <span className="eyebrow">POCHI GESTI, UN BEL CIRCUITO</span>

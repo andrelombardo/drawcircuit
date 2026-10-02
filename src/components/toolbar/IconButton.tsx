@@ -3,6 +3,7 @@ export function IconButton({
   label,
   children,
   active = false,
+  className = '',
   ...props
 }: ButtonHTMLAttributes<HTMLButtonElement> & {
   label: string;
@@ -12,7 +13,7 @@ export function IconButton({
   return (
     <button
       type="button"
-      className={`icon-button${active ? ' active' : ''}`}
+      className={`icon-button${active ? ' active' : ''}${className ? ` ${className}` : ''}`}
       aria-label={label}
       title={label}
       data-tooltip={label}

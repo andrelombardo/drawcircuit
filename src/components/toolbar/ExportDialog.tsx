@@ -1,6 +1,6 @@
 import { exportSVG } from '../../svg/exporter';
 import { useMemo, useRef, useState } from 'react';
-import { Check, Code2, Copy, Download, X } from 'lucide-react';
+import { Check, Copy, Download, X } from 'lucide-react';
 import { useEditorStore } from '../../store/editorStore';
 import { exportObsidian, exportStandalone, exportTikz } from '../../tikz/exporter';
 import { selectionDocument } from '../../tikz/selection';
@@ -65,16 +65,16 @@ export function ExportDialog({ onClose }: { onClose: () => void }) {
         aria-modal="true"
         aria-labelledby="export-heading"
       >
-        <button className="modal-close" aria-label="Chiudi export" onClick={onClose}>
+        <button
+          className="modal-close"
+          aria-label="Chiudi export"
+          title="Chiudi export"
+          onClick={onClose}
+        >
           <X size={20} />
         </button>
-        <div className="dialog-icon">
-          <Code2 size={24} />
-        </div>
-        <h2 id="export-heading">Dal circuito al tuo documento.</h2>
-        <p>
-          Il tuo schema, in TikZ e CircuitikZ. Pronto per LaTeX e Obsidian con il plugin TikZJax.
-        </p>
+        <h2 id="export-heading">Esporta circuito</h2>
+        <p>Scegli il formato per LaTeX, Obsidian o un’immagine vettoriale SVG.</p>
         <div className="export-scope" role="group" aria-label="Ambito export">
           <span>Esporta</span>
           <button
@@ -121,12 +121,15 @@ export function ExportDialog({ onClose }: { onClose: () => void }) {
             className={tab === 'standalone' ? 'selected' : ''}
             onClick={() => selectTab('standalone')}
           >
-            File standalone .tex
+            File .tex
           </button>
           <button className={tab === 'svg' ? 'selected' : ''} onClick={() => selectTab('svg')}>
             SVG
           </button>
-          <span>{exportDoc.objects.length} oggetti vettoriali</span>
+          <span>
+            {exportDoc.objects.length}{' '}
+            {exportDoc.objects.length === 1 ? 'oggetto vettoriale' : 'oggetti vettoriali'}
+          </span>
         </div>
         <textarea
           ref={textarea}
@@ -153,7 +156,7 @@ export function ExportDialog({ onClose }: { onClose: () => void }) {
                 {copied === 'svg' ? 'SVG copiato' : 'Copia codice SVG'}
               </button>
               <button
-                className="primary-button"
+                className="secondary-button"
                 onClick={() =>
                   download(exportSVG(exportDoc), `${fileName(doc.title)}.svg`, 'image/svg+xml')
                 }
@@ -169,7 +172,7 @@ export function ExportDialog({ onClose }: { onClose: () => void }) {
                   ? 'Copiato'
                   : scope === 'selection'
                     ? 'Copia TikZ selezione'
-                    : 'Copy TikZ'}
+                    : 'Copia TikZ'}
               </button>
               <button className="secondary-button" onClick={() => copy('obsidian')}>
                 {copied === 'obsidian' ? <Check size={16} /> : <Copy size={16} />}{' '}
@@ -180,7 +183,7 @@ export function ExportDialog({ onClose }: { onClose: () => void }) {
                     : 'Copia per Obsidian'}
               </button>
               <button
-                className="primary-button"
+                className="secondary-button"
                 onClick={() =>
                   download(
                     exportStandalone(exportDoc),
@@ -190,7 +193,7 @@ export function ExportDialog({ onClose }: { onClose: () => void }) {
                 }
               >
                 <Download size={16} />
-                Download .tex
+                Scarica .tex
               </button>
             </>
           )}
