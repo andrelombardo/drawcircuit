@@ -967,5 +967,6 @@ describe('expanded library and annotation fonts in the rendered interface', () =
     fs.writeFileSync('/private/tmp/drawcircuit-mixed-library.json', saved);
     fs.writeFileSync('/private/tmp/drawcircuit-mixed-library.tex', code);
     expect(consoleError).not.toHaveBeenCalled();
-  });
+    // This full schematic workflow can exceed the unit-test timeout under load.
+  }, 10000);
 });

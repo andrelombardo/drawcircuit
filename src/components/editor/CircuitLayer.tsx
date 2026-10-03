@@ -79,7 +79,13 @@ export const CircuitLayer = memo(function CircuitLayer({
       <g data-layer="annotations">
         {doc.objects.map((o) =>
           o.kind === 'electrical' ? (
-            <ElectricalView key={o.id} object={o} doc={doc} selected={selected.has(o.id)} />
+            <ElectricalView
+              key={o.id}
+              object={o}
+              doc={doc}
+              selected={selected.has(o.id)}
+              zoom={zoom}
+            />
           ) : o.kind === 'arrow' ? (
             <ArrowView key={o.id} object={o} />
           ) : o.kind === 'loop-arrow' ? (

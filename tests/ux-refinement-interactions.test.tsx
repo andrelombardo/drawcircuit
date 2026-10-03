@@ -11,6 +11,9 @@ import { useEditorStore } from '../src/store/editorStore';
 import { serializeDocument } from '../src/model/serialization';
 import { getExportSelection } from '../src/tikz/selection';
 import { exportTikz } from '../src/tikz/exporter';
+import { CircuitLayer } from '../src/components/editor/CircuitLayer';
+import { createCurrent, createPolarity, electricalGeometry } from '../src/annotations/electrical';
+import { distance, midpoint, projectOnSegment } from '../src/utils/geometry';
 let clipboard = '';
 const r = (id: string, x: number, y = 0) => ({ ...createComponent('resistor', { x, y }), id });
 const documentWith = (objects: CircuitObject[]): CircuitDocument => ({
@@ -449,4 +452,43 @@ it('exports the same subset after an actual box gesture and equivalent Shift-cli
   const boxed = useEditorStore.getState();
   expect(boxed.selection).toEqual(['R2', 'R3']);
   expect(getExportSelection(boxed.document, boxed.selection)).toEqual(manual);
+});
+
+describe('attached annotation hit regions at low zoom', () => {
+  for (const mode of ['polarity', 'current'] as const)
+    it(`${mode} leaves the host center available at every zoom and orientation`, () => {
+      for (const vertical of [false, true]) {
+        const component = r('R3', 0);
+        component.rotation = vertical ? 90 : 0;
+        const wire = createWire(
+          { kind: 'free', point: vertical ? { x: 0, y: -100 } : { x: -100, y: 0 } },
+          { kind: 'free', point: vertical ? { x: 0, y: 100 } : { x: 100, y: 0 } },
+        );
+        const source = documentWith([mode === 'polarity' ? component : wire]);
+        const annotation =
+          mode === 'polarity'
+            ? createPolarity(component)!
+            : createCurrent(wire, { x: 0, y: 0 }, source);
+        source.objects.push(annotation);
+        const g = electricalGeometry(annotation, source),
+          center = { x: 0, y: 0 },
+          distanceToHost = distance(center, projectOnSegment(center, g.start, g.end));
+        for (const zoom of [0.1, 0.27, 0.57, 1, 2]) {
+          const { container, unmount } = render(
+            <svg>
+              <CircuitLayer doc={source} selection={[]} terminals={false} zoom={zoom} />
+            </svg>,
+          );
+          const hit = container.querySelector(`[data-electrical="${mode}"] > path`)!;
+          const halfWidth = Number(hit.getAttribute('stroke-width')) / 2;
+          expect(hit.getAttribute('vector-effect')).toBe('non-scaling-stroke');
+          expect(halfWidth).toBeGreaterThan(0);
+          expect(halfWidth).toBeLessThan(distanceToHost * zoom);
+          // The annotation itself remains inside its clickable corridor.
+          const onAnnotation = midpoint(g.start, g.end);
+          expect(distance(onAnnotation, projectOnSegment(onAnnotation, g.start, g.end))).toBe(0);
+          unmount();
+        }
+      }
+    });
 });

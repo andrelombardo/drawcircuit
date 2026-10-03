@@ -2170,11 +2170,11 @@ summary:focus-visible {
 .color-choice:hover {
   background: var(--ui-hover);
 }
-.context-popover .custom-color-choice {
+.context-popover input.custom-color-choice[type='color'] {
   appearance: none;
   width: 28px;
   height: 32px;
-  padding: 7px;
+  padding: 9px 7px;
   border: 0;
   border-radius: var(--ui-radius-sm);
   background: transparent;

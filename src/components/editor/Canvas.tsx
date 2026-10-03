@@ -258,7 +258,7 @@ export function Canvas() {
             )}
             {overlay.arrow &&
               (overlay.arrow.kind === 'electrical' ? (
-                <ElectricalView object={overlay.arrow} doc={doc} />
+                <ElectricalView object={overlay.arrow} doc={doc} zoom={v.zoom} />
               ) : overlay.arrow.kind === 'loop-arrow' ? (
                 <LoopArrowView object={overlay.arrow} />
               ) : (

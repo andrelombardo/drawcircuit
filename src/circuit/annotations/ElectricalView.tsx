@@ -8,16 +8,21 @@ export function ElectricalView({
   object: o,
   doc,
   selected = false,
+  zoom = 1,
 }: {
   object: ElectricalAnnotation;
   doc: CircuitDocument;
   selected?: boolean;
+  zoom?: number;
 }) {
   const g = electricalGeometry(o, doc);
   const head = chevron(g.arrowEnd, {
     x: g.arrowEnd.x - g.arrowStart.x,
     y: g.arrowEnd.y - g.arrowStart.y,
   });
+  // A fixed screen hit corridor overlaps the host when zoomed out. Keep a
+  // world-space limit for attached annotations so host clicks remain available.
+  const hitWidth = o.componentId || o.wireId ? Math.min(20, 24 * zoom) : 20;
   return (
     <g
       data-object={o.id}
@@ -27,7 +32,7 @@ export function ElectricalView({
       <path
         d={pointsPath([g.start, g.end])}
         stroke="transparent"
-        strokeWidth={20}
+        strokeWidth={hitWidth}
         fill="none"
         vectorEffect="non-scaling-stroke"
       />
