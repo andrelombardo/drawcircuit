@@ -20,9 +20,9 @@ export function ElectricalView({
     x: g.arrowEnd.x - g.arrowStart.x,
     y: g.arrowEnd.y - g.arrowStart.y,
   });
-  // A fixed screen hit corridor overlaps the host when zoomed out. Keep a
-  // world-space limit for attached annotations so host clicks remain available.
-  const hitWidth = o.componentId || o.wireId ? Math.min(20, 24 * zoom) : 20;
+  // A fixed screen hit corridor covers nearby objects when zoomed out.
+  // Cap it in world space while preserving the normal screen hit allowance.
+  const hitWidth = Math.min(20, 20 * zoom);
   return (
     <g
       data-object={o.id}

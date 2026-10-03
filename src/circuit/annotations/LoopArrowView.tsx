@@ -1,7 +1,13 @@
 import { memo } from 'react';
 import type { LoopArrow } from '../../model/types';
 import { loopPath } from '../../utils/loops';
-export const LoopArrowView = memo(function LoopArrowView({ object: o }: { object: LoopArrow }) {
+export const LoopArrowView = memo(function LoopArrowView({
+  object: o,
+  zoom = 1,
+}: {
+  object: LoopArrow;
+  zoom?: number;
+}) {
   const markerId = `loop-${o.id}`;
   return (
     <g data-object={o.id} className="circuit-object">
@@ -29,7 +35,7 @@ export const LoopArrowView = memo(function LoopArrowView({ object: o }: { object
       <path
         d={loopPath(o)}
         stroke="transparent"
-        strokeWidth={18}
+        strokeWidth={Math.min(18, 20 * zoom)}
         vectorEffect="non-scaling-stroke"
         fill="none"
       />

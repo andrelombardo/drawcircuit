@@ -260,9 +260,9 @@ export function Canvas() {
               (overlay.arrow.kind === 'electrical' ? (
                 <ElectricalView object={overlay.arrow} doc={doc} zoom={v.zoom} />
               ) : overlay.arrow.kind === 'loop-arrow' ? (
-                <LoopArrowView object={overlay.arrow} />
+                <LoopArrowView object={overlay.arrow} zoom={v.zoom} />
               ) : (
-                <ArrowView object={overlay.arrow} />
+                <ArrowView object={overlay.arrow} zoom={v.zoom} />
               ))}
           </g>
           <PlacementLayer

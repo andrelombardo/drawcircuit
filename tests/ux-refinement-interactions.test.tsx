@@ -12,8 +12,13 @@ import { serializeDocument } from '../src/model/serialization';
 import { getExportSelection } from '../src/tikz/selection';
 import { exportTikz } from '../src/tikz/exporter';
 import { CircuitLayer } from '../src/components/editor/CircuitLayer';
-import { createCurrent, createPolarity, electricalGeometry } from '../src/annotations/electrical';
-import { distance, midpoint, projectOnSegment } from '../src/utils/geometry';
+import {
+  createCurrent,
+  createElectrical,
+  createPolarity,
+  electricalGeometry,
+} from '../src/annotations/electrical';
+import { distance, projectOnSegment } from '../src/utils/geometry';
 let clipboard = '';
 const r = (id: string, x: number, y = 0) => ({ ...createComponent('resistor', { x, y }), id });
 const documentWith = (objects: CircuitObject[]): CircuitDocument => ({
@@ -484,11 +489,59 @@ describe('attached annotation hit regions at low zoom', () => {
           expect(hit.getAttribute('vector-effect')).toBe('non-scaling-stroke');
           expect(halfWidth).toBeGreaterThan(0);
           expect(halfWidth).toBeLessThan(distanceToHost * zoom);
-          // The annotation itself remains inside its clickable corridor.
-          const onAnnotation = midpoint(g.start, g.end);
-          expect(distance(onAnnotation, projectOnSegment(onAnnotation, g.start, g.end))).toBe(0);
           unmount();
         }
+      }
+    });
+});
+
+describe('independent arrow hit regions at low zoom', () => {
+  const objects: CircuitObject[] = [
+    createElectrical('voltage', { x: -100, y: -16 }, { x: 100, y: -16 }, 'V'),
+    {
+      kind: 'arrow',
+      id: 'arrow',
+      type: 'straight',
+      start: { x: -100, y: -16 },
+      end: { x: 100, y: -16 },
+      controlPoints: [
+        { x: -100, y: -16 },
+        { x: 100, y: -16 },
+      ],
+      color: '#171a20',
+      width: 2,
+      reversed: false,
+    },
+    {
+      kind: 'loop-arrow',
+      id: 'loop',
+      x: -40,
+      y: -96,
+      width: 80,
+      height: 80,
+      direction: 'clockwise',
+      arrowPosition: 0,
+      color: '#171a20',
+      strokeWidth: 2,
+    },
+  ];
+  for (const object of objects)
+    it(`${object.kind} does not cover a component 16 model units away from its visible line`, () => {
+      const source = documentWith([r('R3', 0), object]);
+      // The line is at y=-16; the circle's nearest point is its bottom at y=-16.
+      for (const zoom of [0.1, 0.27, 0.57, 1, 2]) {
+        const { container, unmount } = render(
+          <svg>
+            <CircuitLayer doc={source} selection={[]} terminals={false} zoom={zoom} />
+          </svg>,
+        );
+        const hit = container.querySelector(
+          `[data-layer="annotations"] [data-object="${object.id}"] > path[stroke="transparent"]`,
+        )!;
+        const halfWidth = Number(hit.getAttribute('stroke-width')) / 2;
+        expect(halfWidth).toBeGreaterThan(0);
+        expect(halfWidth).toBeLessThan(16 * zoom);
+        unmount();
       }
     });
 });

@@ -87,9 +87,9 @@ export const CircuitLayer = memo(function CircuitLayer({
               zoom={zoom}
             />
           ) : o.kind === 'arrow' ? (
-            <ArrowView key={o.id} object={o} />
+            <ArrowView key={o.id} object={o} zoom={zoom} />
           ) : o.kind === 'loop-arrow' ? (
-            <LoopArrowView key={o.id} object={o} />
+            <LoopArrowView key={o.id} object={o} zoom={zoom} />
           ) : o.kind === 'text' ? (
             <g
               key={o.id}
