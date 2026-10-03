@@ -5,6 +5,7 @@ import type { CircuitDocument, Endpoint, Point, Rotation } from '../model/types'
 import { cloneObjects } from '../utils/operations';
 import { selectionDocument } from '../tikz/selection';
 import { rotatePoint, snapPoint } from '../utils/geometry';
+import { localPersistence } from '../utils/localPersistence';
 export const PERSONAL_BLOCKS_KEY = 'drawcircuit.personal-blocks.v1';
 export interface PersonalBlock {
   id: string;
@@ -31,7 +32,12 @@ export function createPersonalBlock(
 }
 export function parsePersonalBlocks(raw: string): PersonalBlock[] {
   if (raw.length > 10_000_000) throw new Error('Il file supera il limite di 10 MB.');
-  const root = JSON.parse(raw);
+  let root;
+  try {
+    root = JSON.parse(raw);
+  } catch {
+    throw new Error('Libreria blocchi non valida: il file JSON non è leggibile.');
+  }
   if (!root || root.version !== 1 || !Array.isArray(root.blocks) || root.blocks.length > 100)
     throw new Error('Libreria blocchi non valida.');
   const ids = new Set<string>();
@@ -46,15 +52,13 @@ export function parsePersonalBlocks(raw: string): PersonalBlock[] {
 }
 export const serializePersonalBlocks = (blocks: PersonalBlock[]) =>
   JSON.stringify({ version: 1, blocks }, null, 2);
-function initialBlocks() {
-  try {
-    return parsePersonalBlocks(
-      localStorage.getItem(PERSONAL_BLOCKS_KEY) ?? '{"version":1,"blocks":[]}',
-    );
-  } catch {
-    return [];
-  }
-}
+const blockPersistence = localPersistence(
+  PERSONAL_BLOCKS_KEY,
+  parsePersonalBlocks,
+  serializePersonalBlocks,
+  () => [] as PersonalBlock[],
+);
+const initialLibrary = blockPersistence.load();
 export function instantiatePersonalBlock(
   block: PersonalBlock,
   point: Point,
@@ -154,15 +158,15 @@ function persist(blocks: PersonalBlock[]) {
   const raw = serializePersonalBlocks(blocks);
   if (raw.length > 10_000_000) throw new Error('Libreria troppo grande.');
   try {
-    localStorage.setItem(PERSONAL_BLOCKS_KEY, raw);
+    blockPersistence.save(blocks);
     return '';
   } catch {
     return 'Salvataggio dei blocchi non disponibile: esporta la libreria JSON.';
   }
 }
 export const usePersonalBlocks = create<LibraryState>((set, get) => ({
-  blocks: initialBlocks(),
-  error: '',
+  blocks: initialLibrary.value,
+  error: initialLibrary.error,
   add: (block) => {
     const blocks = [...get().blocks, block];
     const error = persist(blocks);

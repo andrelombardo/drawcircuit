@@ -97,17 +97,21 @@ export function insertJunction(
   const existing = doc.objects.find(
     (o): o is Junction => o.kind === 'junction' && distance(o, point) < 0.001,
   );
-  if (existing) return { doc, junction: existing };
   const used = new Set(doc.objects.filter((o) => o.kind === 'junction').map((o) => o.label.text));
   let index = 0;
   const name = (n: number) => (n < 26 ? String.fromCharCode(65 + n) : `N${n - 25}`);
   while (used.has(name(index))) index++;
-  const junction = createJunction(point, name(index));
+  const junction = existing ?? createJunction(point, name(index));
   const ep: Endpoint = { kind: 'junction', junctionId: junction.id },
     objects: CircuitObject[] = [];
   const linked = new Set<string>();
+  let changed = !existing;
   const bridge = (endpoint: Endpoint, wire: Wire) => {
-    if (endpoint.kind === 'free') return;
+    if (
+      endpoint.kind === 'free' ||
+      (endpoint.kind === 'junction' && endpoint.junctionId === junction.id)
+    )
+      return;
     const key = JSON.stringify(endpoint);
     if (linked.has(key)) return;
     linked.add(key);
@@ -129,6 +133,18 @@ export function insertJunction(
       objects.push(o);
       continue;
     }
+    if (
+      (distance(point, pts[0]) < 0.001 &&
+        o.startEndpoint.kind === 'junction' &&
+        o.startEndpoint.junctionId === junction.id) ||
+      (distance(point, pts[pts.length - 1]) < 0.001 &&
+        o.endEndpoint.kind === 'junction' &&
+        o.endEndpoint.junctionId === junction.id)
+    ) {
+      objects.push(o);
+      continue;
+    }
+    changed = true;
     if (distance(point, pts[0]) < 0.001) {
       bridge(o.startEndpoint, o);
       objects.push({ ...o, startEndpoint: ep });
@@ -147,7 +163,11 @@ export function insertJunction(
         .map((x) => x.id),
     );
   }
-  const next = normalizeDocumentWires({ ...doc, objects: [...objects, junction] });
+  if (!changed) return { doc, junction };
+  const next = normalizeDocumentWires({
+    ...doc,
+    objects: existing ? objects : [...objects, junction],
+  });
   return { doc: remapSplitWireCurrents(doc, next, splitIds), junction };
 }
 

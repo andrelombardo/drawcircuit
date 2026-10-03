@@ -7,6 +7,7 @@ import { deserializeDocument, serializeDocument } from '../model/serialization';
 import { cloneObjects, extractSelection, removeObjects, rotateObjects } from '../utils/operations';
 import { instantiatePreset } from '../presets/instantiate';
 import { presetRegistry } from '../presets/registry';
+import { localPersistence } from '../utils/localPersistence';
 import type {
   ArrowAnnotation,
   CircuitDocument,
@@ -16,14 +17,13 @@ import type {
   Tool,
 } from '../model/types';
 export const STORAGE_KEY = 'drawcircuit.document.v1';
-function initialDocument(): CircuitDocument {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? deserializeDocument(raw) : demoDocument();
-  } catch {
-    return demoDocument();
-  }
-}
+const documentStorage = localPersistence(
+  STORAGE_KEY,
+  deserializeDocument,
+  serializeDocument,
+  demoDocument,
+);
+const initialDocument = documentStorage.load();
 interface EditorState {
   document: CircuitDocument;
   selection: string[];
@@ -61,7 +61,7 @@ interface EditorState {
   notify: (message: string) => void;
 }
 export const useEditorStore = create<EditorState>((set, get) => ({
-  document: initialDocument(),
+  document: initialDocument.value,
   selection: [],
   tool: 'select',
   pendingPresetId: null,
@@ -95,8 +95,8 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   past: [],
   future: [],
   gestureStart: null,
-  notice: '',
-  storageError: false,
+  notice: initialDocument.error,
+  storageError: Boolean(initialDocument.error),
   setTool: (tool) =>
     set((s) => ({
       tool,
@@ -205,11 +205,8 @@ useEditorStore.subscribe((state, previous) => {
   clearTimeout(saveTimer);
   saveTimer = setTimeout(() => {
     try {
-      localStorage.setItem(
-        STORAGE_KEY,
-        serializeDocument(
-          useEditorStore.getState().gestureStart ?? useEditorStore.getState().document,
-        ),
+      documentStorage.save(
+        useEditorStore.getState().gestureStart ?? useEditorStore.getState().document,
       );
       if (useEditorStore.getState().storageError) useEditorStore.setState({ storageError: false });
     } catch {
@@ -223,8 +220,9 @@ export function saveDocumentNow(): boolean {
   const state = useEditorStore.getState();
   if (state.gestureStart) return false;
   try {
-    localStorage.setItem(STORAGE_KEY, serializeDocument(state.document));
+    documentStorage.save(state.document);
     clearTimeout(saveTimer);
+    if (state.storageError) useEditorStore.setState({ storageError: false });
     return true;
   } catch {
     useEditorStore.setState({ storageError: true });
@@ -234,13 +232,19 @@ export function saveDocumentNow(): boolean {
 
 /** Closing/reloading must not outrun the autosave debounce. Save the committed state,
  * including when a pointer gesture was still previewing changes. */
-function saveOnExit() {
+function saveOnExit(event: Event) {
   const state = useEditorStore.getState();
   try {
-    localStorage.setItem(STORAGE_KEY, serializeDocument(state.gestureStart ?? state.document));
+    documentStorage.save(state.gestureStart ?? state.document);
     clearTimeout(saveTimer);
   } catch {
-    /* The normal autosave already reports storage errors in the UI. */
+    useEditorStore.setState({ storageError: true });
+    if (event.type === 'beforeunload') {
+      // The debounce may not have reported the failed final edit yet. Let the
+      // browser warn before closing a circuit that could not be saved.
+      event.preventDefault();
+      (event as BeforeUnloadEvent).returnValue = '';
+    }
   }
 }
 if (typeof window !== 'undefined') {

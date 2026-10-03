@@ -69,6 +69,19 @@ export function canvasTextLayout(
     const canvas = document.createElement('canvas');
     const context = canvas.getContext('2d');
     if (!context) return null;
+    // KaTeX color commands override the label color on individual glyphs/rules.
+    // Leave uncolored content inheriting the export label's fill.
+    const colorAttribute = (element: Element) => {
+      for (
+        let current: Element | null = element;
+        current && current !== content;
+        current = current.parentElement
+      ) {
+        if ((current as HTMLElement | SVGElement).style?.color)
+          return ` fill="${attribute(getComputedStyle(current).color)}"`;
+      }
+      return '';
+    };
     const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
     let leaf: Node | null;
     while ((leaf = walker.nextNode())) {
@@ -85,7 +98,7 @@ export function canvasTextLayout(
       const descent = metrics.fontBoundingBoxDescent;
       if (!Number.isFinite(descent)) return null;
       chunks.push(
-        `<text x="${fmt(rect.x - origin.x)}" y="${fmt(rect.bottom - descent - origin.y)}" font-family="${attribute(css.fontFamily)}" font-size="${fmt(parseFloat(css.fontSize))}" font-style="${css.fontStyle}" font-weight="${css.fontWeight}">${xmlText(value)}</text>`,
+        `<text x="${fmt(rect.x - origin.x)}" y="${fmt(rect.bottom - descent - origin.y)}" font-family="${attribute(css.fontFamily)}" font-size="${fmt(parseFloat(css.fontSize))}" font-style="${css.fontStyle}" font-weight="${css.fontWeight}"${colorAttribute(parent)}>${xmlText(value)}</text>`,
       );
     }
     // Fractions/overlines are CSS rules; radicals and extensible symbols are SVG paths.
@@ -97,7 +110,7 @@ export function canvasTextLayout(
         const width = parseFloat(css[`border${edge}Width`]);
         if (width > 0 && css[`border${edge}Style`] !== 'none')
           chunks.push(
-            `<rect x="${fmt(rect.x - origin.x)}" y="${fmt((edge === 'Top' ? rect.y : rect.bottom - width) - origin.y)}" width="${fmt(rect.width)}" height="${fmt(width)}"/>`,
+            `<rect x="${fmt(rect.x - origin.x)}" y="${fmt((edge === 'Top' ? rect.y : rect.bottom - width) - origin.y)}" width="${fmt(rect.width)}" height="${fmt(width)}"${colorAttribute(element)}/>`,
           );
       }
     }
@@ -105,7 +118,7 @@ export function canvasTextLayout(
       const rect = svg.getBoundingClientRect();
       // Only KaTeX-authored path geometry is copied; never user HTML, links or scripts.
       const paths = [...svg.querySelectorAll('path')]
-        .map((p) => `<path d="${attribute(p.getAttribute('d') ?? '')}"/>`)
+        .map((p) => `<path d="${attribute(p.getAttribute('d') ?? '')}"${colorAttribute(p)}/>`)
         .join('');
       chunks.push(
         `<svg x="${fmt(rect.x - origin.x)}" y="${fmt(rect.y - origin.y)}" width="${fmt(rect.width)}" height="${fmt(rect.height)}" viewBox="${attribute(svg.getAttribute('viewBox') ?? '')}" preserveAspectRatio="${attribute(svg.getAttribute('preserveAspectRatio') ?? 'xMidYMid meet')}">${paths}</svg>`,

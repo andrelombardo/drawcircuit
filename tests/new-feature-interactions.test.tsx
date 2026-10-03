@@ -10,6 +10,7 @@ import { createPersonalBlock, usePersonalBlocks } from '../src/personalBlocks/li
 import { createCurrent } from '../src/annotations/electrical';
 import { wireCrossings } from '../src/utils/crossings';
 import { exportSVG } from '../src/svg/exporter';
+import { insertJunction } from '../src/utils/wires';
 import type { ElectricalAnnotation } from '../src/model/types';
 beforeEach(() => {
   vi.stubGlobal(
@@ -226,6 +227,30 @@ describe('new feature UI integrates with the existing editor', () => {
     key('Delete');
     expect(wireCrossings(doc())).toHaveLength(1);
     expect(canvas().querySelectorAll('[data-wire-crossing]')).toHaveLength(1);
+  });
+  it('Quick Junction on an existing node connects a later passing wire in one undo step', () => {
+    const connected = insertJunction(
+      { ...emptyDocument(), objects: [line(-200, 0, 200, 0)] },
+      { x: 0, y: 0 },
+    );
+    const original = {
+      ...connected.doc,
+      objects: [...connected.doc.objects, line(0, -200, 0, 200)],
+    };
+    useEditorStore.setState({ document: original });
+    render(<App />);
+    expect(canvas().querySelectorAll('[data-wire-crossing]')).toHaveLength(1);
+    fireEvent.click(screen.getByRole('button', { name: 'Nodo (N)' }));
+    click(0, 0);
+    expect(canvas().querySelectorAll('[data-wire-crossing]')).toHaveLength(0);
+    expect(doc().objects.filter((o) => o.kind === 'junction')).toHaveLength(1);
+    expect(doc().objects.filter((o) => o.kind === 'wire')).toHaveLength(4);
+    key('z', { ctrlKey: true });
+    expect(doc()).toEqual(original);
+    expect(canvas().querySelectorAll('[data-wire-crossing]')).toHaveLength(1);
+    key('z', { ctrlKey: true, shiftKey: true });
+    expect(canvas().querySelectorAll('[data-wire-crossing]')).toHaveLength(0);
+    expect(useEditorStore.getState().past).toHaveLength(1);
   });
   it('exports valid pure XML/SVG with LaTeX and switches to selection without UI debris', async () => {
     const c = createComponent('resistor', { x: 0, y: 0 }, 1),

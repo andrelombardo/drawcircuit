@@ -1,4 +1,4 @@
-import { wireCrossings } from '../utils/crossings';
+import { bridgeGeometry, wireCrossings } from '../utils/crossings';
 import { electricalGeometry } from '../annotations/electrical';
 import { chevron } from './arrowheads';
 import { mathContent, normalizeLatex, renderLatex } from '../math/latex';
@@ -163,25 +163,21 @@ function generateTikz(source: CircuitDocument, canvas: boolean): string {
       wires.add(line);
     }
   for (const c of wireCrossings(doc)) {
-    const r = c.radius,
-      left = { x: c.x - r, y: c.y },
-      right = { x: c.x + r, y: c.y },
-      a = { x: c.x - r * 0.6, y: c.y - r },
-      b = { x: c.x + r * 0.6, y: c.y - r },
+    const g = bridgeGeometry(c),
       whiteWidth = pixelsToPt(Math.max(c.horizontal.width, c.vertical.width) + 4);
-    lines.push('% Unconnected wire crossing: horizontal bridge');
+    lines.push(`% Unconnected wire crossing: ${c.bridgeAxis} bridge`);
     lines.push(
-      `\\draw[draw=white,line width=${whiteWidth}pt] ${tikzCoordinate(left)} -- ${tikzCoordinate(right)};`,
+      `\\draw[draw=white,line width=${whiteWidth}pt] ${tikzCoordinate(g.start)} -- ${tikzCoordinate(g.end)};`,
     );
     lines.push(
-      `\\draw[draw=${col(c.vertical.color)},line width=${pixelsToPt(c.vertical.width)}pt] ${tikzCoordinate({ x: c.x, y: c.y - r })} -- ${tikzCoordinate({ x: c.x, y: c.y + r })};`,
+      `\\draw[draw=${col(g.underWire.color)},line width=${pixelsToPt(g.underWire.width)}pt] ${tikzCoordinate(g.underStart)} -- ${tikzCoordinate(g.underEnd)};`,
     );
     for (const [color, width] of [
       ['white', whiteWidth],
-      [col(c.horizontal.color), pixelsToPt(c.horizontal.width)],
+      [col(g.overWire.color), pixelsToPt(g.overWire.width)],
     ])
       lines.push(
-        `\\draw[draw=${color},line width=${width}pt] ${tikzCoordinate(left)} .. controls ${tikzCoordinate(a)} and ${tikzCoordinate(b)} .. ${tikzCoordinate(right)};`,
+        `\\draw[draw=${color},line width=${width}pt] ${tikzCoordinate(g.start)} .. controls ${tikzCoordinate(g.controlA)} and ${tikzCoordinate(g.controlB)} .. ${tikzCoordinate(g.end)};`,
       );
   }
   let index = 0;

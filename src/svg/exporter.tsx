@@ -89,9 +89,9 @@ export function exportSVG(source: CircuitDocument): string {
       w = Math.max(c.horizontal.width, c.vertical.width) + 4;
     parts.push(
       path(p.gap, 'white', w),
-      path(p.vertical, c.vertical.color, c.vertical.width),
+      path(p.under, p.underWire.color, p.underWire.width),
       path(p.arc, 'white', w),
-      path(p.arc, c.horizontal.color, c.horizontal.width),
+      path(p.arc, p.overWire.color, p.overWire.width),
     );
   }
   for (const o of doc.objects.filter((o) => o.kind !== 'wire')) {

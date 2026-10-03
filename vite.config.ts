@@ -13,6 +13,9 @@ export default defineConfig({
   },
 
   test: {
+    // Long DOM workflows compete for CPU when Vitest uses every available core.
+    // Match the release runner without weakening assertions or test timeouts.
+    maxWorkers: 2,
     environment: 'node',
     setupFiles: ['tests/setup.ts'],
     include: ['tests/**/*.test.{ts,tsx}'],

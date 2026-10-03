@@ -24,19 +24,32 @@ export function PwaStatus() {
     window.addEventListener('appinstalled', installed);
     window.addEventListener('focus', check);
     const timer = window.setInterval(check, 60 * 60 * 1000);
-    void import('virtual:pwa-register').then(({ registerSW }) => {
-      if (disposed) return;
-      update.current = registerSW({
-        onNeedRefresh: () => setRefresh(true),
-        onOfflineReady: () =>
-          useEditorStore.getState().notify('DrawCircuit è disponibile anche offline.'),
-        onRegisteredSW: (_url, reg) => {
-          registration = reg;
-        },
-        onRegisterError: () =>
-          useEditorStore.getState().notify('Modalità offline non disponibile in questo browser.'),
+    void import('virtual:pwa-register')
+      .then(({ registerSW }) => {
+        if (disposed) return;
+        update.current = registerSW({
+          onNeedRefresh: () => {
+            if (!disposed) setRefresh(true);
+          },
+          onOfflineReady: () => {
+            if (!disposed)
+              useEditorStore.getState().notify('DrawCircuit è disponibile anche offline.');
+          },
+          onRegisteredSW: (_url, reg) => {
+            registration = reg;
+          },
+          onRegisterError: () => {
+            if (!disposed)
+              useEditorStore
+                .getState()
+                .notify('Modalità offline non disponibile in questo browser.');
+          },
+        });
+      })
+      .catch(() => {
+        if (!disposed)
+          useEditorStore.getState().notify('Modalità offline non disponibile in questo browser.');
       });
-    });
     return () => {
       disposed = true;
       window.removeEventListener('beforeinstallprompt', offerInstall);
@@ -58,7 +71,13 @@ export function PwaStatus() {
         );
       return;
     }
-    await update.current?.(true);
+    try {
+      await update.current?.(true);
+    } catch {
+      useEditorStore
+        .getState()
+        .notify('Aggiornamento non riuscito. Il circuito è salvato; riprova quando sei online.');
+    }
   };
   if (!refresh && !install) return null;
   return (
@@ -77,7 +96,10 @@ export function PwaStatus() {
               void install
                 ?.prompt()
                 .then(() => install.userChoice)
-                .then(() => setInstall(null));
+                .then(() => setInstall(null))
+                .catch(() =>
+                  useEditorStore.getState().notify('Installazione non riuscita. Puoi riprovare.'),
+                );
             }}
           >
             Installa app

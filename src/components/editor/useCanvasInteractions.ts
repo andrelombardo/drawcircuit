@@ -400,10 +400,6 @@ export function useCanvasInteractions(svgRef: RefObject<SVGSVGElement | null>) {
   const addJunction = (p: Point) => {
     const s = useEditorStore.getState(),
       candidate = wireCandidate(p, s.document, viewport.zoom);
-    if (candidate.kind === 'junction') {
-      s.select([candidate.endpoint.kind === 'junction' ? candidate.endpoint.junctionId : '']);
-      return;
-    }
     const result = insertJunction(s.document, candidate.point);
     if (candidate.kind === 'terminal') {
       const ep: Endpoint = { kind: 'junction', junctionId: result.junction.id };

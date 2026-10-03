@@ -3,6 +3,7 @@ import { resolveEndpoint, wirePoints } from './geometry';
 export interface WireCrossing extends Point {
   horizontal: Wire;
   vertical: Wire;
+  bridgeAxis: 'horizontal' | 'vertical';
   radius: number;
 }
 type Segment = { wire: Wire; a: Point; b: Point; min: number; max: number };
@@ -79,8 +80,7 @@ export function wireCrossings(doc: CircuitDocument): WireCrossing[] {
     list.push(s);
     buckets.set(k, list);
   }
-  const nodes = new Set(doc.objects.filter((o) => o.kind === 'junction').map(key)),
-    found = new Map<string, WireCrossing>();
+  const found = new Map<string, WireCrossing>();
   for (const h of horizontal)
     for (let k = Math.floor(h.min / cell); k <= Math.floor(h.max / cell); k++)
       for (const v of buckets.get(k) ?? []) {
@@ -92,19 +92,26 @@ export function wireCrossings(doc: CircuitDocument): WireCrossing[] {
           p.x > h.max + epsilon ||
           p.y < v.min - epsilon ||
           p.y > v.max + epsilon ||
-          nodes.has(id) ||
           found.has(id)
         )
           continue;
+        const nodeAt = (wire: Wire) =>
+          [wire.startEndpoint, wire.endEndpoint].find(
+            (e) => e.kind !== 'free' && key(resolveEndpoint(e, doc)) === id,
+          );
+        const hNode = nodeAt(h.wire),
+          vNode = nodeAt(v.wire);
         const common = [h.wire.startEndpoint, h.wire.endEndpoint].some(
           (e) =>
-            e.kind === 'terminal' &&
+            e.kind !== 'free' &&
             key(resolveEndpoint(e, doc)) === id &&
             [v.wire.startEndpoint, v.wire.endEndpoint].some(
               (f) =>
-                f.kind === 'terminal' &&
-                e.componentId === f.componentId &&
-                e.terminalId === f.terminalId,
+                (e.kind === 'terminal' &&
+                  f.kind === 'terminal' &&
+                  e.componentId === f.componentId &&
+                  e.terminalId === f.terminalId) ||
+                (e.kind === 'junction' && f.kind === 'junction' && e.junctionId === f.junctionId),
             ),
         );
         if (common) continue;
@@ -112,23 +119,49 @@ export function wireCrossings(doc: CircuitDocument): WireCrossing[] {
           vs = span(vRows.get(quantize(p.x)) ?? [], p.y);
         if (!hs || !vs) continue;
         const room = Math.min(p.x - hs.min, hs.max - p.x, p.y - vs.min, vs.max - p.y);
+        // Keep the owning wire through its node; the unrelated wire jumps around it.
+        const bridgeAxis = hNode && !vNode ? 'vertical' : 'horizontal',
+          halo = (Math.max(h.wire.width, v.wire.width) + 4) / 2,
+          // The cubic's apex is 0.75 * radius from the centre. Leave the dot
+          // and its owning wire clear of the bridge's white halo as well.
+          radius = hNode || vNode ? Math.max(7, (4.5 + halo + 1.5) / 0.75) : 7;
         if (room > 1)
           found.set(id, {
             ...p,
             horizontal: h.wire,
             vertical: v.wire,
-            radius: Math.min(7, room * 0.7),
+            bridgeAxis,
+            radius: Math.min(radius, room * 0.7),
           });
       }
   const result = [...found.values()].sort((a, b) => a.x - b.x || a.y - b.y);
   cache.set(doc, result);
   return result;
 }
-export function bridgePaths(c: WireCrossing) {
-  const { x, y, radius: r } = c;
+export function bridgeGeometry(c: WireCrossing) {
+  const { x, y, radius: r } = c,
+    vertical = c.bridgeAxis === 'vertical',
+    point = (along: number, offset: number): Point =>
+      vertical ? { x: x + offset, y: y + along } : { x: x + along, y: y - offset };
   return {
-    gap: `M ${x - r} ${y} L ${x + r} ${y}`,
-    vertical: `M ${x} ${y - r} L ${x} ${y + r}`,
-    arc: `M ${x - r} ${y} C ${x - r * 0.6} ${y - r} ${x + r * 0.6} ${y - r} ${x + r} ${y}`,
+    overWire: vertical ? c.vertical : c.horizontal,
+    underWire: vertical ? c.horizontal : c.vertical,
+    start: point(-r, 0),
+    end: point(r, 0),
+    controlA: point(-r * 0.6, r),
+    controlB: point(r * 0.6, r),
+    underStart: vertical ? { x: x - r, y } : { x, y: y - r },
+    underEnd: vertical ? { x: x + r, y } : { x, y: y + r },
+  };
+}
+export function bridgePaths(c: WireCrossing) {
+  const g = bridgeGeometry(c),
+    p = (q: Point) => `${q.x} ${q.y}`;
+  return {
+    overWire: g.overWire,
+    underWire: g.underWire,
+    gap: `M ${p(g.start)} L ${p(g.end)}`,
+    under: `M ${p(g.underStart)} L ${p(g.underEnd)}`,
+    arc: `M ${p(g.start)} C ${p(g.controlA)} ${p(g.controlB)} ${p(g.end)}`,
   };
 }

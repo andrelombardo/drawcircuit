@@ -11,21 +11,23 @@ export const WireBridges = memo(function WireBridges({ doc }: { doc: CircuitDocu
           <g
             key={`${c.x}:${c.y}`}
             data-wire-crossing="unconnected"
-            data-over-wire={c.horizontal.id}
+            data-bridge-axis={c.bridgeAxis}
+            data-over-wire={p.overWire.id}
+            data-under-wire={p.underWire.id}
           >
             <path d={p.gap} fill="none" stroke="white" strokeWidth={w} />
             <path
-              d={p.vertical}
+              d={p.under}
               fill="none"
-              stroke={c.vertical.color}
-              strokeWidth={c.vertical.width}
+              stroke={p.underWire.color}
+              strokeWidth={p.underWire.width}
             />
             <path d={p.arc} fill="none" stroke="white" strokeWidth={w} strokeLinecap="round" />
             <path
               d={p.arc}
               fill="none"
-              stroke={c.horizontal.color}
-              strokeWidth={c.horizontal.width}
+              stroke={p.overWire.color}
+              strokeWidth={p.overWire.width}
               strokeLinecap="round"
             />
           </g>

@@ -81,3 +81,30 @@ it('keeps the app open and asks for JSON when local saving fails', async () => {
   expect(mocks.update).not.toHaveBeenCalled();
   expect(useEditorStore.getState().notice).toContain('JSON');
 });
+it('reports a rejected worker activation and keeps the saved circuit and retry button', async () => {
+  const savedDocument = useEditorStore.getState().document;
+  mocks.update.mockRejectedValueOnce(new Error('Worker unavailable'));
+  await offer();
+  fireEvent.click(screen.getByRole('button', { name: 'Salva e aggiorna' }));
+  await waitFor(() =>
+    expect(useEditorStore.getState().notice).toContain('Aggiornamento non riuscito'),
+  );
+  expect(useEditorStore.getState().document).toEqual(savedDocument);
+  expect(screen.getByRole('button', { name: 'Salva e aggiorna' })).toBeTruthy();
+  expect(localStorage.setItem).toHaveBeenCalled();
+});
+it('handles a rejected install prompt without an unhandled rejection and allows retry', async () => {
+  render(<PwaStatus />);
+  await waitFor(() => expect(mocks.register).toHaveBeenCalled());
+  const event = new Event('beforeinstallprompt');
+  Object.assign(event, {
+    prompt: vi.fn().mockRejectedValue(new Error('Prompt unavailable')),
+    userChoice: Promise.resolve({ outcome: 'dismissed' }),
+  });
+  act(() => window.dispatchEvent(event));
+  fireEvent.click(screen.getByRole('button', { name: 'Installa app' }));
+  await waitFor(() =>
+    expect(useEditorStore.getState().notice).toContain('Installazione non riuscita'),
+  );
+  expect(screen.getByRole('button', { name: 'Installa app' })).toBeTruthy();
+});

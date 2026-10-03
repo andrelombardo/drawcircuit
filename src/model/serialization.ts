@@ -44,7 +44,13 @@ export function serializeDocument(doc: CircuitDocument): string {
 }
 export function deserializeDocument(raw: string): CircuitDocument {
   if (raw.length > 10_000_000) throw new Error('Il file supera il limite di 10 MB.');
-  const root = record(JSON.parse(raw) as unknown);
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw) as unknown;
+  } catch {
+    return fail();
+  }
+  const root = record(parsed);
   if (
     root.version !== 1 ||
     !str(root.title) ||

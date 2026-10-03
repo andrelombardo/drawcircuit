@@ -1,7 +1,7 @@
 import { detachElectrical } from '../annotations/electrical';
 import { wrapPosition } from './loops';
 import { makeId } from '../model/catalog';
-import { add, moveObject, objectBounds, resolveEndpoint, rotatePoint } from './geometry';
+import { add, moveObject, objectBounds, resolveEndpoint, rotatePoint, wirePoints } from './geometry';
 import type { CircuitDocument, CircuitObject, Endpoint, Point, Rotation } from '../model/types';
 export function extractSelection(doc: CircuitDocument, ids: string[]): CircuitDocument {
   const selected = new Set(ids);
@@ -19,7 +19,7 @@ export function extractSelection(doc: CircuitDocument, ids: string[]): CircuitDo
         ((o.wireId && !selected.has(o.wireId)) || (o.componentId && !selected.has(o.componentId)))
           ? detachElectrical(o, doc)
           : o.kind === 'wire'
-            ? { ...o, startEndpoint: ep(o.startEndpoint), endEndpoint: ep(o.endEndpoint) }
+            ? detachWireEndpoints(o, ep, doc)
             : o,
       ),
   };
@@ -78,9 +78,27 @@ export function removeObjects(doc: CircuitDocument, ids: string[]): CircuitDocum
         ((o.wireId && removed.has(o.wireId)) || (o.componentId && removed.has(o.componentId)))
           ? detachElectrical(o, doc)
           : o.kind === 'wire'
-            ? { ...o, startEndpoint: ep(o.startEndpoint), endEndpoint: ep(o.endEndpoint) }
+            ? detachWireEndpoints(o, ep, doc)
             : o,
       ),
+  };
+}
+/** Freeze the visible route before terminal direction is lost on detachment. */
+function detachWireEndpoints(
+  wire: Extract<CircuitObject, { kind: 'wire' }>,
+  detach: (endpoint: Endpoint) => Endpoint,
+  doc: CircuitDocument,
+) {
+  const startEndpoint = detach(wire.startEndpoint),
+    endEndpoint = detach(wire.endEndpoint);
+  return {
+    ...wire,
+    startEndpoint,
+    endEndpoint,
+    vertices:
+      startEndpoint !== wire.startEndpoint || endEndpoint !== wire.endEndpoint
+        ? wirePoints(wire, doc).slice(1, -1)
+        : wire.vertices,
   };
 }
 export function rotateObjects(doc: CircuitDocument, ids: string[]): CircuitDocument {
