@@ -6,6 +6,7 @@ import type { Bounds } from './visualBounds';
 export interface GuideItem {
   id: string;
   family: 'node' | 'annotation';
+  spacingFamily: 'component' | 'junction' | 'annotation';
   bounds: Bounds;
   anchor: Point;
   pins: Point[];
@@ -40,6 +41,8 @@ function item(o: CircuitObject, doc: CircuitDocument): GuideItem {
   return {
     id: o.id,
     family: o.kind === 'component' || o.kind === 'junction' ? 'node' : 'annotation',
+    spacingFamily:
+      o.kind === 'component' ? 'component' : o.kind === 'junction' ? 'junction' : 'annotation',
     bounds,
     anchor:
       o.kind === 'component' || o.kind === 'junction'
@@ -116,6 +119,11 @@ export function createMoveContext(doc: CircuitDocument, ids: string[]): MoveCont
         : {
             id: 'selection',
             family: entries.some((e) => e.family === 'node') ? 'node' : 'annotation',
+            spacingFamily: entries.some((e) => e.spacingFamily === 'component')
+              ? 'component'
+              : entries.some((e) => e.spacingFamily === 'junction')
+                ? 'junction'
+                : 'annotation',
             bounds,
             anchor: { x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height / 2 },
             pins: [],
@@ -179,7 +187,8 @@ export function computeMoveGuides(
     original = moving.bounds,
     threshold = 7 / zoom;
   const rawBounds = translate(original, raw),
-    candidates = context.index.nearby(rawBounds).filter((e) => e.family === moving.family);
+    candidates = context.index.nearby(rawBounds).filter((e) => e.family === moving.family),
+    spacingCandidates = candidates.filter((e) => e.spacingFamily === moving.spacingFamily);
   // Terminal/Junction proximity wins; this changes geometry only, never endpoint references.
   let target: Point | null = null,
     best = threshold;
@@ -233,7 +242,7 @@ export function computeMoveGuides(
       const b = translate(original, { ...delta, [axis]: raw[axis] });
       const { before, after } = nearestNeighbors(
         b,
-        candidates,
+        spacingCandidates,
         axis,
         threshold,
         moving.anchor[axis === 'x' ? 'y' : 'x'] + delta[axis === 'x' ? 'y' : 'x'],
@@ -245,7 +254,7 @@ export function computeMoveGuides(
         const neighbor = (before ?? after)!;
         const adjacent = nearestNeighbors(
           neighbor.bounds,
-          candidates.filter((c) => c.id !== neighbor.id),
+          spacingCandidates.filter((c) => c.id !== neighbor.id),
           axis,
           threshold,
           neighbor.anchor[axis === 'x' ? 'y' : 'x'],
@@ -272,7 +281,7 @@ export function computeMoveGuides(
   for (const axis of ['x', 'y'] as const) {
     const { before, after } = nearestNeighbors(
       b,
-      candidates,
+      spacingCandidates,
       axis,
       threshold,
       moving.anchor[axis === 'x' ? 'y' : 'x'] + delta[axis === 'x' ? 'y' : 'x'],
@@ -283,7 +292,7 @@ export function computeMoveGuides(
     ];
     const equal =
       gaps[0] !== undefined && gaps[1] !== undefined && Math.abs(gaps[0] - gaps[1]) < 0.01;
-    const at = axis === 'x' ? b.y + b.height + 22 / zoom : b.x + b.width + 22 / zoom;
+    const at = moving.anchor[axis === 'x' ? 'y' : 'x'] + delta[axis === 'x' ? 'y' : 'x'];
     if (before)
       distances.push({
         axis,
@@ -309,7 +318,7 @@ export function computeMoveGuides(
       const neighbor = (before ?? after)!;
       const adjacent = nearestNeighbors(
         neighbor.bounds,
-        candidates.filter((c) => c.id !== neighbor.id),
+        spacingCandidates.filter((c) => c.id !== neighbor.id),
         axis,
         threshold,
         neighbor.anchor[axis === 'x' ? 'y' : 'x'],

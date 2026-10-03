@@ -2070,3 +2070,242 @@ summary:focus-visible {
   width: 18px;
   height: 18px;
 }
+
+/* Contextual cleanup: one short action row, compact menus and circular color choices. */
+.context-toolbar {
+  flex-wrap: nowrap;
+  gap: 4px;
+  padding: 6px;
+}
+.context-toolbar .property-text {
+  width: 100px;
+  min-width: 60px;
+}
+.context-more {
+  margin-left: 0;
+}
+.context-more summary:hover {
+  background: var(--ui-hover);
+}
+.context-style summary {
+  width: auto;
+  gap: 5px;
+  padding: 0 8px;
+  font-size: 12px;
+}
+.context-popover {
+  top: calc(100% + 10px);
+  width: max-content;
+  max-width: min(300px, calc(100vw - 24px));
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 2px;
+  max-height: min(350px, 55vh);
+  overflow-y: auto;
+}
+.context-popover .secondary-property {
+  min-height: 32px;
+  border: 0;
+  background: transparent;
+  justify-content: flex-start;
+  gap: 8px;
+  font-size: 12px;
+}
+.context-popover .secondary-property:hover {
+  background: var(--ui-hover);
+}
+.context-toolbar[data-position='below'] .context-popover {
+  bottom: calc(100% + 10px);
+}
+.style-popover {
+  gap: 4px;
+}
+.style-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  min-height: 32px;
+  font-size: 12px;
+  color: var(--ui-text-secondary);
+}
+.style-row > span:first-child {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.style-value {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.style-value select {
+  min-width: 54px;
+}
+.style-colors {
+  display: flex;
+  align-items: center;
+}
+.color-choice {
+  width: 28px;
+  height: 32px;
+  padding: 6px;
+  background: none;
+  display: grid;
+  place-items: center;
+  border-radius: var(--ui-radius-sm);
+}
+.color-choice > span {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px #00000012;
+}
+.color-choice[aria-pressed='true'] > span {
+  outline: 1px solid var(--ui-text-secondary);
+  outline-offset: 3px;
+}
+.color-choice:hover {
+  background: var(--ui-hover);
+}
+.context-popover .custom-color-choice {
+  appearance: none;
+  width: 28px;
+  height: 32px;
+  padding: 7px;
+  border: 0;
+  border-radius: var(--ui-radius-sm);
+  background: transparent;
+  cursor: pointer;
+}
+.custom-color-choice::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+.custom-color-choice::-webkit-color-swatch {
+  border: 1px solid #00000030;
+  border-radius: 50%;
+}
+.custom-color-choice::-moz-color-swatch {
+  border: 1px solid #00000030;
+  border-radius: 50%;
+}
+.palette-heading > span:first-child {
+  font-size: 14px;
+}
+.palette-actions button {
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--ui-radius-sm);
+}
+.palette-actions button:hover,
+.sidebar-reopen:hover {
+  background: var(--ui-hover);
+}
+.replace-dialog {
+  width: 360px;
+  max-width: calc(100vw - 32px);
+  padding: 16px;
+}
+.replace-dialog h2 {
+  margin-bottom: 12px;
+  font-size: 16px;
+}
+.replace-search-field {
+  position: relative;
+  color: var(--ui-text-secondary);
+}
+.replace-search-field > svg {
+  position: absolute;
+  left: 9px;
+  top: 9px;
+}
+.replace-search {
+  padding-left: 30px;
+}
+.replace-list {
+  display: block;
+  max-height: min(350px, 60vh);
+  margin-top: 10px;
+}
+.replace-list h3 {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--ui-text-secondary);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  margin: 12px 8px 4px;
+}
+.replace-option {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 10px;
+  padding: 3px 8px;
+  border-radius: var(--ui-radius-sm);
+  font-size: 12px;
+  text-align: left;
+  color: var(--ui-text);
+  background: transparent;
+}
+.replace-option svg {
+  flex: 0 0 52px;
+  height: 32px;
+}
+.replace-option:hover {
+  background: var(--ui-hover);
+}
+@media (max-width: 600px) {
+  .context-toolbar {
+    gap: 2px;
+  }
+  .context-toolbar .property-text {
+    width: 76px;
+  }
+  .context-toolbar .property-control > span {
+    display: none;
+  }
+}
+.tool-point-label {
+  font-family: var(--ui-font);
+  fill: var(--ui-accent);
+  paint-order: stroke;
+  stroke: var(--ui-surface);
+  stroke-width: 3px;
+  stroke-linejoin: round;
+}
+.drawing-surface.tool-polarity,
+.drawing-surface.tool-current,
+.drawing-surface.tool-voltage {
+  cursor: crosshair;
+}
+.distance-guide {
+  pointer-events: none;
+}
+.distance-guide path {
+  stroke: #8593a4;
+  stroke-opacity: 0.7;
+}
+.distance-guide .measurement-chip {
+  fill: var(--ui-surface);
+  fill-opacity: 0.96;
+  stroke: var(--ui-border);
+  stroke-width: 0.5px;
+  vector-effect: non-scaling-stroke;
+}
+.distance-guide text {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  fill: var(--ui-text-secondary);
+  stroke: none;
+  font-variant-numeric: tabular-nums;
+}
+.distance-guide.equal-spacing path {
+  stroke: var(--ui-accent);
+}
+.distance-guide.equal-spacing text {
+  fill: var(--ui-accent);
+  font-weight: 600;
+}

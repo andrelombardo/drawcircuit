@@ -1,9 +1,10 @@
 import { createPortal } from 'react-dom';
 import { useRef, useState } from 'react';
-import { X } from 'lucide-react';
+import { Search, X } from 'lucide-react';
 import type { CircuitComponent } from '../../model/types';
 import { compatibleReplacements } from '../../model/replacement';
-import { componentRegistry } from '../../model/catalog';
+import { categories, componentRegistry, matchesComponent } from '../../model/catalog';
+import { ComponentPreview } from '../palette/ComponentPreview';
 import { useEditorStore } from '../../store/editorStore';
 import { useDialogFocus } from '../toolbar/useDialogFocus';
 export function ReplaceDialog({
@@ -17,12 +18,17 @@ export function ReplaceDialog({
   const ref = useRef<HTMLDivElement>(null);
   useDialogFocus(ref, onClose);
   const items = compatibleReplacements(component).filter((type) =>
-    componentRegistry[type].name.toLocaleLowerCase().includes(search.toLocaleLowerCase()),
+    matchesComponent(componentRegistry[type], search),
   );
   return createPortal(
-    <div className="modal-backdrop">
+    <div
+      className="modal-backdrop"
+      onPointerDown={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
       <div
-        className="confirm-dialog"
+        className="confirm-dialog replace-dialog"
         ref={ref}
         role="dialog"
         aria-modal="true"
@@ -37,27 +43,42 @@ export function ReplaceDialog({
           <X size={20} />
         </button>
         <h2>Sostituisci con</h2>
-        <input
-          className="replace-search"
-          autoFocus
-          aria-label="Cerca sostituzione"
-          placeholder="Cerca componente…"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
+        <div className="replace-search-field">
+          <Search size={15} />
+          <input
+            className="replace-search"
+            autoFocus
+            aria-label="Cerca sostituzione"
+            placeholder="Cerca componente…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
         <div className="replace-list">
-          {items.map((type) => (
-            <button
-              key={type}
-              className="secondary-button"
-              onClick={() => {
-                useEditorStore.getState().replaceComponent(component.id, type);
-                onClose();
-              }}
-            >
-              {componentRegistry[type].name}
-            </button>
-          ))}
+          {categories.map((group) => {
+            const entries = items
+              .map((type) => componentRegistry[type])
+              .filter((c) => c.group === group);
+            if (!entries.length) return null;
+            return (
+              <section key={group} aria-label={group}>
+                {items.length > 6 && <h3>{group}</h3>}
+                {entries.map((c) => (
+                  <button
+                    key={c.type}
+                    className="replace-option"
+                    onClick={() => {
+                      useEditorStore.getState().replaceComponent(component.id, c.type);
+                      onClose();
+                    }}
+                  >
+                    <ComponentPreview component={c} />
+                    <span>{c.name}</span>
+                  </button>
+                ))}
+              </section>
+            );
+          })}
         </div>
         {!items.length && <p>Nessun componente compatibile trovato.</p>}
       </div>

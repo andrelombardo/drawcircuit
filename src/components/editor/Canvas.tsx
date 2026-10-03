@@ -7,9 +7,10 @@ import { Check, ChevronRight, Grid2X2, Maximize, Minus, Plus } from 'lucide-reac
 import { useEditorStore } from '../../store/editorStore';
 import { catalog, componentRegistry } from '../../model/catalog';
 import { COLORS, componentTypes, GRID } from '../../model/types';
-import { wirePoints, pointsPath, nearestWire } from '../../utils/geometry';
+import { wirePoints, pointsPath } from '../../utils/geometry';
 import type { ComponentType, Wire } from '../../model/types';
 import { wireCandidate } from '../../utils/wires';
+import { TargetFeedbackLayer } from './TargetFeedbackLayer';
 import { DistanceGuideLayer } from './DistanceGuideLayer';
 import { CircuitLayer } from './CircuitLayer';
 import { DocumentTitle } from './DocumentTitle';
@@ -66,17 +67,17 @@ export function Canvas() {
     };
     previewPath = pointsPath(wirePoints(wire, doc));
   }
-  const currentHover =
-    tool === 'current' && overlay.mouse ? nearestWire(overlay.mouse, doc, 16 / v.zoom) : null;
   const hint =
     tool === 'preset'
       ? `${pendingPresetId ? (presetRegistry[pendingPresetId]?.name ?? personalName) : 'Blocco rapido'} · clicca per inserire · R ruota · Esc annulla`
       : tool === 'current'
-        ? 'Clicca un filo per indicare la corrente'
+        ? 'Corrente · clicca un filo evidenziato · Esc annulla'
         : tool === 'polarity'
-          ? 'Clicca un componente a due terminali per indicare la polarità'
+          ? 'Polarità · clicca un componente evidenziato · Esc annulla'
           : tool === 'voltage'
-            ? 'Trascina dal primo al secondo punto per indicare la tensione'
+            ? interactions.voltageStart
+              ? 'A selezionato · seleziona il secondo punto · Esc annulla'
+              : 'Seleziona il primo punto · clicca o trascina verso il secondo · Esc annulla'
             : tool === 'wire'
               ? draft
                 ? 'Aggiungi una svolta · clic su terminale, nodo o filo per collegare · Enter per terminare'
@@ -191,10 +192,10 @@ export function Canvas() {
             width={gridSize}
             height={gridSize}
             patternUnits="userSpaceOnUse"
-            x={v.x % gridSize}
-            y={v.y % gridSize}
+            x={(v.x % gridSize) - gridSize / 2}
+            y={(v.y % gridSize) - gridSize / 2}
           >
-            <circle cx={0} cy={0} r={0.8} fill="#d8ddd9" />
+            <circle cx={gridSize / 2} cy={gridSize / 2} r={1} fill="#bdc5c9" />
           </pattern>
         </defs>
         <rect width="100%" height="100%" fill={grid ? 'url(#grid)' : 'transparent'} />
@@ -272,17 +273,13 @@ export function Canvas() {
             viewport={v}
             size={interactions.surfaceSize}
           />
-          {currentHover && (
-            <path
-              data-current-hover={currentHover.wire.id}
-              d={pointsPath(wirePoints(currentHover.wire, doc))}
-              fill="none"
-              stroke="#2463cb"
-              strokeWidth={6 / v.zoom}
-              opacity={0.4}
-              pointerEvents="none"
-            />
-          )}
+          <TargetFeedbackLayer
+            doc={doc}
+            componentId={overlay.componentTarget}
+            wireId={overlay.wireTarget}
+            firstPoint={tool === 'voltage' ? interactions.voltageStart : null}
+            zoom={v.zoom}
+          />
           <PresetPlacementLayer point={overlay.mouse} zoom={v.zoom} />
         </g>
       </svg>
@@ -361,7 +358,9 @@ export function Canvas() {
             <Grid2X2 size={15} />
           </IconButton>
         </div>
-        <div className="canvas-hint">{isComponent ? (smartHint ?? hint) : hint}</div>
+        <div className="canvas-hint" role="status">
+          {isComponent ? (smartHint ?? hint) : hint}
+        </div>
         <span className="sheet-mark">
           FATTO PER I TUOI APPUNTI <span>↗</span>
         </span>
@@ -378,7 +377,8 @@ export function Canvas() {
           {selection.length
             ? `${selection.length} ${selection.length === 1 ? 'elemento selezionato' : 'elementi selezionati'}`
             : 'Seleziona e disegna liberamente'}
-          <span className="status-separator">/</span>Griglia {GRID} px
+          <span className="status-separator">/</span>Griglia{' '}
+          {grid ? `visibile · ${GRID} px` : 'nascosta'}
         </span>
       </footer>
     </main>

@@ -10,6 +10,10 @@ export function DistanceGuideLayer({ guides, zoom }: { guides: DistanceGuide[]; 
           Math.abs(g.value - Math.round(g.value)) < 0.01
             ? String(Math.round(g.value))
             : g.value.toFixed(1);
+        const x = horizontal ? mid : g.at,
+          y = horizontal ? g.at : mid,
+          width = (value.length * 6.5 + 12) / zoom,
+          height = 20 / zoom;
         return (
           <g
             key={i}
@@ -26,16 +30,16 @@ export function DistanceGuideLayer({ guides, zoom }: { guides: DistanceGuide[]; 
                   : `M${g.at} ${g.from}V${g.to}M${g.at - tick} ${g.from}H${g.at + tick}M${g.at - tick} ${g.to}H${g.at + tick}`
               }
             />
-            <text
-              x={horizontal ? mid : g.at}
-              y={horizontal ? g.at : mid}
-              textAnchor="middle"
-              dominantBaseline="middle"
-              fontSize={11 / zoom}
-              strokeWidth={6 / zoom}
-            >
+            <rect
+              className="measurement-chip"
+              x={x - width / 2}
+              y={y - height / 2}
+              width={width}
+              height={height}
+              rx={3 / zoom}
+            />
+            <text x={x} y={y} textAnchor="middle" dominantBaseline="central" fontSize={11 / zoom}>
               {value}
-              {g.equal ? ' =' : ''}
             </text>
           </g>
         );

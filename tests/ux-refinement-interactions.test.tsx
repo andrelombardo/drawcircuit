@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { DistanceGuideLayer } from '../src/components/editor/DistanceGuideLayer';
 import { Canvas } from '../src/components/editor/Canvas';
 import { ExportDialog } from '../src/components/toolbar/ExportDialog';
 import { createComponent } from '../src/model/catalog';
@@ -8,6 +9,7 @@ import { createJunction, createWire } from '../src/model/factories';
 import type { CircuitDocument, CircuitObject } from '../src/model/types';
 import { useEditorStore } from '../src/store/editorStore';
 import { serializeDocument } from '../src/model/serialization';
+import { getExportSelection } from '../src/tikz/selection';
 import { exportTikz } from '../src/tikz/exporter';
 let clipboard = '';
 const r = (id: string, x: number, y = 0) => ({ ...createComponent('resistor', { x, y }), id });
@@ -223,9 +225,10 @@ describe('adaptive accessible toolbar', () => {
   it('shows labeled frequent properties and keeps only secondary controls in More', () => {
     render(<Canvas />);
     select('R3', 200);
+    fireEvent.click(screen.getByRole('button', { name: 'Stile' }));
     expect(screen.getByLabelText('Dimensione testo')).toBeDefined();
-    expect(screen.getByLabelText('Spessore componente')).toBeDefined();
-    for (const name of ['Duplica (⌘/Ctrl D)', 'Ruota 90° (R)', 'Elimina (Delete)']) {
+    expect(screen.getByLabelText('Spessore linea')).toBeDefined();
+    for (const name of ['Duplica (⌘/Ctrl D)', 'Ruota 90° (R)']) {
       const button = screen.getByRole('button', { name });
       expect(button.title).toBe(name);
       expect(button.getAttribute('data-tooltip')).toBe(name);
@@ -288,17 +291,17 @@ describe('adaptive accessible toolbar', () => {
       expect(canvas().querySelectorAll('[data-handle]').length).toBe(loop ? 3 : 4);
       expect(screen.getByLabelText('Inverti freccia')).toBeDefined();
       expect(screen.queryByLabelText('Dimensione testo')).toBeNull();
-      if (loop) expect(screen.queryByLabelText('Altre proprietà')).toBeNull();
+      expect(screen.getByLabelText('Altre proprietà')).toBeDefined();
     });
-  it('wire exposes stroke and color without a useless More menu or rotation', () => {
+  it('wire groups stroke/color in Style and secondary actions in More without rotation', () => {
     const w = createWire(
       { kind: 'free', point: { x: 0, y: 0 } },
       { kind: 'free', point: { x: 100, y: 0 } },
     );
     useEditorStore.setState({ document: documentWith([w]), selection: [w.id] });
     render(<Canvas />);
-    expect(screen.getByLabelText('Spessore')).toBeDefined();
-    expect(screen.queryByLabelText('Altre proprietà')).toBeNull();
+    expect(screen.getByLabelText('Spessore linea')).toBeDefined();
+    expect(screen.getByLabelText('Altre proprietà')).toBeDefined();
     expect(screen.queryByLabelText('Ruota 90° (R)')).toBeNull();
   });
   it('Junction exposes node color and text properties without stroke or rotation controls', () => {
@@ -309,7 +312,7 @@ describe('adaptive accessible toolbar', () => {
     expect(screen.queryByLabelText('Spessore')).toBeNull();
     expect(screen.queryByLabelText('Ruota 90° (R)')).toBeNull();
     fireEvent.click(screen.getByLabelText('Altre proprietà'));
-    expect(screen.getByLabelText('Colore label')).toBeDefined();
+    expect(screen.getByLabelText('Colore etichetta personalizzato')).toBeDefined();
   });
 });
 describe('selection export scope in the existing dialog', () => {
@@ -354,4 +357,96 @@ describe('selection export scope in the existing dialog', () => {
     expect(button.disabled).toBe(true);
     expect(button.title).toContain('Seleziona almeno');
   });
+});
+
+describe('compact Style and replacement controls', () => {
+  it('keeps frequent actions direct and edits symbol/label separately inside Style', () => {
+    render(<Canvas />);
+    select('R3', 200);
+    const toolbar = screen.getByRole('toolbar', { name: 'Proprietà selezione' });
+    expect(
+      within(toolbar)
+        .getAllByRole('button')
+        .filter((b) => !b.closest('.context-popover'))
+        .map((b) => b.getAttribute('aria-label')),
+    ).toEqual(['Stile', 'Ruota 90° (R)', 'Duplica (⌘/Ctrl D)', 'Altre proprietà']);
+    expect(toolbar.querySelector('.context-more')?.hasAttribute('open')).toBe(false);
+    fireEvent.click(screen.getByRole('button', { name: 'Stile' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Simbolo: Rosso' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Etichetta: Verde' }));
+    fireEvent.change(screen.getByLabelText('Spessore linea'), { target: { value: '3' } });
+    fireEvent.change(screen.getByLabelText('Dimensione testo'), { target: { value: '28' } });
+    expect(useEditorStore.getState().document.objects[1]).toMatchObject({
+      color: '#df4949',
+      width: 3,
+      label: { color: '#269978', fontSize: 28 },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Altre proprietà' }));
+    expect(document.querySelector('.context-style')?.hasAttribute('open')).toBe(false);
+    expect(screen.getByRole('button', { name: 'Salva come blocco' })).toBeDefined();
+    expect(screen.getByRole('button', { name: 'Elimina (Delete)' })).toBeDefined();
+  });
+  it('shows live compatible previews in Replace and filters through shared palette search', () => {
+    render(<Canvas />);
+    select('R3', 200);
+    fireEvent.click(screen.getByRole('button', { name: 'Altre proprietà' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Sostituisci…' }));
+    const dialog = screen.getByRole('dialog', { name: 'Sostituisci componente' });
+    expect(dialog.querySelectorAll('.replace-option svg').length).toBeGreaterThan(5);
+    expect(within(dialog).queryByRole('button', { name: 'Amplificatore operazionale' })).toBeNull();
+    fireEvent.change(screen.getByRole('textbox', { name: 'Cerca sostituzione' }), {
+      target: { value: 'cond' },
+    });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Condensatore' }));
+    expect(useEditorStore.getState().document.objects[1]).toMatchObject({
+      id: 'R3',
+      type: 'capacitor',
+    });
+    act(() => useEditorStore.getState().undo());
+    expect(useEditorStore.getState().document.objects[1]).toMatchObject({ type: 'resistor' });
+    act(() => useEditorStore.getState().redo());
+    expect(useEditorStore.getState().document.objects[1]).toMatchObject({ type: 'capacitor' });
+  });
+});
+
+describe('measurement chips', () => {
+  it('centers horizontal/vertical values over their measured gap, with a noninteractive background and no extra equal-spacing text', () => {
+    const { container } = render(
+      <svg>
+        <DistanceGuideLayer
+          zoom={2}
+          guides={[
+            { axis: 'x', from: 40, to: 210, at: 0, value: 170, equal: true, neighborId: 'left' },
+            { axis: 'y', from: 40, to: 210, at: 100, value: 170, equal: true, neighborId: 'above' },
+          ]}
+        />
+      </svg>,
+    );
+    const layer = container.querySelector('[data-layer="distance-guides"]')!;
+    expect(layer.getAttribute('pointer-events')).toBe('none');
+    const texts = layer.querySelectorAll('text');
+    expect(texts[0].textContent).toBe('170');
+    expect(texts[0].getAttribute('x')).toBe('125');
+    expect(texts[0].getAttribute('y')).toBe('0');
+    expect(texts[1].getAttribute('x')).toBe('100');
+    expect(texts[1].getAttribute('y')).toBe('125');
+    expect(layer.querySelectorAll('.measurement-chip')).toHaveLength(2);
+    expect(layer.querySelectorAll('.equal-spacing')).toHaveLength(2);
+  });
+});
+
+it('exports the same subset after an actual box gesture and equivalent Shift-click selection', () => {
+  render(<Canvas />);
+  select('R2', 0);
+  fireEvent.pointerDown(body('R3'), client(200, 0, { shiftKey: true }));
+  fireEvent.pointerUp(canvas(), client(200, 0));
+  const state = useEditorStore.getState(),
+    manual = getExportSelection(state.document, state.selection);
+  expect(state.selection).toEqual(['R2', 'R3']);
+  fireEvent.pointerDown(canvas(), client(-80, -60));
+  fireEvent.pointerMove(canvas(), client(260, 60));
+  fireEvent.pointerUp(canvas(), client(260, 60));
+  const boxed = useEditorStore.getState();
+  expect(boxed.selection).toEqual(['R2', 'R3']);
+  expect(getExportSelection(boxed.document, boxed.selection)).toEqual(manual);
 });

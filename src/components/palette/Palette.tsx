@@ -1,10 +1,10 @@
 import { usePersonalBlocks } from '../../personalBlocks/library';
 import { PersonalBlockPalette } from '../../personalBlocks/PersonalBlockPalette';
 import { useState } from 'react';
-import { ChevronDown, PanelLeftClose, Search, Shapes, X } from 'lucide-react';
+import { ChevronDown, PanelLeftClose, Search, X } from 'lucide-react';
 import { categories, catalog, matchesComponent } from '../../model/catalog';
 import { useEditorStore } from '../../store/editorStore';
-import { Symbol } from '../../circuit/components/Symbol';
+import { ComponentPreview } from './ComponentPreview';
 import { circuitPresets, matchesPreset } from '../../presets/registry';
 import { presetCategories } from '../../presets/types';
 import { PresetThumbnail } from '../../presets/PresetThumbnail';
@@ -21,12 +21,14 @@ export function Palette({ onHide }: { onHide: () => void }) {
   return (
     <aside className="palette" aria-label="Libreria componenti">
       <div className="palette-heading">
-        <span>
-          <Shapes size={16} /> Componenti
-        </span>
+        <span>Componenti</span>
         <div className="palette-actions">
-          <span className="count">{catalog.length}</span>
-          <button aria-label="Nascondi componenti" title="Nascondi componenti" onClick={onHide}>
+          <button
+            aria-label="Nascondi componenti"
+            title="Nascondi componenti"
+            data-tooltip="Nascondi componenti"
+            onClick={onHide}
+          >
             <PanelLeftClose size={16} />
           </button>
         </div>
@@ -143,14 +145,7 @@ export function Palette({ onHide }: { onHide: () => void }) {
                       }
                       onClick={() => setTool(c.type)}
                     >
-                      <svg
-                        viewBox={`${c.bounds.x - 4} ${c.bounds.y - 4} ${c.bounds.width + 8} ${c.bounds.height + 8}`}
-                        width={52}
-                        height={38}
-                        aria-hidden="true"
-                      >
-                        <Symbol type={c.type} width={2.4} bodyText={c.internalText} />
-                      </svg>
+                      <ComponentPreview component={c} />
                       <span>{c.shortName}</span>
                     </button>
                   ))}

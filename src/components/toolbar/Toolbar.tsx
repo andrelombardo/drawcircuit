@@ -181,6 +181,7 @@ export function Toolbar({ onExport, onHelp }: { onExport: () => void; onHelp: ()
           <button
             className={`icon-button${['current', 'polarity', 'voltage'].includes(tool) ? ' active' : ''}`}
             aria-label="Annotazioni elettriche"
+            aria-pressed={['current', 'polarity', 'voltage'].includes(tool)}
             aria-expanded={electricalMenu}
             title="Corrente e tensione"
             data-tooltip="Corrente e tensione"

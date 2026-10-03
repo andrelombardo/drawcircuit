@@ -3,7 +3,7 @@ import { useMemo, useRef, useState } from 'react';
 import { Check, Copy, Download, X } from 'lucide-react';
 import { useEditorStore } from '../../store/editorStore';
 import { exportObsidian, exportStandalone, exportTikz } from '../../tikz/exporter';
-import { selectionDocument } from '../../tikz/selection';
+import { getExportSelection } from '../../tikz/selection';
 import { download, fileName } from '../../utils/files';
 import { useDialogFocus } from './useDialogFocus';
 export function ExportDialog({ onClose }: { onClose: () => void }) {
@@ -16,8 +16,8 @@ export function ExportDialog({ onClose }: { onClose: () => void }) {
   const textarea = useRef<HTMLTextAreaElement>(null);
   const dialog = useRef<HTMLElement>(null);
   useDialogFocus(dialog, onClose);
-  const subset = useMemo(() => selectionDocument(doc, selection), [doc, selection]);
-  const exportDoc = scope === 'selection' && subset.objects.length ? subset : doc;
+  const subset = useMemo(() => getExportSelection(doc, selection), [doc, selection]);
+  const exportDoc = scope === 'selection' ? subset : doc;
   const code =
     tab === 'svg'
       ? exportSVG(exportDoc)

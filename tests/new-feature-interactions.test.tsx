@@ -98,6 +98,7 @@ describe('new feature UI integrates with the existing editor', () => {
       selection: [c.id, d.id],
     });
     render(<App />);
+    fireEvent.click(screen.getByLabelText('Altre proprietà'));
     fireEvent.click(screen.getByRole('button', { name: 'Salva come blocco' }));
     fireEvent.change(screen.getByLabelText('Nome blocco'), { target: { value: 'R-C personale' } });
     fireEvent.click(screen.getByRole('button', { name: 'Salva blocco' }));
@@ -142,7 +143,8 @@ describe('new feature UI integrates with the existing editor', () => {
     fireEvent.change(screen.getByLabelText('Label annotazione'), { target: { value: 'i_{AB}' } });
     fireEvent.blur(screen.getByLabelText('Label annotazione'));
     fireEvent.click(screen.getByRole('button', { name: 'Inverti freccia' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Colore green' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Stile' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Simbolo: Verde' }));
     expect(doc().objects.at(-1)).toMatchObject({
       reversed: true,
       color: '#269978',
@@ -203,6 +205,7 @@ describe('new feature UI integrates with the existing editor', () => {
     const c = createComponent('resistor', { x: 0, y: 0 }, 1);
     useEditorStore.setState({ document: { ...emptyDocument(), objects: [c] }, selection: [c.id] });
     render(<App />);
+    fireEvent.click(screen.getByLabelText('Altre proprietà'));
     fireEvent.click(screen.getByRole('button', { name: 'Sostituisci…' }));
     expect(screen.queryByRole('button', { name: 'Transistor NPN' })).toBeNull();
     fireEvent.change(screen.getByLabelText('Cerca sostituzione'), {
@@ -377,4 +380,92 @@ it('exports existing Arrow and Loop Arrow geometry and escapes authored text in 
   expect(parsed.querySelector('text')?.textContent).toBe('<script>alert("x")</script>');
   expect(svg).toContain('#8855c2');
   expect(svg).not.toContain('NaN');
+});
+
+describe('contextual tool feedback and cancellation', () => {
+  it('highlights only valid polarity components, clears on leave/Escape, and applies the same target on click', () => {
+    const r = createComponent('resistor', { x: 0, y: 0 }),
+      op = createComponent('opAmp', { x: 240, y: 0 }),
+      w = line(-120, 140, 120, 140);
+    useEditorStore.setState({ document: { ...emptyDocument(), objects: [r, op, w] } });
+    render(<App />);
+    chooseElectrical('Polarità + / −');
+    expect(
+      screen.getByRole('button', { name: 'Annotazioni elettriche' }).getAttribute('aria-pressed'),
+    ).toBe('true');
+    const body = canvas().querySelector(
+      `[data-layer="components"] [data-object="${r.id}"] .object-hit`,
+    )!;
+    fireEvent.pointerMove(body, client(0, 0));
+    expect(canvas().querySelector(`[data-polarity-hover="${r.id}"]`)).toBeTruthy();
+    const invalid = canvas().querySelector(
+      `[data-layer="components"] [data-object="${op.id}"] .object-hit`,
+    )!;
+    fireEvent.pointerMove(invalid, client(240, 0));
+    expect(canvas().querySelector('[data-polarity-hover]')).toBeNull();
+    move(0, 140);
+    expect(canvas().querySelector('[data-polarity-hover]')).toBeNull();
+    fireEvent.pointerMove(body, client(0, 0));
+    fireEvent.pointerLeave(canvas());
+    expect(canvas().querySelector('[data-polarity-hover]')).toBeNull();
+    fireEvent.pointerMove(body, client(0, 0));
+    key('Escape');
+    expect(useEditorStore.getState().tool).toBe('select');
+    expect(canvas().querySelector('[data-polarity-hover]')).toBeNull();
+    chooseElectrical('Polarità + / −');
+    fireEvent.pointerDown(body, client(0, 0));
+    fireEvent.pointerUp(canvas(), client(0, 0));
+    expect(doc().objects.find((o) => o.kind === 'electrical')).toMatchObject({
+      componentId: r.id,
+      mode: 'polarity',
+    });
+    expect(canvas().querySelector('[data-polarity-hover]')).toBeNull();
+  });
+  it('keeps voltage point A visible between clicks, snaps both points to terminals and cancels cleanly', () => {
+    const r = createComponent('resistor', { x: 0, y: 0 });
+    useEditorStore.setState({ document: { ...emptyDocument(), objects: [r] } });
+    render(<App />);
+    chooseElectrical('Tensione tra due punti');
+    move(-39, 2);
+    expect(canvas().querySelector('.snap-target')).toBeTruthy();
+    click(-39, 2);
+    expect(canvas().querySelector('[data-voltage-first]')).toBeTruthy();
+    expect(document.querySelector('.canvas-hint')?.textContent).toContain('A selezionato');
+    move(39, 2);
+    expect(canvas().querySelector('[data-voltage-first]')).toBeTruthy();
+    click(39, 2);
+    expect(doc().objects.find((o) => o.kind === 'electrical')).toMatchObject({
+      mode: 'voltage',
+      start: { x: -40, y: 0 },
+      end: { x: 40, y: 0 },
+    });
+    expect(canvas().querySelector('[data-voltage-first]')).toBeNull();
+    chooseElectrical('Tensione tra due punti');
+    click(160, 160);
+    key('Escape');
+    expect(canvas().querySelector('[data-voltage-first]')).toBeNull();
+    expect(canvas().querySelector('.snap-target')).toBeNull();
+  });
+  it('preserves drag voltage, clears current hover on tool change, and gives visible grid feedback without changing snapping', () => {
+    const w = line(0, 0, 200, 0);
+    useEditorStore.setState({ document: { ...emptyDocument(), objects: [w] } });
+    render(<App />);
+    chooseElectrical('Corrente su un filo');
+    move(100, 0);
+    expect(canvas().querySelector('[data-current-hover]')).toBeTruthy();
+    chooseElectrical('Tensione tra due punti');
+    expect(canvas().querySelector('[data-current-hover]')).toBeNull();
+    fireEvent.pointerDown(canvas(), client(0, 80));
+    move(200, 80);
+    expect(canvas().querySelector('[data-voltage-first]')).toBeTruthy();
+    fireEvent.pointerUp(canvas(), client(200, 80));
+    expect(doc().objects.filter((o) => o.kind === 'electrical')).toHaveLength(1);
+    key('g');
+    expect(canvas().querySelector(':scope > rect')?.getAttribute('fill')).toBe('transparent');
+    expect(document.querySelector('.statusbar')?.textContent).toContain('Griglia nascosta');
+    expect(useEditorStore.getState().notice).toBe('Griglia: nascosta');
+    key('g');
+    expect(canvas().querySelector(':scope > rect')?.getAttribute('fill')).toBe('url(#grid)');
+    expect(useEditorStore.getState().notice).toBe('Griglia: visibile');
+  });
 });

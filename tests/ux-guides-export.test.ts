@@ -87,6 +87,17 @@ describe('contextual distances and spatial search', () => {
     expect(computeMoveGuides(c, { x: 40, y: 0 }, 0.5).delta.x).toBe(50);
     expect(computeMoveGuides(c, { x: 40, y: 0 }, 2).delta.x).toBe(40);
   });
+  it('keeps the equal-spacing candidate stable over pointer jitter at different zoom levels', () => {
+    for (const zoom of [0.25, 0.5, 1, 2, 4]) {
+      const c = createMoveContext(row(), ['R3']);
+      for (const screenOffset of [-2, -1, 0, 1, 2, 0, -1]) {
+        const result = computeMoveGuides(c, { x: 50 + screenOffset / zoom, y: 0 }, zoom);
+        expect(result.delta.x).toBe(50);
+        expect(result.distances.map((g) => g.value)).toEqual([170, 170]);
+        expect(result.distances.every((g) => g.equal)).toBe(true);
+      }
+    }
+  });
   it('extends a local distribution using the preceding free gap', () => {
     const d = doc([
       resistor('R1', 0),
@@ -151,6 +162,20 @@ describe('contextual distances and spatial search', () => {
       x: 40,
       y: 40,
     });
+  });
+  it('measures component-to-component gaps even when a wire contains an intermediate Junction', () => {
+    const d = row();
+    d.objects.push(createJunction({ x: 120, y: 0 }, 'J'));
+    const result = computeMoveGuides(createMoveContext(d, ['R3']), { x: 46, y: 0 }, 1);
+    expect(result.distances.map((g) => g.neighborId)).toEqual(['R2', 'R4']);
+    expect(result.distances.map((g) => g.value)).toEqual([170, 170]);
+    expect(result.delta.x).toBe(50);
+  });
+  it('still snaps a component terminal to a Junction, independently of the spacing family', () => {
+    const d = doc([resistor('R1', 0), createJunction({ x: 120, y: 0 }, 'J')]);
+    const result = computeMoveGuides(createMoveContext(d, ['R1']), { x: 76, y: 0 }, 1);
+    expect(result.target).toEqual({ x: 120, y: 0 });
+    expect(result.delta.x).toBe(80);
   });
   it('queries local buckets instead of returning thousands of distant objects', () => {
     const objects = Array.from({ length: 3000 }, (_, i) => resistor(`r${i}`, i * 200));
@@ -255,8 +280,8 @@ describe('selection-only export', () => {
 describe('adaptive property action audit', () => {
   it('keeps component essentials direct and label rotation secondary without duplicate rotation', () => {
     const actions = toolbarActions(resistor('R1', 0));
-    expect(actions.primary).toContain('textSize');
-    expect(actions.primary).toContain('stroke');
+    expect(actions.primary).toContain('style');
+    expect(actions.primary).not.toContain('stroke');
     expect(actions.primary).toContain('duplicate');
     expect(actions.secondary).toContain('rotateLabel');
     expect(actions.secondary).not.toContain('rotate');
@@ -306,8 +331,8 @@ describe('adaptive property action audit', () => {
                 };
       const actions = toolbarActions(o);
       expect(actions.primary).not.toContain('rotate');
-      expect(actions.primary).toContain('color');
+      expect(actions.primary).toContain('style');
       expect(actions.primary.includes('reverse')).toBe(kind === 'arrow' || kind === 'loop-arrow');
-      if (kind === 'wire' || kind === 'loop-arrow') expect(actions.secondary).toEqual([]);
+      if (kind === 'wire' || kind === 'loop-arrow') expect(actions.secondary).toContain('delete');
     });
 });

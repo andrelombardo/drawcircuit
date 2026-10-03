@@ -136,6 +136,16 @@ export function exportSVG(source: CircuitDocument): string {
       labels.push(text(o.text, o, o.color, o.fontSize, o.rotation, o.align));
     else if (o.kind === 'arrow' || o.kind === 'loop-arrow') {
       const width = o.kind === 'arrow' ? o.width : o.strokeWidth;
+      boxes.push(
+        unionBounds(
+          canvasArrowHead(o).map((p) => ({
+            x: p.x - width / 2,
+            y: p.y - width / 2,
+            width,
+            height: width,
+          })),
+        ),
+      );
       parts.push(
         path(o.kind === 'arrow' ? arrowPath(o) : loopPath(o), o.color, width),
         path(pointsPath(canvasArrowHead(o)), o.color, width),

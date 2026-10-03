@@ -5,7 +5,7 @@ import {
   electricalGeometry,
 } from '../../annotations/electrical';
 import type { ElectricalAnnotation } from '../../model/types';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { DragEvent, PointerEvent as ReactPointerEvent, RefObject } from 'react';
 import { useEditorStore } from '../../store/editorStore';
 import { catalog, createComponent, makeId } from '../../model/catalog';
@@ -62,6 +62,8 @@ export interface Overlay {
   guides: { x?: number; y?: number };
   arrow: ArrowAnnotation | LoopArrow | ElectricalAnnotation | null;
   distances: DistanceGuide[];
+  componentTarget: string | null;
+  wireTarget: string | null;
 }
 const blank: Overlay = {
   mouse: null,
@@ -70,6 +72,8 @@ const blank: Overlay = {
   guides: {},
   arrow: null,
   distances: [],
+  componentTarget: null,
+  wireTarget: null,
 };
 export function useCanvasInteractions(svgRef: RefObject<SVGSVGElement | null>) {
   const [viewport, setViewport] = useState<Viewport>({ x: 600, y: 340, zoom: 1 });
@@ -87,6 +91,19 @@ export function useCanvasInteractions(svgRef: RefObject<SVGSVGElement | null>) {
     null,
   );
   const [overlay, setOverlay] = useState<Overlay>(blank);
+  const doc = useEditorStore((s) => s.document);
+  const objectMap = useMemo(() => new Map(doc.objects.map((o) => [o.id, o])), [doc]);
+  const [voltageStart, setVoltageStart] = useState<Point | null>(null);
+  const voltageStartRef = useRef<Point | null>(null);
+  const setFirstPoint = (point: Point | null) => {
+    voltageStartRef.current = point;
+    setVoltageStart(point);
+  };
+  const polarityTarget = (target: EventTarget) => {
+    const id = (target as Element).closest('[data-object]')?.getAttribute('data-object');
+    const c = id ? objectMap.get(id) : null;
+    return c?.kind === 'component' && c.terminals.length === 2 ? c : null;
+  };
   const [draft, setDraft] = useState<WireDraft | null>(null);
   const [space, setSpace] = useState(false);
   const [dragging, setDragging] = useState<'move' | 'pan' | 'handle' | null>(null);
@@ -298,6 +315,7 @@ export function useCanvasInteractions(svgRef: RefObject<SVGSVGElement | null>) {
         e.preventDefault();
         s.remove();
       } else if (e.key === 'Escape') {
+        setFirstPoint(null);
         s.cancelGesture();
         drag.current = null;
         setDragging(null);
@@ -355,6 +373,7 @@ export function useCanvasInteractions(svgRef: RefObject<SVGSVGElement | null>) {
       drag.current = null;
       setDragging(null);
       setOverlay(blank);
+      setFirstPoint(null);
       smartBlur();
       spaceDown.current = false;
       setSpace(false);
@@ -380,6 +399,7 @@ export function useCanvasInteractions(svgRef: RefObject<SVGSVGElement | null>) {
           setDragging(null);
           setActiveLabel(null);
           setOverlay(blank);
+          setFirstPoint(null);
         }
       }),
     [],
@@ -475,8 +495,7 @@ export function useCanvasInteractions(svgRef: RefObject<SVGSVGElement | null>) {
       return;
     }
     if (s.tool === 'polarity') {
-      const id = (e.target as Element).closest('[data-object]')?.getAttribute('data-object');
-      const c = s.document.objects.find((o) => o.id === id);
+      const c = polarityTarget(e.target);
       const annotation = c?.kind === 'component' ? createPolarity(c) : null;
       if (annotation) {
         s.add([annotation]);
@@ -497,7 +516,23 @@ export function useCanvasInteractions(svgRef: RefObject<SVGSVGElement | null>) {
       setEditing({ id, text: 'Testo', point });
       return;
     }
-    if (s.tool === 'arrow' || s.tool === 'loop-arrow' || s.tool === 'voltage') {
+    if (s.tool === 'voltage') {
+      const point = wireCandidate(p, s.document, viewport.zoom).point;
+      if (voltageStartRef.current) {
+        if (distance(voltageStartRef.current, point) > 20) {
+          s.add([createElectrical('voltage', voltageStartRef.current, point, 'V_{AB}')]);
+          setFirstPoint(null);
+          s.setTool('select');
+        }
+      } else {
+        svg.setPointerCapture(e.pointerId);
+        drag.current = { type: 'voltage', origin: point };
+        setFirstPoint(point);
+        setOverlay({ ...blank, target: point });
+      }
+      return;
+    }
+    if (s.tool === 'arrow' || s.tool === 'loop-arrow') {
       svg.setPointerCapture(e.pointerId);
       drag.current = { type: s.tool, origin: snapPoint(p) };
       return;
@@ -571,9 +606,11 @@ export function useCanvasInteractions(svgRef: RefObject<SVGSVGElement | null>) {
       return;
     }
     if (d?.type === 'voltage') {
+      const point = wireCandidate(p, s.document, viewport.zoom).point;
       setOverlay({
         ...blank,
-        arrow: { ...createElectrical('voltage', d.origin, snapPoint(p), 'V_{AB}'), id: 'preview' },
+        target: point,
+        arrow: { ...createElectrical('voltage', d.origin, point, 'V_{AB}'), id: 'preview' },
       });
       return;
     }
@@ -714,9 +751,43 @@ export function useCanvasInteractions(svgRef: RefObject<SVGSVGElement | null>) {
       setOverlay({ ...blank, guides, distances, target });
       return;
     }
+    if (s.tool === 'polarity') {
+      const componentTarget = polarityTarget(e.target)?.id ?? null;
+      setOverlay((previous) =>
+        previous.componentTarget === componentTarget ? previous : { ...blank, componentTarget },
+      );
+      return;
+    }
     if (s.tool === 'current') {
       const near = nearestWire(p, s.document, 16 / viewport.zoom);
-      setOverlay({ ...blank, mouse: p, target: near?.point ?? null });
+      const wireTarget = near?.wire.id ?? null,
+        target = near?.point ?? null;
+      setOverlay((previous) =>
+        previous.wireTarget === wireTarget &&
+        previous.target?.x === target?.x &&
+        previous.target?.y === target?.y
+          ? previous
+          : { ...blank, target, wireTarget },
+      );
+      return;
+    }
+    if (s.tool === 'voltage') {
+      const point = wireCandidate(p, s.document, viewport.zoom).point;
+      setOverlay((previous) =>
+        previous.target?.x === point.x && previous.target?.y === point.y
+          ? previous
+          : {
+              ...blank,
+              target: point,
+              arrow:
+                voltageStartRef.current && distance(voltageStartRef.current, point) > 20
+                  ? {
+                      ...createElectrical('voltage', voltageStartRef.current, point, 'V_{AB}'),
+                      id: 'preview',
+                    }
+                  : null,
+            },
+      );
       return;
     }
     if (s.tool === 'preset') {
@@ -798,8 +869,16 @@ export function useCanvasInteractions(svgRef: RefObject<SVGSVGElement | null>) {
         s.select(d.additive ? [...new Set([...s.selection, ...ids])] : ids);
       }
     }
+    if (d?.type === 'voltage') {
+      const point = wireCandidate(world(e.clientX, e.clientY), s.document, viewport.zoom).point;
+      if (distance(d.origin, point) > 20) {
+        s.add([createElectrical('voltage', d.origin, point, 'V_{AB}')]);
+        setFirstPoint(null);
+        s.setTool('select');
+      }
+    }
     if (
-      (d?.type === 'arrow' || d?.type === 'loop-arrow' || d?.type === 'voltage') &&
+      (d?.type === 'arrow' || d?.type === 'loop-arrow') &&
       overlay.arrow &&
       (overlay.arrow.kind === 'loop-arrow'
         ? distance(d.origin, world(e.clientX, e.clientY)) > 20
@@ -877,6 +956,7 @@ export function useCanvasInteractions(svgRef: RefObject<SVGSVGElement | null>) {
   };
   return {
     viewport,
+    voltageStart,
     surfaceSize,
     smart,
     paletteDragType,
@@ -900,7 +980,7 @@ export function useCanvasInteractions(svgRef: RefObject<SVGSVGElement | null>) {
     pointerUp,
     leave: () => {
       smart.leave();
-      if (useEditorStore.getState().tool === 'preset') setOverlay(blank);
+      if (!drag.current) setOverlay(blank);
     },
     doubleClick,
     drop,
@@ -911,6 +991,7 @@ export function useCanvasInteractions(svgRef: RefObject<SVGSVGElement | null>) {
       setActiveLabel(null);
       setWireDraft(null);
       setOverlay(blank);
+      setFirstPoint(null);
       smart.reset();
     },
   };

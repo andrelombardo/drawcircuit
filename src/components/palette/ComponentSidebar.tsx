@@ -109,6 +109,7 @@ export function ComponentSidebar() {
           className="sidebar-reopen"
           aria-label="Mostra componenti"
           title="Mostra componenti"
+          data-tooltip="Mostra componenti"
           onClick={() => setPreferences((p) => ({ ...p, visible: true }))}
         >
           <PanelLeftOpen size={18} />

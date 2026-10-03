@@ -10,13 +10,15 @@ import {
   FlipHorizontal,
   RotateCw,
   Trash2,
-  Type,
   MoreHorizontal,
+  SlidersHorizontal,
+  BookmarkPlus,
+  Replace,
 } from 'lucide-react';
 import { useLayoutEffect, useRef, useState } from 'react';
 import type { RefObject } from 'react';
 import { reverseLoop } from '../../utils/loops';
-import { COLORS } from '../../model/types';
+import { SelectionStyle } from './SelectionStyle';
 import type { CircuitObject, Viewport } from '../../model/types';
 import { contentBounds, unionBounds } from '../../utils/visualBounds';
 import { useEditorStore } from '../../store/editorStore';
@@ -76,7 +78,8 @@ export function ContextToolbar({
     tool = useEditorStore((s) => s.tool),
     update = useEditorStore((s) => s.update);
   const root = useRef<HTMLDivElement>(null),
-    more = useRef<HTMLDetailsElement>(null);
+    more = useRef<HTMLDetailsElement>(null),
+    style = useRef<HTMLDetailsElement>(null);
   const [dismissed, setDismissed] = useState(false),
     [blockDialog, setBlockDialog] = useState(false),
     [replaceDialog, setReplaceDialog] = useState(false);
@@ -87,16 +90,18 @@ export function ContextToolbar({
     const outside = (e: PointerEvent) => {
       if (!root.current?.contains(e.target as Node)) {
         if (more.current) more.current.open = false;
+        if (style.current) style.current.open = false;
         setDismissed(true);
       }
     };
     const show = () => setDismissed(false);
     const escape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && more.current?.open) {
+      const menu = style.current?.open ? style.current : more.current?.open ? more.current : null;
+      if (e.key === 'Escape' && menu) {
         e.preventDefault();
         e.stopPropagation();
-        more.current.open = false;
-        more.current.querySelector('summary')?.focus();
+        menu.open = false;
+        menu.querySelector('summary')?.focus();
       }
     };
     document.addEventListener('pointerdown', outside, true);
@@ -190,6 +195,28 @@ export function ContextToolbar({
     return () => observer.disconnect();
   }, [doc, selection, viewport, surfaceSize, svgRef, hidden, dismissed, objects]);
   if (!objects.length || tool !== 'select') return null;
+  const placePopover = (details: HTMLDetailsElement) => {
+    if (!details.open) return;
+    const popover = details.querySelector<HTMLElement>('.context-popover');
+    const surface = svgRef.current?.getBoundingClientRect();
+    if (!popover || !surface) return;
+    const r = details.getBoundingClientRect(),
+      gap = 8,
+      height = popover.offsetHeight,
+      width = popover.offsetWidth;
+    const below = r.bottom + gap,
+      top =
+        below + height <= surface.bottom - 64
+          ? below
+          : r.top - gap - height >= surface.top + 8
+            ? r.top - gap - height
+            : Math.max(surface.top + 8, surface.bottom - 64 - height);
+    const left = Math.max(surface.left + 8, Math.min(surface.right - width - 8, r.right - width));
+    popover.style.top = `${top - r.top}px`;
+    popover.style.bottom = 'auto';
+    popover.style.left = `${left - r.left}px`;
+    popover.style.right = 'auto';
+  };
   const apply = (fn: (obj: CircuitObject) => CircuitObject) => {
     const s = useEditorStore.getState(),
       selected = new Set(selection);
@@ -199,42 +226,6 @@ export function ContextToolbar({
     });
   };
   const hasLabel = o?.kind === 'component' || o?.kind === 'junction' || o?.kind === 'electrical';
-  const textSize = o?.kind === 'text' ? o.fontSize : hasLabel ? o.label.fontSize : 22;
-  const setTextSize = (size: number) =>
-    apply((obj) =>
-      obj.kind === 'text'
-        ? { ...obj, fontSize: size }
-        : obj.kind === 'component' || obj.kind === 'junction' || obj.kind === 'electrical'
-          ? { ...obj, label: { ...obj.label, fontSize: size } }
-          : obj,
-    );
-  const sizeControl = (
-    <label className="property-control">
-      <span title="Dimensione testo">
-        <Type size={13} />
-      </span>
-      <select
-        aria-label="Dimensione testo"
-        title="Dimensione testo"
-        value={textSize}
-        onChange={(e) => setTextSize(Number(e.target.value))}
-      >
-        {[...new Set([16, 18, 20, 22, 23, 24, 27, 28, 32, 40, textSize])]
-          .sort((a, b) => a - b)
-          .map((size) => (
-            <option key={size} value={size}>
-              {size}
-            </option>
-          ))}
-      </select>
-    </label>
-  );
-  const selectedColor = o?.kind === 'component' ? o.label.color : o?.color;
-  const setColor = (color: string) =>
-    apply((obj) =>
-      obj.kind === 'component' ? { ...obj, label: { ...obj.label, color } } : { ...obj, color },
-    );
-  const width = o?.kind === 'loop-arrow' ? o.strokeWidth : o && 'width' in o ? o.width : 2;
   return (
     <div
       ref={root}
@@ -275,58 +266,27 @@ export function ContextToolbar({
         />
       )}
       {!o && <span className="property-caption">{objects.length} elementi</span>}
-      {actions.primary.includes('textSize') && sizeControl}
-      {actions.primary.includes('stroke') && (
-        <label className="property-control">
-          <span>Tratto</span>
-          <select
-            aria-label={o?.kind === 'component' ? 'Spessore componente' : 'Spessore'}
-            title="Spessore tratto"
-            value={width}
-            onChange={(e) =>
-              apply((obj) =>
-                obj.kind === 'loop-arrow'
-                  ? { ...obj, strokeWidth: Number(e.target.value) }
-                  : obj.kind === 'component' || obj.kind === 'wire' || obj.kind === 'arrow'
-                    ? { ...obj, width: Number(e.target.value) }
-                    : obj,
-              )
-            }
-          >
-            {[...new Set([1, 1.5, 1.8, 2, 3, 4, width])]
-              .sort((a, b) => a - b)
-              .map((w) => (
-                <option key={w} value={w}>
-                  {w}
-                </option>
-              ))}
-          </select>
-        </label>
-      )}
-      <label className="property-control toolbar-color">
-        <span>{o?.kind === 'component' ? 'Label' : 'Colore'}</span>
-        <input
-          type="color"
-          aria-label="Colore personalizzato"
-          title="Colore personalizzato"
-          value={selectedColor ?? COLORS.ink}
-          onChange={(e) => setColor(e.target.value)}
-        />
-        <div className="color-swatches">
-          {Object.entries(COLORS).map(([name, c]) => (
-            <button
-              type="button"
-              key={c}
-              aria-label={`Colore ${name}`}
-              title={`Colore ${name}`}
-              data-tooltip={`Colore ${name}`}
-              className={`swatch${selectedColor === c ? ' selected' : ''}`}
-              style={{ background: c }}
-              onClick={() => setColor(c)}
-            />
-          ))}
-        </div>
-      </label>
+      <details
+        ref={style}
+        className="context-more context-style"
+        onToggle={(e) => {
+          placePopover(e.currentTarget);
+        }}
+      >
+        <summary
+          role="button"
+          aria-label="Stile"
+          title="Stile"
+          data-tooltip="Stile"
+          onClick={() => {
+            if (more.current) more.current.open = false;
+          }}
+        >
+          <SlidersHorizontal size={16} />
+          <span>Stile</span>
+        </summary>
+        <SelectionStyle objects={objects} apply={apply} />
+      </details>
       <div className="toolbar-divider" />
       {actions.primary.includes('reverse') && o && (
         <IconButton
@@ -352,21 +312,6 @@ export function ContextToolbar({
       <IconButton label="Duplica (⌘/Ctrl D)" onClick={() => useEditorStore.getState().duplicate()}>
         <Copy size={17} />
       </IconButton>
-      <IconButton
-        label="Elimina (Delete)"
-        className="destructive-button"
-        onClick={() => useEditorStore.getState().remove()}
-      >
-        <Trash2 size={17} />
-      </IconButton>
-      <button className="secondary-property" onClick={() => setBlockDialog(true)}>
-        Salva come blocco
-      </button>
-      {o?.kind === 'component' && compatibleReplacements(o).length > 0 && (
-        <button className="secondary-property" onClick={() => setReplaceDialog(true)}>
-          Sostituisci…
-        </button>
-      )}
       {blockDialog && (
         <BlockNameDialog
           onClose={() => setBlockDialog(false)}
@@ -379,8 +324,18 @@ export function ContextToolbar({
         <ReplaceDialog component={o} onClose={() => setReplaceDialog(false)} />
       )}
       {!!actions.secondary.length && (
-        <details ref={more} className="context-more">
+        <details
+          ref={more}
+          className="context-more"
+          onToggle={(e) => {
+            placePopover(e.currentTarget);
+          }}
+        >
           <summary
+            role="button"
+            onClick={() => {
+              if (style.current) style.current.open = false;
+            }}
             aria-label="Altre proprietà"
             title="Altre proprietà"
             data-tooltip="Altre proprietà"
@@ -388,7 +343,28 @@ export function ContextToolbar({
             <MoreHorizontal size={18} />
           </summary>
           <div className="context-popover">
-            {actions.secondary.includes('textSize') && sizeControl}
+            {o?.kind === 'component' && compatibleReplacements(o).length > 0 && (
+              <button
+                className="secondary-property"
+                onClick={() => {
+                  if (more.current) more.current.open = false;
+                  setReplaceDialog(true);
+                }}
+              >
+                <Replace size={16} />
+                Sostituisci…
+              </button>
+            )}
+            <button
+              className="secondary-property"
+              onClick={() => {
+                if (more.current) more.current.open = false;
+                setBlockDialog(true);
+              }}
+            >
+              <BookmarkPlus size={16} />
+              Salva come blocco
+            </button>
             {o?.kind === 'electrical' && (
               <>
                 <label className="property-control">
@@ -436,38 +412,6 @@ export function ContextToolbar({
                   value={o.bodyText ?? '='}
                   onChange={(bodyText) =>
                     update(o.id, (obj) => (obj.kind === 'component' ? { ...obj, bodyText } : obj))
-                  }
-                />
-              </label>
-            )}
-            {actions.secondary.includes('bodyColor') && o && (
-              <label className="property-control">
-                <span>Simbolo</span>
-                <input
-                  type="color"
-                  aria-label="Colore componente"
-                  title="Colore componente"
-                  value={o.color}
-                  onChange={(e) => update(o.id, (obj) => ({ ...obj, color: e.target.value }))}
-                />
-              </label>
-            )}
-            {actions.secondary.includes('labelColor') && hasLabel && (
-              <label className="property-control">
-                <span>Colore label</span>
-                <input
-                  type="color"
-                  aria-label="Colore label"
-                  title="Colore label"
-                  value={o.label.color}
-                  onChange={(e) =>
-                    update(o.id, (obj) =>
-                      obj.kind === 'junction' ||
-                      obj.kind === 'component' ||
-                      obj.kind === 'electrical'
-                        ? { ...obj, label: { ...obj.label, color: e.target.value } }
-                        : obj,
-                    )
                   }
                 />
               </label>
@@ -539,6 +483,15 @@ export function ContextToolbar({
                 </select>
               </label>
             )}
+            <button
+              className="secondary-property destructive-button"
+              title="Elimina (Delete)"
+              aria-label="Elimina (Delete)"
+              onClick={() => useEditorStore.getState().remove()}
+            >
+              <Trash2 size={16} />
+              Elimina
+            </button>
           </div>
         </details>
       )}
