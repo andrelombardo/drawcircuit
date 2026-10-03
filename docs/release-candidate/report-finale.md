@@ -118,6 +118,8 @@ Profiling FPS, heap e sessione di ore: **NOT TESTED**. Tempi delle azioni automa
 
 Nei workflow browser con log catturati non sono emersi uncaught errors, unhandled rejection, React key warnings o geometrie NaN. Anche i [log finali pubblici](evidence/public-final-console.json) sono vuoti. Una console senza errori nei casi provati non equivale a copertura di ogni comportamento.
 
+Warning CI residui, **non bloccanti**: 22 messaggi React `foreignObject` nei test `latex.test.tsx`, che chiamano `renderToStaticMarkup(<MathText ... />)` senza il contenitore SVG usato dall’app; non sono presenti nella console dei workflow browser. L’action Pages segnala inoltre la deprecazione Node `punycode`, senza impedire il deploy. [Classificazione CI](evidence/ci-warning-classification.json). Non è stata nascosta o silenziata la diagnostica.
+
 Warning npm di dipendenze transitive deprecate e allow-scripts: non bloccanti; installazione finale con zero vulnerabilità segnalate. Non è stato aggiornato il dependency graph durante questo audit.
 
 ## 15. Build e pubblicazione
