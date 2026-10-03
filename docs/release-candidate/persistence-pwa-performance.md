@@ -107,3 +107,9 @@ Chrome esterno: NOT TESTED — selettore Browser `chrome` non disponibile. Firef
 ## Note di pubblicazione
 
 Build finale, commit, Actions, live smoke e conclusione: registrati nel report principale dopo il completamento. Il risultato della preview non viene dichiarato come risultato della versione pubblica.
+
+## Smoke pubblico dopo deployment
+
+[Run build + Pages 37145440142](https://github.com/andrelombardo/drawcircuit/actions/runs/37145440142) PASS sul commit `a81c4f3c1f8b2ad177291b00990807abbc1476e6`. Il browser ha applicato Salva e aggiorna e caricato `index-QAjNzizE.js`; titolo e conteggi iniziali conservati. Il golden di 44 oggetti conserva dopo reload i tre export completi identici ai file validati. Import JSON invalido: messaggio italiano atteso e documento preservato. Il documento iniziale di 22 oggetti è stato ripristinato dalla copia privata e ricaricato; i tre export coincidono con quelli generati dalla stessa copia in locale. Console finale vuota; 87 risorse HTTP 200.
+
+[Prova live](evidence/public-release-smoke.json), [audit rete](evidence/network-final.json). **BLOCKED nell’ultimo run:** acquisizione di un nuovo download JSON, nessun file/evento acquisito dopo il click entro 10 s; l’interfaccia nativa del browser host non è accessibile al controllo Computer Use. Un file precedente non viene contato come nuovo confronto JSON live. Il precedente confronto esatto JSON locale e il test con server spento rimangono PASS. Rete offline sulla origin pubblica e installazione OS: NOT TESTED.

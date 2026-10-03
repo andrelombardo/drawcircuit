@@ -2,7 +2,7 @@
 
 Audit locale reale del 3 ottobre 2026. La prima sessione, prima dell’interruzione, ha costruito un circuito da zero e registrato 60 operazioni. La sessione di ripresa ha ricostruito il golden finale tramite la UI di DrawCircuit su `http://127.0.0.1:4184/`, origine dedicata, usando il codice aggiornato e ricaricandolo dopo il fix RC09. Nessun documento personale e nessuno storage pubblico sono stati modificati.
 
-**Risultato locale:** 32 dei primi 33 passi finali PASS; copia/incolla del circuito BLOCKED dal browser di verifica. Il confronto diretto Obsidian dello stesso golden finale è PASS, con [screenshot reale](evidence/ux-final-full-obsidian-direct.png) e [verifica](evidence/ux-final-obsidian-direct.json). I passi pubblici 35–38 saranno confermati dal coordinatore dopo il deployment. Questo rapporto, da solo, non dichiara PASS l’intera prova di 38 passi.
+**Risultato locale:** 32 dei primi 33 passi finali PASS; copia/incolla del circuito BLOCKED dal browser di verifica. Il confronto diretto Obsidian dello stesso golden finale è PASS, con [screenshot reale](evidence/ux-final-full-obsidian-direct.png) e [verifica](evidence/ux-final-obsidian-direct.json). I passi pubblici 35, 36 e 38 sono PASS con [prova del coordinatore](evidence/public-release-smoke.json); il passo 37 resta NOT TESTED per la rete offline pubblica. Checklist completa: 36 PASS, 1 BLOCKED, 1 NOT TESTED. Questo rapporto, da solo, non dichiara PASS l’intera prova di 38 passi.
 
 ## Evidenze principali
 
@@ -79,10 +79,10 @@ Retest: Nodo su A porta i fili **16 → 17**; un singolo Undo torna a 16 e un si
 | 32 | Export full SVG | PASS — download e Copia codice SVG |
 | 33 | Export selection SVG | PASS — download e Copia codice SVG; due selezionati + filo interno, tre esportati |
 | 34 | Verify Obsidian visual result | PASS — medesimo golden di 44 oggetti incollato nella UI nativa e osservato in Reading view; screenshot e verifica sopra |
-| 35 | Reload public site | DELEGATED/PENDING — coordinatore dopo deploy del commit finale |
-| 36 | Verify public persistence | DELEGATED/PENDING — coordinatore |
+| 35 | Reload public site | PASS — asset QAjNzizE caricato dopo Actions/Pages sul commit a81c4f3; reload golden pubblico |
+| 36 | Verify public persistence | PASS — 44 oggetti e tre export esatti dopo reload; nuovo raw JSON download live BLOCKED e dichiarato nel report principale |
 | 37 | Verify PWA/offline | NOT TESTED — rete offline pubblica non controllabile; offline locale reale e update verificati separatamente |
-| 38 | Check public console | DELEGATED/PENDING — coordinatore; console locale vuota |
+| 38 | Check public console | PASS — console pubblica warning/error vuota, public-final-console.json |
 
 I sei export finali provengono da uno stesso documento dopo il fix RC09: [TikZ full](evidence/ux-final-full.tikz), [TikZ selection](evidence/ux-final-selection.tikz), [Obsidian full](evidence/ux-final-full-obsidian.md), [Obsidian selection](evidence/ux-final-selection-obsidian.md), [SVG full](evidence/ux-final-full.svg), [SVG selection](evidence/ux-final-selection.svg). Il [file standalone `.tex`](evidence/ux-final-full.tex) e lo [screenshot della selezione](evidence/ux-final-selection-editor.jpg) sono disponibili per i confronti dell’agente export.
 
@@ -175,7 +175,7 @@ Nessun miglioramento speculativo, nuova feature o redesign è stato implementato
 
 ## Non testato / delegato
 
-Copia/incolla nativo di oggetti e Space+drag: BLOCKED dal controllo del browser. Non sono certificate tutte le combinazioni input/dialog, il trackpad hardware, Safari/Firefox, browser zoom 80/125/150% e ogni direzione/zoom delle guide. Il pass Obsidian 34 è PASS con prova diretta; i render e la compilazione sono documentati nel [report export](export-qa.md). I passi pubblici 35–38 sono documentati dal coordinatore dopo il deployment. Non esiste un PASS live anticipato in questo rapporto.
+Copia/incolla nativo di oggetti e Space+drag: BLOCKED dal controllo del browser. Non sono certificate tutte le combinazioni input/dialog, il trackpad hardware, Safari/Firefox, browser zoom 80/125/150% e ogni direzione/zoom delle guide. Il pass Obsidian 34 è PASS con prova diretta; i render e la compilazione sono documentati nel [report export](export-qa.md). I passi pubblici 35–38 sono documentati in public-release-smoke.json e nella matrice finale. L’acquisizione dei nuovi download nell’ultimo smoke pubblico è BLOCKED; le prove locali precedenti restano distinte. Le prove live sono state aggiunte dopo il deployment, senza anticipare un PASS.
 
 ## Registro delle 60 operazioni della prima sessione
 

@@ -240,22 +240,28 @@
   {
     "step": 35,
     "name": "Reload public site",
-    "status": "PENDING"
+    "status": "PASS",
+    "evidence": "public-release-smoke.json",
+    "details": "Exact deployed asset index-QAjNzizE.js; reload of final 44-object golden on public origin PASS."
   },
   {
     "step": 36,
     "name": "Verify persistence",
-    "status": "PENDING"
+    "status": "PASS",
+    "evidence": "public-release-smoke.json",
+    "details": "After reload all three generated full exports byte-identical to the validated golden; 44 unique objects preserved. Fresh public JSON download capture BLOCKED and not counted as an exact raw JSON comparison."
   },
   {
     "step": 37,
     "name": "Verify PWA/offline",
     "status": "NOT TESTED",
-    "details": "Offline public network unavailable; real local production offline/server-stopped and update preservation PASS, evidence offline-local-*, pwa-update-comparison.json."
+    "details": "Offline public network unavailable; real local production offline/server-stopped and update preservation PASS, evidence offline-local-*, pwa-update-comparison.json. Public Save and update moved B9HgfGpd to QAjNzizE; visible original title/object count preserved. Fresh public JSON comparison BLOCKED."
   },
   {
     "step": 38,
     "name": "Check console",
-    "status": "PENDING"
+    "status": "PASS",
+    "evidence": "public-release-smoke.json",
+    "details": "Final public warning/error log empty; public-final-console.json."
   }
 ]

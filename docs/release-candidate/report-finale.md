@@ -6,9 +6,9 @@ Audit del 3 ottobre 2026. Baseline: `69ae8ab7b5e7bc136d9551415a31532ab66147d6`. 
 
 L'audit combina utilizzo reale del browser, prove nell'installazione desktop di Obsidian, compilazione LaTeX, confronto degli export, fault injection dello storage e test automatici. Le evidenze sono conservate in [evidence](evidence/); i risultati precedenti all'audit non sono stati ricontati come nuove verifiche.
 
-Sono stati verificati e corretti **9 problemi**: **P0: 2; P1: 1; P2: 4; P3: 2**. La revisione indipendente e il retest finale della topologia sono PASS: il ponte cambia ramo secondo l’endpoint proprietario del nodo e mantiene un distacco visibile dal punto. La conclusione di release sarà aggiornata dopo il deployment e il controllo del sito pubblico.
+Sono stati verificati e corretti **9 problemi**: **P0: 2; P1: 1; P2: 4; P3: 2**. La revisione indipendente e il retest finale della topologia sono PASS: il ponte cambia ramo secondo l’endpoint proprietario del nodo e mantiene un distacco visibile dal punto. Pubblicazione e smoke del commit delle correzioni sono **PASS**, con i limiti sotto: [verifica pubblica](evidence/public-release-smoke.json), [Actions](https://github.com/andrelombardo/drawcircuit/actions/runs/37145440142). Nei workflow universitari coperti la release candidate è utilizzabile; non viene certificata ogni combinazione di browser, engine o input hardware.
 
-Prove già completate: **72 componenti**, **23 preset**, **19 casi LaTeX**, **53 Undo e 53 Redo** con confronto JSON esatto, stress di **820 oggetti** e quattro viewport laptop/desktop. Il test diretto Obsidian è stato eseguito su note temporanee di QA, senza modificare note personali. Anche lo stesso golden finale dei 38 passi è stato incollato e renderizzato nella UI reale.
+Prove già completate: **72 componenti**, **23 preset**, **19 casi LaTeX**, **53 Undo e 53 Redo** con confronto JSON esatto, stress di **820 oggetti** e quattro viewport laptop/desktop. Il test diretto Obsidian è stato eseguito su note temporanee di QA, senza modificare note personali. Anche lo stesso golden finale dei 38 passi è stato incollato e renderizzato nella UI reale. Checklist finale: **36 PASS, 1 BLOCKED (copia/incolla oggetti), 1 NOT TESTED (rete offline pubblica)**; [matrice dei 38 passi](evidence/golden-release-matrix.json). Questo conteggio non converte in PASS le prove aggiuntive bloccate.
 
 Report di area:
 
@@ -64,7 +64,7 @@ Per i problemi di data loss, [persistence-pwa-performance.md](persistence-pwa-pe
 
 Placement, ghost, anchor, inline insertion, spostamenti con connessioni, selezione multipla, label indipendenti, annotazioni elettriche e maglie sono stati provati insieme. La storia include sostituzione, waypoint, split, drag e preset/blocchi. I casi e i passaggi finali sono nel [report editor](editor-qa.md), con distinzione fra controllo della UI e test automatico.
 
-L'ultimo golden parte da **Nuovo circuito** e conserva una checklist dei 38 passi richiesti. Copy/paste attraverso shortcut del browser integrato resta **BLOCKED** se il browser intercetta la clipboard prima dell'app: non è equiparato a PASS. Duplicate e copia dei formati export hanno prove separate.
+L'ultimo golden parte da **Nuovo circuito** e conserva una checklist dei 38 passi richiesti. [Screenshot pubblico dello stesso golden](evidence/public-final-golden.jpg). Dopo reload pubblico i tre export completi coincidono byte per byte con il golden già validato. Copy/paste attraverso shortcut del browser integrato resta **BLOCKED** se il browser intercetta la clipboard prima dell'app: non è equiparato a PASS. Duplicate e copia dei formati export hanno prove separate.
 
 ## 7. Component library
 
@@ -75,6 +75,8 @@ L'ultimo golden parte da **Nuovo circuito** e conserva una checklist dei 38 pass
 ## 8. Persistence
 
 JSON/legacy, validazione ID/endpoints, import fallito non distruttivo, autosave/reload e storia: **PASS** nei rispettivi test. Fault injection di storage corrotto, quota e accesso negato: **PASS**, originale conservato.
+
+Sul sito pubblico il golden conserva 44 oggetti dopo reload; i tre export coincidono byte per byte con i file validati. Il documento iniziale di 22 oggetti è stato ripristinato dalla copia privata e ricaricato; i tre export coincidono con quelli generati dalla stessa copia locale. **BLOCKED nell’ultimo smoke:** acquisizione di un nuovo download JSON; il file precedente non è stato usato per dichiarare un confronto raw JSON live.
 
 La sequenza reale comprende 60 azioni UI, delle quali 53 producono entry Undo. Dopo 53 Undo il JSON coincide esattamente con lo stato iniziale; dopo 53 Redo coincide esattamente con lo stato finale. Le tracce e i quattro JSON sono in `evidence/ux-history-*`.
 
@@ -102,7 +104,7 @@ Il testo normale dipende dalla disponibilità del font Comic Sans/fallback nel v
 
 Production preview con server completamente spento: reload, modifica, JSON, TikZ e SVG **PASS**. Nuova build scoperta dal worker, avviso esplicito, **Salva e aggiorna**, documento identico dopo attivazione: **PASS**. Aggiornamento bloccato durante gesture/editor inline: PASS nei test integration.
 
-Sul sito pubblico manifest, scope, start URL, MIME e risorse sono verificati via HTTP e browser. Offline con rete disconnessa sulla origin pubblica e installazione standalone OS: **NOT TESTED** per assenza delle capability nel browser disponibile. Il test server spento su localhost viene riportato separatamente.
+Sul sito pubblico manifest, scope, start URL, MIME e **87 risorse senza errori HTTP** sono verificati: [audit finale](evidence/network-final.json). Il worker ha offerto **Salva e aggiorna**, passando da `index-B9HgfGpd.js` a `index-QAjNzizE.js`; titolo e conteggi del documento iniziale sono rimasti invariati. Il confronto raw JSON di questo ultimo update è BLOCKED per mancata acquisizione del nuovo download; il confronto esatto JSON del precedente update locale rimane PASS. Offline con rete disconnessa sulla origin pubblica e installazione standalone OS: **NOT TESTED** per assenza delle capability nel browser disponibile. Il test server spento su localhost viene riportato separatamente.
 
 ## 13. Performance
 
@@ -114,7 +116,7 @@ Profiling FPS, heap e sessione di ore: **NOT TESTED**. Tempi delle azioni automa
 
 ## 14. Browser console
 
-Nei workflow browser con log catturati non sono emersi uncaught errors, unhandled rejection, React key warnings o geometrie NaN. I log finali pubblici saranno registrati dopo il deployment. Una console senza errori nei casi provati non equivale a copertura di ogni comportamento.
+Nei workflow browser con log catturati non sono emersi uncaught errors, unhandled rejection, React key warnings o geometrie NaN. Anche i [log finali pubblici](evidence/public-final-console.json) sono vuoti. Una console senza errori nei casi provati non equivale a copertura di ogni comportamento.
 
 Warning npm di dipendenze transitive deprecate e allow-scripts: non bloccanti; installazione finale con zero vulnerabilità segnalate. Non è stato aggiornato il dependency graph durante questo audit.
 
@@ -127,8 +129,10 @@ Warning npm di dipendenze transitive deprecate e allow-scripts: non bloccanti; i
 | lint | PASS, fonte finale con RC-09 |
 | tests | **33 file / 956 PASS**, 32,65 s, timeout locali invariati |
 | build | PASS, zero errori TypeScript; asset `index-QAjNzizE.js` |
-| GitHub Actions | In attesa del commit finale |
-| GitHub Pages + browser pubblico | In attesa del deployment verificato sullo SHA |
+| GitHub Actions | **PASS build e deploy**, [run 37145440142](https://github.com/andrelombardo/drawcircuit/actions/runs/37145440142), SHA `a81c4f3c1f8b2ad177291b00990807abbc1476e6` |
+| GitHub Pages + browser pubblico | **PASS** asset finale caricato, reload/persistence, drag/rotate/Undo/Redo, selection, import invalido, RC-09 e console; download capture BLOCKED |
+
+Il commit delle correzioni è `a81c4f3c1f8b2ad177291b00990807abbc1476e6`; gli hash delle fonti e dei gate finali sono nel [manifest](evidence/release-source-manifest.json). Un successivo commit contiene solo il report e le evidenze live, senza variazioni del codice distribuito.
 
 Baseline pubblica: [Actions 37073478258](https://github.com/andrelombardo/drawcircuit/actions/runs/37073478258), SHA iniziale corrispondente. URL richiesto: [DrawCircuit pubblico](https://andrelombardo.github.io/drawcircuit/).
 
@@ -152,8 +156,8 @@ Baseline pubblica: [Actions 37073478258](https://github.com/andrelombardo/drawci
 | Shortcut e blocco durante text/dialog | PASS | 35 casi: 34 PASS, Space+drag BLOCKED; input/dialog protetti | Non applicabile | PASS nei casi registrati |
 | Cmd/Ctrl C/V oggetti e paste ripetuto | PASS modello/integrazione | BLOCKED clipboard browser | Non applicabile | BLOCKED manuale |
 | Duplicate oggetti e gruppi | PASS | PASS | PASS | PASS |
-| Copy TikZ/Obsidian/SVG; download .tex/SVG | PASS | PASS | PASS | PASS |
-| JSON, legacy, import malformed/atomic | PASS | PASS import/reload | Roundtrip PASS | PASS |
+| Copy TikZ/Obsidian/SVG; download .tex/SVG | PASS | Copy live PASS; download locale PASS, ultimo capture pubblico BLOCKED | Generazione live identica al golden PASS | Limite capture dichiarato |
+| JSON, legacy, import malformed/atomic | PASS | PASS import/reload; raw JSON download live BLOCKED | Roundtrip locale PASS; tre export dopo reload pubblico identici | PASS nei metodi dichiarati |
 | Storage corrupted/quota/access denied | PASS fault injection | Quota OS NOT TESTED | Backup raw PASS | PASS automatizzato |
 | History 50+ operazioni | PASS | PASS, 53 Undo/Redo | JSON esatti | PASS |
 | Blocchi personali lifecycle e ID remap | PASS | PASS lifecycle e ID | PASS | Vedi report libreria |
@@ -163,7 +167,7 @@ Baseline pubblica: [Actions 37073478258](https://github.com/andrelombardo/drawci
 | SVG full/selection e validità | PASS | UI PASS | Render PASS | PASS |
 | PWA offline localhost, update e preservation | PASS | PASS server spento | Export offline PASS | PASS |
 | PWA pubblica offline/install OS | Test logici PASS | NOT TESTED rete/OS | Non applicabile | NOT TESTED |
-| Public assets/manifest/scope/MIME | Audit HTTP | Baseline PASS; final pending | 87 risorse baseline PASS | Final pending |
+| Public assets/manifest/scope/MIME | Audit HTTP | Final PASS, asset QAjNzizE osservato | 87 risorse finali HTTP 200, MIME corretti | PASS |
 | 820 oggetti, crossings, export | PASS | PASS | PASS | PASS |
 | 1920/1440/1280/1024 viewport | PASS layout tests | PASS misure/screenshot | Dialog fit PASS | PASS |
 | Zoom browser 80/125/150% | Non applicabile | NOT TESTED capability | Non applicabile | NOT TESTED |
@@ -171,6 +175,7 @@ Baseline pubblica: [Actions 37073478258](https://github.com/andrelombardo/drawci
 
 ## 17. Non testato / bloccato
 
+- **BLOCKED ultimo smoke pubblico:** i click Salva JSON non hanno prodotto un nuovo file acquisibile o un evento download entro 10 s. Nessun errore app catturato; l’interfaccia nativa del browser host non è accessibile al controllo Computer Use. I file locali precedenti sono PASS; non sono usati per certificare un nuovo download pubblico. L’override viewport non ha avuto effetto in questo ultimo run e la matrice locale resta separata.
 - **BLOCKED:** copy/paste oggetti con shortcut e Space+drag nel browser integrato; test del modello, pulsanti copy export e pan con H verificati separatamente.
 - **NOT TESTED:** Safari/WebKit, Firefox e Chrome esterno senza backend connesso; trackpad/macOS input hardware reale.
 - **NOT TESTED:** zoom del browser 80/125/150%; zoom canvas verificato. Guide verticali/hysteresis durante il gesto e tutte le combinazioni di shortcut/input non certificate manualmente; vedere matrice editor.
@@ -185,7 +190,7 @@ La resa CircuitikZ nativa differisce dal canvas per geometria e font del formato
 
 La resa del testo normale dipende dal font Comic Sans/fallback disponibile nel viewer. Le differenze di antialiasing non sono state trattate come bug di geometria.
 
-RC-09 è corretto e retestato anche dopo l’ultima revisione indipendente: [ponte al 75%](evidence/rc09-final-ownership-75.jpg), [retest browser](evidence/rc09-final-browser-retest.json), [SVG](evidence/rc09-final-ownership.svg). La conclusione finale attende lo smoke pubblico dopo deployment.
+RC-09 è corretto e retestato anche dopo l’ultima revisione indipendente: [ponte al 75%](evidence/rc09-final-ownership-75.jpg), [retest browser](evidence/rc09-final-browser-retest.json), [SVG](evidence/rc09-final-ownership.svg). Lo smoke pubblico dopo deployment è PASS per i metodi registrati; l’acquisizione dei nuovi download nell’ultimo browser rimane BLOCKED, come spiegato sopra.
 
 ## 19. Possibili miglioramenti futuri
 
