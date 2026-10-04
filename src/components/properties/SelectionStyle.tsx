@@ -1,4 +1,6 @@
-import { Type, Minus } from 'lucide-react';
+import { ChevronDown, Type, Minus } from 'lucide-react';
+import { useEffect, useRef } from 'react';
+import type { FormEvent } from 'react';
 import { COLORS } from '../../model/types';
 import type { CircuitObject } from '../../model/types';
 
@@ -12,6 +14,18 @@ function ColorControl({
   value: string;
   onChange: (color: string) => void;
 }) {
+  const lastColor = useRef(value);
+  useEffect(() => {
+    lastColor.current = value;
+  }, [value]);
+  // Native pickers emit input while choosing and change on confirmation.
+  // Commit each new value once, including browsers that emit both events.
+  const chooseCustom = (event: FormEvent<HTMLInputElement>) => {
+    const color = event.currentTarget.value;
+    if (color === lastColor.current) return;
+    lastColor.current = color;
+    onChange(color);
+  };
   return (
     <div className="style-row">
       <span>{label}</span>
@@ -29,14 +43,21 @@ function ColorControl({
             <span style={{ background: color }} />
           </button>
         ))}
-        <input
-          type="color"
-          className="custom-color-choice"
-          value={value}
-          aria-label={`Colore ${label.toLowerCase()} personalizzato`}
-          title={`Colore ${label.toLowerCase()} personalizzato`}
-          onChange={(e) => onChange(e.target.value)}
-        />
+        <label
+          className="color-choice custom-color-choice"
+          title="Colore personalizzato"
+          data-selected={!Object.values(COLORS).some((color) => color === value.toLowerCase())}
+        >
+          <span className="rgb-swatch" aria-hidden="true" />
+          <input
+            type="color"
+            value={value}
+            aria-label={`Colore ${label.toLowerCase()} personalizzato`}
+            title="Colore personalizzato"
+            onInput={chooseCustom}
+            onChange={chooseCustom}
+          />
+        </label>
       </div>
     </div>
   );
@@ -86,32 +107,35 @@ export function SelectionStyle({
             Spessore
           </span>
           <span className="style-value">
-            <select
-              aria-label="Spessore linea"
-              title="Spessore linea"
-              value={width}
-              onChange={(e) =>
-                apply((o) =>
-                  o.kind === 'loop-arrow'
-                    ? { ...o, strokeWidth: Number(e.target.value) }
-                    : o.kind === 'component' ||
-                        o.kind === 'wire' ||
-                        o.kind === 'arrow' ||
-                        o.kind === 'electrical'
-                      ? { ...o, width: Number(e.target.value) }
-                      : o,
-                )
-              }
-            >
-              {[...new Set([1, 1.5, 1.8, 2, 3, 4, width])]
-                .sort((a, b) => a - b)
-                .map((w) => (
-                  <option key={w} value={w}>
-                    {w}
-                  </option>
-                ))}
-            </select>
-            px
+            <span className="style-select">
+              <select
+                aria-label="Spessore linea"
+                title="Spessore linea"
+                value={width}
+                onChange={(e) =>
+                  apply((o) =>
+                    o.kind === 'loop-arrow'
+                      ? { ...o, strokeWidth: Number(e.target.value) }
+                      : o.kind === 'component' ||
+                          o.kind === 'wire' ||
+                          o.kind === 'arrow' ||
+                          o.kind === 'electrical'
+                        ? { ...o, width: Number(e.target.value) }
+                        : o,
+                  )
+                }
+              >
+                {[...new Set([1, 1.5, 1.8, 2, 3, 4, width])]
+                  .sort((a, b) => a - b)
+                  .map((w) => (
+                    <option key={w} value={w}>
+                      {w}
+                    </option>
+                  ))}
+              </select>
+              <ChevronDown size={12} aria-hidden="true" />
+            </span>
+            <span className="style-unit">px</span>
           </span>
         </label>
       )}
@@ -122,29 +146,32 @@ export function SelectionStyle({
             Testo
           </span>
           <span className="style-value">
-            <select
-              aria-label="Dimensione testo"
-              title="Dimensione testo"
-              value={size}
-              onChange={(e) =>
-                apply((o) =>
-                  o.kind === 'text'
-                    ? { ...o, fontSize: Number(e.target.value) }
-                    : 'label' in o
-                      ? { ...o, label: { ...o.label, fontSize: Number(e.target.value) } }
-                      : o,
-                )
-              }
-            >
-              {[...new Set([16, 18, 20, 22, 23, 24, 27, 28, 32, 40, size])]
-                .sort((a, b) => a - b)
-                .map((s) => (
-                  <option key={s} value={s}>
-                    {s}
-                  </option>
-                ))}
-            </select>
-            px
+            <span className="style-select">
+              <select
+                aria-label="Dimensione testo"
+                title="Dimensione testo"
+                value={size}
+                onChange={(e) =>
+                  apply((o) =>
+                    o.kind === 'text'
+                      ? { ...o, fontSize: Number(e.target.value) }
+                      : 'label' in o
+                        ? { ...o, label: { ...o.label, fontSize: Number(e.target.value) } }
+                        : o,
+                  )
+                }
+              >
+                {[...new Set([16, 18, 20, 22, 23, 24, 27, 28, 32, 40, size])]
+                  .sort((a, b) => a - b)
+                  .map((s) => (
+                    <option key={s} value={s}>
+                      {s}
+                    </option>
+                  ))}
+              </select>
+              <ChevronDown size={12} aria-hidden="true" />
+            </span>
+            <span className="style-unit">px</span>
           </span>
         </label>
       )}

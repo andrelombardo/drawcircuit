@@ -3,11 +3,13 @@ import { X } from 'lucide-react';
 import { PwaStatus } from './pwa/PwaStatus';
 import { Toolbar } from './components/toolbar/Toolbar';
 import { ComponentSidebar } from './components/palette/ComponentSidebar';
+import { useSidebarPreferences } from './components/palette/useSidebarPreferences';
 import { Canvas } from './components/editor/Canvas';
 import { ExportDialog } from './components/toolbar/ExportDialog';
 import { HelpDialog } from './components/toolbar/HelpDialog';
 import { useEditorStore } from './store/editorStore';
 export default function App() {
+  const sidebar = useSidebarPreferences();
   const [dialog, setDialog] = useState<'export' | 'help' | null>(null),
     notice = useEditorStore((s) => s.notice);
   useEffect(() => {
@@ -18,9 +20,14 @@ export default function App() {
   return (
     <div className="app-shell">
       <PwaStatus />
-      <Toolbar onExport={() => setDialog('export')} onHelp={() => setDialog('help')} />
+      <Toolbar
+        sidebarVisible={sidebar.preferences.visible}
+        onToggleSidebar={() => sidebar.setPreferences((p) => ({ ...p, visible: !p.visible }))}
+        onExport={() => setDialog('export')}
+        onHelp={() => setDialog('help')}
+      />
       <div className="workspace">
-        <ComponentSidebar />
+        <ComponentSidebar {...sidebar} />
         <Canvas />
       </div>
       {dialog === 'export' && <ExportDialog onClose={() => setDialog(null)} />}{' '}

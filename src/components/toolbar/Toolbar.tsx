@@ -10,6 +10,8 @@ import {
   Hand,
   HelpCircle,
   MousePointer2,
+  PanelLeftClose,
+  PanelLeftOpen,
   Redo2,
   Spline,
   Type,
@@ -23,7 +25,17 @@ import { deserializeDocument, serializeDocument } from '../../model/serializatio
 import { download, fileName } from '../../utils/files';
 import { IconButton } from './IconButton';
 import { useDialogFocus } from './useDialogFocus';
-export function Toolbar({ onExport, onHelp }: { onExport: () => void; onHelp: () => void }) {
+export function Toolbar({
+  onExport,
+  onHelp,
+  sidebarVisible,
+  onToggleSidebar,
+}: {
+  onExport: () => void;
+  onHelp: () => void;
+  sidebarVisible: boolean;
+  onToggleSidebar: () => void;
+}) {
   const tool = useEditorStore((s) => s.tool),
     setTool = useEditorStore((s) => s.setTool),
     gestureStart = useEditorStore((s) => s.gestureStart),
@@ -66,85 +78,95 @@ export function Toolbar({ onExport, onHelp }: { onExport: () => void; onHelp: ()
   };
   return (
     <header className="topbar">
-      <div className="brand">
-        <svg width={32} height={32} viewBox="0 0 40 40" aria-hidden="true">
-          <rect width="40" height="40" rx="11" fill="#2463e8" />
-          <path d="M8 20h7v-6h10v12H15v-6m10 0h7" stroke="white" strokeWidth="2.3" fill="none" />
-          <circle cx="8" cy="20" r="2.3" fill="white" />
-          <circle cx="32" cy="20" r="2.3" fill="white" />
-        </svg>
-        <span>
-          DrawCircuit<span className="brand-dot">.</span>
-        </span>
-      </div>
-      <div className="file-menu-wrap">
+      <div className="app-navigation">
         <button
-          className="file-trigger"
-          aria-expanded={menu}
-          aria-label="Menu file"
-          onClick={() => {
-            setMenu(!menu);
-            setElectricalMenu(false);
-          }}
+          className="icon-button sidebar-toggle"
+          aria-label={sidebarVisible ? 'Nascondi componenti' : 'Mostra componenti'}
+          title={sidebarVisible ? 'Nascondi componenti' : 'Mostra componenti'}
+          aria-expanded={sidebarVisible}
+          aria-controls="component-library"
+          onClick={onToggleSidebar}
         >
-          File
-          <ChevronDown size={13} />
+          {sidebarVisible ? <PanelLeftClose size={18} /> : <PanelLeftOpen size={18} />}
         </button>
-        {menu && (
-          <>
-            <button
-              className="menu-backdrop"
-              aria-label="Chiudi menu file"
-              onClick={() => setMenu(false)}
-            />
-            <div className="file-menu">
+        <div className="brand">
+          <svg width={32} height={32} viewBox="0 0 40 40" aria-hidden="true">
+            <rect width="40" height="40" rx="11" fill="#2463e8" />
+            <path d="M8 20h7v-6h10v12H15v-6m10 0h7" stroke="white" strokeWidth="2.3" fill="none" />
+            <circle cx="8" cy="20" r="2.3" fill="white" />
+            <circle cx="32" cy="20" r="2.3" fill="white" />
+          </svg>
+          <span>DrawCircuit</span>
+        </div>
+        <div className="file-menu-wrap">
+          <button
+            className="file-trigger"
+            aria-expanded={menu}
+            aria-label="Menu file"
+            onClick={() => {
+              setMenu(!menu);
+              setElectricalMenu(false);
+            }}
+          >
+            File
+            <ChevronDown size={13} />
+          </button>
+          {menu && (
+            <>
               <button
-                onClick={() => {
-                  setMenu(false);
-                  if (useEditorStore.getState().document.objects.length) setNewDialog('new');
-                  else replace('new');
-                }}
-              >
-                <FilePlus2 size={16} />
-                Nuovo circuito
-              </button>
-              <button
-                onClick={() => {
-                  setMenu(false);
-                  fileRef.current?.click();
-                }}
-              >
-                <FolderOpen size={16} />
-                Apri JSON
-              </button>
-              <button
-                onClick={() => {
-                  const doc = useEditorStore.getState().document;
-                  download(
-                    serializeDocument(doc),
-                    `${fileName(doc.title)}.json`,
-                    'application/json',
-                  );
-                  setMenu(false);
-                }}
-              >
-                <Download size={16} />
-                Salva JSON
-              </button>
-              <div className="menu-rule" />
-              <button
-                onClick={() => {
-                  setMenu(false);
-                  if (useEditorStore.getState().document.objects.length) setNewDialog('demo');
-                  else replace('demo');
-                }}
-              >
-                <Waypoints size={16} />
-                Apri circuito di esempio
-              </button>
-            </div>
-          </>
-        )}
+                className="menu-backdrop"
+                aria-label="Chiudi menu file"
+                onClick={() => setMenu(false)}
+              />
+              <div className="file-menu">
+                <button
+                  onClick={() => {
+                    setMenu(false);
+                    if (useEditorStore.getState().document.objects.length) setNewDialog('new');
+                    else replace('new');
+                  }}
+                >
+                  <FilePlus2 size={16} />
+                  Nuovo circuito
+                </button>
+                <button
+                  onClick={() => {
+                    setMenu(false);
+                    fileRef.current?.click();
+                  }}
+                >
+                  <FolderOpen size={16} />
+                  Apri JSON
+                </button>
+                <button
+                  onClick={() => {
+                    const doc = useEditorStore.getState().document;
+                    download(
+                      serializeDocument(doc),
+                      `${fileName(doc.title)}.json`,
+                      'application/json',
+                    );
+                    setMenu(false);
+                  }}
+                >
+                  <Download size={16} />
+                  Salva JSON
+                </button>
+                <div className="menu-rule" />
+                <button
+                  onClick={() => {
+                    setMenu(false);
+                    if (useEditorStore.getState().document.objects.length) setNewDialog('demo');
+                    else replace('demo');
+                  }}
+                >
+                  <Waypoints size={16} />
+                  Apri circuito di esempio
+                </button>
+              </div>
+            </>
+          )}
+        </div>
       </div>
       <div className="main-tools" role="toolbar" aria-label="Strumenti di disegno">
         <IconButton
@@ -246,10 +268,6 @@ export function Toolbar({ onExport, onHelp }: { onExport: () => void; onHelp: ()
         </IconButton>
       </div>
       <div className="topbar-actions">
-        <span className="local-badge">
-          <span />
-          Solo sul tuo dispositivo
-        </span>
         <IconButton label="Guida e scorciatoie" onClick={onHelp}>
           <HelpCircle size={18} />
         </IconButton>
@@ -259,7 +277,7 @@ export function Toolbar({ onExport, onHelp }: { onExport: () => void; onHelp: ()
           title="Esporta in TikZ, Obsidian o SVG"
           onClick={onExport}
         >
-          <ArrowUpRight size={16} />
+          <Download size={16} />
           <span>Export</span>
         </button>
       </div>

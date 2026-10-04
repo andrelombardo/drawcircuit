@@ -278,12 +278,12 @@ describe('selection-only export', () => {
   });
 });
 describe('adaptive property action audit', () => {
-  it('keeps component essentials direct and label rotation secondary without duplicate rotation', () => {
+  it('keeps component essentials direct and omits label rotation', () => {
     const actions = toolbarActions(resistor('R1', 0));
     expect(actions.primary).toContain('style');
     expect(actions.primary).not.toContain('stroke');
     expect(actions.primary).toContain('duplicate');
-    expect(actions.secondary).toContain('rotateLabel');
+    expect(actions.secondary).not.toContain('rotateLabel');
     expect(actions.secondary).not.toContain('rotate');
   });
   it('offers internal text only for components that have it', () => {

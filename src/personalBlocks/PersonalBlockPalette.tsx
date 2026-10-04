@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { Pencil, Trash2 } from 'lucide-react';
+import { ChevronDown, Pencil, Trash2 } from 'lucide-react';
 import { usePersonalBlocks, serializePersonalBlocks } from './library';
 import { useEditorStore } from '../store/editorStore';
 import { BlockNameDialog } from '../components/toolbar/BlockNameDialog';
@@ -18,7 +18,10 @@ export function PersonalBlockPalette({ search }: { search: string }) {
         aria-expanded={open || !!search}
         onClick={() => setOpen((v) => !v)}
       >
-        Blocchi personali <span className="count">{blocks.length}</span>
+        <span>
+          Blocchi personali <span className="count">{blocks.length}</span>
+        </span>
+        <ChevronDown size={14} className={!open && !search ? 'collapsed' : ''} />
       </button>
       {(open || !!search) && (
         <>

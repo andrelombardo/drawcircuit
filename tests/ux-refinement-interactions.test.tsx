@@ -242,7 +242,8 @@ describe('adaptive accessible toolbar', () => {
       expect(button.getAttribute('data-tooltip')).toBe(name);
     }
     fireEvent.click(screen.getByLabelText('Altre proprietà'));
-    expect(screen.getByLabelText('Ruota solo label').textContent).toContain('Ruota label');
+    expect(screen.queryByLabelText('Ruota solo label')).toBeNull();
+    expect(screen.getByText('Salva come blocco')).toBeDefined();
     expect(screen.queryByLabelText('Ruota selezione')).toBeNull();
     fireEvent.keyDown(canvas(), { key: 'Escape' });
     expect(useEditorStore.getState().selection).toEqual(['R3']);

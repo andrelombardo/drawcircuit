@@ -11,7 +11,6 @@ export function toolbarActions(o: CircuitObject | null) {
         primary: ['label', 'style', 'rotate', ...common],
         secondary: [
           ...secondary,
-          'rotateLabel',
           ...(componentRegistry[o.type].internalText !== undefined ? ['bodyText'] : []),
         ],
       };
@@ -23,7 +22,7 @@ export function toolbarActions(o: CircuitObject | null) {
     case 'junction':
       return {
         primary: ['label', 'style', ...common],
-        secondary: [...secondary, 'rotateLabel'],
+        secondary,
       };
     case 'text':
       return { primary: ['text', 'style', ...common], secondary: [...secondary, 'alignment'] };

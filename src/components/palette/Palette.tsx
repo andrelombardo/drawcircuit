@@ -1,14 +1,14 @@
 import { usePersonalBlocks } from '../../personalBlocks/library';
 import { PersonalBlockPalette } from '../../personalBlocks/PersonalBlockPalette';
 import { useState } from 'react';
-import { ChevronDown, PanelLeftClose, Search, X } from 'lucide-react';
+import { ChevronDown, Search, X } from 'lucide-react';
 import { categories, catalog, matchesComponent } from '../../model/catalog';
 import { useEditorStore } from '../../store/editorStore';
 import { ComponentPreview } from './ComponentPreview';
 import { circuitPresets, matchesPreset } from '../../presets/registry';
 import { presetCategories } from '../../presets/types';
 import { PresetThumbnail } from '../../presets/PresetThumbnail';
-export function Palette({ onHide }: { onHide: () => void }) {
+export function Palette() {
   const personalBlocks = usePersonalBlocks((s) => s.blocks);
   const [search, setSearch] = useState(''),
     [collapsed, setCollapsed] = useState<string[]>([]),
@@ -22,16 +22,6 @@ export function Palette({ onHide }: { onHide: () => void }) {
     <aside className="palette" aria-label="Libreria componenti">
       <div className="palette-heading">
         <span>Componenti</span>
-        <div className="palette-actions">
-          <button
-            aria-label="Nascondi componenti"
-            title="Nascondi componenti"
-            data-tooltip="Nascondi componenti"
-            onClick={onHide}
-          >
-            <PanelLeftClose size={16} />
-          </button>
-        </div>
       </div>
       <div className="search-field">
         <Search size={15} />

@@ -4,7 +4,7 @@ import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import App from '../src/App';
 import { emptyDocument } from '../src/model/demo';
 import { useEditorStore } from '../src/store/editorStore';
-import { SIDEBAR_STORAGE_KEY } from '../src/components/palette/ComponentSidebar';
+import { SIDEBAR_STORAGE_KEY } from '../src/components/palette/useSidebarPreferences';
 import { serializeDocument } from '../src/model/serialization';
 import type { Point } from '../src/model/types';
 const stored = new Map<string, string>();

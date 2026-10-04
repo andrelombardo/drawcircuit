@@ -462,7 +462,9 @@ describe('contextual tool feedback and cancellation', () => {
     expect(doc().objects.filter((o) => o.kind === 'electrical')).toHaveLength(1);
     key('g');
     expect(canvas().querySelector(':scope > rect')?.getAttribute('fill')).toBe('transparent');
-    expect(document.querySelector('.statusbar')?.textContent).toContain('Griglia nascosta');
+    expect(screen.getByRole('button', { name: 'Griglia (G)' }).getAttribute('aria-pressed')).toBe(
+      'false',
+    );
     expect(useEditorStore.getState().notice).toBe('Griglia: nascosta');
     key('g');
     expect(canvas().querySelector(':scope > rect')?.getAttribute('fill')).toBe('url(#grid)');

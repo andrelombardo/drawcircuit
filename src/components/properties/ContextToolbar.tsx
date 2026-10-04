@@ -416,30 +416,6 @@ export function ContextToolbar({
                 />
               </label>
             )}
-            {actions.secondary.includes('rotateLabel') && o && (
-              <button
-                type="button"
-                className="secondary-property"
-                title="Ruota solo label"
-                aria-label="Ruota solo label"
-                onClick={() =>
-                  update(o.id, (obj) =>
-                    obj.kind === 'component' || obj.kind === 'junction' || obj.kind === 'electrical'
-                      ? {
-                          ...obj,
-                          label: {
-                            ...obj.label,
-                            rotation: ((obj.label.rotation + 90) % 360) as 0 | 90 | 180 | 270,
-                          },
-                        }
-                      : obj,
-                  )
-                }
-              >
-                <RotateCw size={15} />
-                Ruota label
-              </button>
-            )}
             {actions.secondary.includes('alignment') && o?.kind === 'text' && (
               <div className="alignment-buttons">
                 {(['start', 'middle', 'end'] as const).map((align, i) => (

@@ -3,7 +3,7 @@ import { usePersonalBlocks } from '../../personalBlocks/library';
 import { CIRCUIT_FONT } from '../../model/fonts';
 import { LatexPreview } from '../../circuit/annotations/MathText';
 import { useRef } from 'react';
-import { Check, ChevronRight, Grid2X2, Maximize, Minus, Plus } from 'lucide-react';
+import { Check, CircleAlert, Grid2X2, Maximize, Minus, Plus } from 'lucide-react';
 import { useEditorStore } from '../../store/editorStore';
 import { catalog, componentRegistry } from '../../model/catalog';
 import { COLORS, componentTypes, GRID } from '../../model/types';
@@ -92,26 +92,19 @@ export function Canvas() {
                       ? 'Trascina per disegnare · seleziona per modificare gli handle'
                       : isComponent
                         ? `${catalog.find((c) => c.type === tool)?.name} · clicca per inserire · R ruota · Esc termina`
-                        : 'Space + trascina per spostarti · rotellina per zoomare';
+                        : tool === 'pan'
+                          ? 'Trascina per spostare la vista'
+                          : null;
   return (
     <main className="editor" aria-label="Editor circuito">
       <div className="document-heading">
-        <div className="document-breadcrumb">
-          IL TUO FOGLIO
-          <ChevronRight size={12} />
-          <span>Elettrotecnica</span>
-        </div>
         <DocumentTitle />
-        <span className={`save-status${storageError ? ' error' : ''}`}>
-          <Check size={12} />
-          {storageError
-            ? 'Salvataggio locale non disponibile · salva JSON'
-            : 'Salvataggio locale automatico'}
-        </span>
-      </div>
-      <div className="paper-tag">
-        <span className="paper-tag-dot" />
-        IL CIRCUITO, SENZA DISTRAZIONI
+        {storageError && (
+          <span className="save-status error" role="status">
+            <CircleAlert size={12} />
+            Salvataggio locale non disponibile · salva JSON
+          </span>
+        )}
       </div>
       <ContextToolbar
         key={selection.join(',')}
@@ -164,7 +157,7 @@ export function Canvas() {
               className={arrowType === type ? 'selected' : ''}
               onClick={() => useEditorStore.getState().setArrowType(type)}
             >
-              {['↗ Dritta', '⤴ Curva'][i]}
+              {['Dritta', 'Curva'][i]}
             </button>
           ))}
         </div>
@@ -358,29 +351,18 @@ export function Canvas() {
             <Grid2X2 size={15} />
           </IconButton>
         </div>
-        <div className="canvas-hint" role="status">
-          {isComponent ? (smartHint ?? hint) : hint}
-        </div>
-        <span className="sheet-mark">
-          FATTO PER I TUOI APPUNTI <span>↗</span>
-        </span>
+        {(isComponent ? (smartHint ?? hint) : hint) && (
+          <div className="canvas-hint" role="status">
+            {isComponent ? (smartHint ?? hint) : hint}
+          </div>
+        )}
+        {!!selection.length && (
+          <span className="selection-status">
+            {selection.length}{' '}
+            {selection.length === 1 ? 'elemento selezionato' : 'elementi selezionati'}
+          </span>
+        )}
       </div>
-      <footer className="statusbar">
-        <span>
-          <span className="status-dot" />
-          Editor SVG<span className="status-separator">/</span>
-          {doc.objects.filter((o) => o.kind === 'component').length} componenti
-          <span className="status-separator">·</span>
-          {doc.objects.filter((o) => o.kind === 'wire').length} fili
-        </span>
-        <span>
-          {selection.length
-            ? `${selection.length} ${selection.length === 1 ? 'elemento selezionato' : 'elementi selezionati'}`
-            : 'Seleziona e disegna liberamente'}
-          <span className="status-separator">/</span>Griglia{' '}
-          {grid ? `visibile · ${GRID} px` : 'nascosta'}
-        </span>
-      </footer>
     </main>
   );
 }
