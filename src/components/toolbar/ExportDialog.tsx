@@ -11,7 +11,7 @@ export function ExportDialog({ onClose }: { onClose: () => void }) {
   const doc = useEditorStore((s) => s.document),
     selection = useEditorStore((s) => s.selection),
     [scope, setScope] = useState<'all' | 'selection'>('all'),
-    [tab, setTab] = useState<'snippet' | 'obsidian' | 'standalone' | 'svg' | 'png'>('snippet'),
+    [tab, setTab] = useState<'snippet' | 'obsidian' | 'standalone' | 'svg'>('snippet'),
     [copied, setCopied] = useState<'snippet' | 'obsidian' | 'svg' | 'png' | null>(null),
     [copyError, setCopyError] = useState(false);
   const [pngBusy, setPngBusy] = useState(false);
@@ -44,15 +44,13 @@ export function ExportDialog({ onClose }: { onClose: () => void }) {
   const subset = useMemo(() => getExportSelection(doc, selection), [doc, selection]);
   const exportDoc = scope === 'selection' ? subset : doc;
   const code =
-    tab === 'png'
-      ? ''
-      : tab === 'svg'
-        ? exportSVG(exportDoc)
-        : tab === 'snippet'
-          ? exportTikz(exportDoc)
-          : tab === 'obsidian'
-            ? exportObsidian(exportDoc)
-            : exportStandalone(exportDoc);
+    tab === 'svg'
+      ? exportSVG(exportDoc)
+      : tab === 'snippet'
+        ? exportTikz(exportDoc)
+        : tab === 'obsidian'
+          ? exportObsidian(exportDoc)
+          : exportStandalone(exportDoc);
   const copy = async (format: 'snippet' | 'obsidian' | 'svg') => {
     setTab(format);
     setCopied(null);
@@ -109,6 +107,7 @@ export function ExportDialog({ onClose }: { onClose: () => void }) {
             aria-pressed={scope === 'all'}
             onClick={() => {
               setScope('all');
+              setPngError('');
               setCopied(null);
               setCopyError(false);
             }}
@@ -125,6 +124,7 @@ export function ExportDialog({ onClose }: { onClose: () => void }) {
             }
             onClick={() => {
               setScope('selection');
+              setPngError('');
               setCopied(null);
               setCopyError(false);
             }}
@@ -154,33 +154,38 @@ export function ExportDialog({ onClose }: { onClose: () => void }) {
           <button className={tab === 'svg' ? 'selected' : ''} onClick={() => selectTab('svg')}>
             SVG
           </button>
-          <button className={tab === 'png' ? 'selected' : ''} onClick={() => selectTab('png')}>
-            PNG
-          </button>
+          <div
+            className="png-export-actions"
+            role="group"
+            aria-label="Azioni PNG"
+            aria-busy={pngBusy}
+          >
+            <button
+              disabled={pngBusy || !exportDoc.objects.length}
+              onClick={() => pngAction('copy')}
+            >
+              <Copy size={14} /> {copied === 'png' ? 'PNG copiato' : 'Copia PNG'}
+            </button>
+            <button
+              disabled={pngBusy || !exportDoc.objects.length}
+              onClick={() => pngAction('download')}
+            >
+              <Download size={14} /> Scarica PNG
+            </button>
+          </div>
           <span>
             {exportDoc.objects.length}{' '}
             {exportDoc.objects.length === 1 ? 'oggetto vettoriale' : 'oggetti vettoriali'}
           </span>
         </div>
-        {tab === 'png' ? (
-          <div className="png-export-panel">
-            <b>PNG · 2×</b>
-            <p>Immagine nitida su sfondo bianco, pronta per documenti, appunti e chat.</p>
-            <p>
-              {scope === 'selection' ? 'Solo la selezione' : 'Tutto il circuito'} · ritaglio sul
-              contenuto
-            </p>
-          </div>
-        ) : (
-          <textarea
-            ref={textarea}
-            className="code-preview"
-            aria-label={tab === 'svg' ? 'Codice SVG generato' : 'Codice TikZ generato'}
-            value={code}
-            readOnly
-            spellCheck={false}
-          />
-        )}
+        <textarea
+          ref={textarea}
+          className="code-preview"
+          aria-label={tab === 'svg' ? 'Codice SVG generato' : 'Codice TikZ generato'}
+          value={code}
+          readOnly
+          spellCheck={false}
+        />
         {pngError && (
           <p className="copy-error" role="alert">
             {pngError}
@@ -191,32 +196,13 @@ export function ExportDialog({ onClose }: { onClose: () => void }) {
         )}
         <div className="export-dialog-footer">
           <span>
-            {tab === 'png'
-              ? 'PNG · 2× · sfondo bianco'
-              : tab === 'svg'
-                ? 'SVG vettoriale · copia del codice XML'
-                : tab === 'obsidian'
-                  ? 'Scala canvas · font e geometria preservati'
-                  : '1 cm = 40 px · orientamento preservato'}
+            {tab === 'svg'
+              ? 'SVG vettoriale · copia del codice XML'
+              : tab === 'obsidian'
+                ? 'Scala canvas · font e geometria preservati'
+                : '1 cm = 40 px · orientamento preservato'}
           </span>
-          {tab === 'png' ? (
-            <>
-              <button
-                className="secondary-button"
-                disabled={pngBusy}
-                onClick={() => pngAction('copy')}
-              >
-                {copied === 'png' ? 'PNG copiato' : 'Copia PNG'}
-              </button>
-              <button
-                className="secondary-button"
-                disabled={pngBusy}
-                onClick={() => pngAction('download')}
-              >
-                {pngBusy ? 'Preparazione…' : 'Scarica PNG'}
-              </button>
-            </>
-          ) : tab === 'svg' ? (
+          {tab === 'svg' ? (
             <>
               <button className="secondary-button" onClick={() => copy('svg')}>
                 {copied === 'svg' ? 'SVG copiato' : 'Copia codice SVG'}

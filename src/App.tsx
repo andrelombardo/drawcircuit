@@ -25,7 +25,7 @@ export default function App() {
           onExport={() => setDialog('export')}
           onHelp={() => setDialog('help')}
           sidebarVisible={sidebar.preferences.visible}
-          onShowSidebar={() => sidebar.setPreferences((p) => ({ ...p, visible: true }))}
+          onToggleSidebar={sidebar.toggleSidebar}
         />
       </div>
       {dialog === 'export' && <ExportDialog onClose={() => setDialog(null)} />}{' '}

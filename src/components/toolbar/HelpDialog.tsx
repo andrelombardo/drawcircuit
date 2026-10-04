@@ -1,4 +1,5 @@
 import { useRef } from 'react';
+import { isMac, isStandalone } from '../../utils/platform';
 import { X } from 'lucide-react';
 import { useDialogFocus } from './useDialogFocus';
 export function HelpDialog({ onClose }: { onClose: () => void }) {
@@ -36,7 +37,8 @@ export function HelpDialog({ onClose }: { onClose: () => void }) {
           <p>
             <b>03 · Annota</b>Premi N per un nodo, T per il testo, A per una freccia, L per una
             maglia. Trascina sul foglio per disegnare una freccia o una maglia. Doppio clic modifica
-            testi e label. Tieni Shift premuto mentre inserisci nodi per ripetere l’inserimento.
+            testi ed etichette. Tieni Shift premuto mentre inserisci nodi per ripetere
+            l’inserimento.
           </p>
         </div>
         <div className="shortcut-grid">
@@ -48,8 +50,8 @@ export function HelpDialog({ onClose }: { onClose: () => void }) {
             ['Shift + clic', 'Selezione multipla'],
             ['Shift + clic con Nodo', 'Inserisci più nodi'],
             ['Trascina sul foglio', 'Selezione a rettangolo'],
-            ['R', 'Ruota componente / anteprima'],
-            ['Enter', 'Modifica nome o label'],
+            ['R', 'Ruota componente, graffa, staffa / anteprima'],
+            ['Enter', 'Modifica nome o etichetta'],
             ['Alt + clic handle', 'Rimuovi svolta filo'],
             ['L', 'Disegna maglia ellittica'],
             ['⌘/Ctrl D', 'Duplica'],
@@ -63,6 +65,7 @@ export function HelpDialog({ onClose }: { onClose: () => void }) {
             ['H · V', 'Pan / selezione'],
             ['⌘/Ctrl A', 'Seleziona tutto'],
             ['Esc', 'Selezione / annulla filo'],
+            ...(isStandalone() && isMac() ? [['⌘T', 'Mostra / nascondi Componenti (PWA)']] : []),
           ].map(([key, description]) => (
             <div key={key}>
               <span>{description}</span>
@@ -71,18 +74,19 @@ export function HelpDialog({ onClose }: { onClose: () => void }) {
           ))}
         </div>
         <p className="help-note">
-          Trascina le label per spostarle. Doppio clic su un filo aggiunge una svolta modificabile.
-          I punti blu modificano frecce e fili; Alt + clic elimina una svolta. Nelle maglie trascina
-          gli angoli per ridimensionare e il punto sulla punta per spostarla. Scrivi{' '}
+          Trascina le etichette per spostarle. Doppio clic su un filo aggiunge una svolta
+          modificabile. I punti blu modificano frecce e fili; Alt + clic elimina una svolta. Nelle
+          maglie trascina gli angoli per ridimensionare e il punto sulla punta per spostarla. Scrivi{' '}
           <code>r_&#123;AB&#125;</code> per un pedice.
         </p>
         <p className="help-note">
           L’anteprima Smart Placement indica aggancio e collegamento; Alt/Option li ignora.
-          “Inserisci in filo” attiva l’inserimento inline. Il menu I/V aggiunge correnti, polarità e
-          tensioni, Brace e Bracket: trascina per raggruppare, poi aggiungi la label e inverti lato
-          dalle proprietà. Trascina il grip per spostare la toolbar: la posizione viene ricordata.
-          L’icona download apre TikZ, Obsidian, File .tex, SVG e PNG (copia immagine o download a
-          2×), anche per la selezione. Il circuito viene salvato automaticamente in questo browser.
+          “Inserisci in filo” è nel feedback in basso. Il menu I/V aggiunge correnti, polarità e
+          tensioni. “Graffe e staffe” apre Graffa e Staffa: trascina per raggruppare, poi aggiungi
+          l’etichetta; R ruota di 90° e “Inverti lato” cambia lato. Trascina il grip per spostare la
+          toolbar: la posizione viene ricordata. Export offre TikZ, Obsidian, File .tex, SVG e le
+          azioni dirette “Copia PNG” e “Scarica PNG”, anche per la selezione. Il circuito e il
+          livello di zoom vengono salvati automaticamente in questo browser.
         </p>
       </section>
     </div>

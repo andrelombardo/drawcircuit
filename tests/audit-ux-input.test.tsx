@@ -272,7 +272,7 @@ describe('audit UX/input evidence', () => {
     expect(
       useEditorStore.getState().document.objects.find((o) => o.id === original.id),
     ).toMatchObject({ rotation: 0, label: { text: 'r_{AB}' } });
-    const label = screen.getByLabelText('Label componente');
+    const label = screen.getByLabelText('Etichetta componente');
     fireEvent.change(label, { target: { value: 'canceled' } });
     fireEvent.keyDown(label, { key: 'Escape' });
     fireEvent.blur(label);

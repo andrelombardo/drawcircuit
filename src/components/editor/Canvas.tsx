@@ -28,12 +28,12 @@ import { presetRegistry } from '../../presets/registry';
 import { inlineCompatible, needsTerminalChoice } from '../../smartPlacement/findCandidates';
 export function Canvas({
   sidebarVisible = true,
-  onShowSidebar,
+  onToggleSidebar,
   onExport,
   onHelp,
 }: {
   sidebarVisible?: boolean;
-  onShowSidebar?: () => void;
+  onToggleSidebar?: () => void;
   onExport?: () => void;
   onHelp?: () => void;
 }) {
@@ -47,7 +47,7 @@ export function Canvas({
     storageError = useEditorStore((s) => s.storageError);
   const personalBlocks = usePersonalBlocks((s) => s.blocks);
   const personalName = personalBlocks.find((b) => b.id === pendingPresetId)?.name;
-  const interactions = useCanvasInteractions(svgRef),
+  const interactions = useCanvasInteractions(svgRef, onToggleSidebar),
     { viewport: v, overlay, draft, editing } = interactions;
   const editedObject = editing ? doc.objects.find((o) => o.id === editing.id) : null;
   const editedText = editedObject?.kind === 'text' ? editedObject : null;
@@ -83,7 +83,7 @@ export function Canvas({
   }
   const hint =
     tool === 'brace' || tool === 'bracket'
-      ? 'Trascina per raggruppare · doppio clic per la label · Inverti lato nelle proprietà'
+      ? 'Trascina per raggruppare · doppio clic per l’etichetta · R ruota · Inverti lato nelle proprietà'
       : tool === 'preset'
         ? `${pendingPresetId ? (presetRegistry[pendingPresetId]?.name ?? personalName) : 'Blocco rapido'} · clicca per inserire · R ruota · Esc annulla`
         : tool === 'current'
@@ -107,7 +107,7 @@ export function Canvas({
                       : tool === 'arrow'
                         ? 'Trascina per disegnare · seleziona per modificare gli handle'
                         : isComponent
-                          ? `${catalog.find((c) => c.type === tool)?.name} · clicca per inserire · R ruota · Esc termina`
+                          ? `${catalog.find((c) => c.type === tool)?.name} · clicca per inserire · R ruota · Alt/Option ignora · Esc termina`
                           : tool === 'pan'
                             ? 'Trascina per spostare la vista'
                             : null;
@@ -122,7 +122,7 @@ export function Canvas({
           data-tooltip="Mostra componenti"
           aria-expanded={false}
           aria-controls="component-library"
-          onClick={onShowSidebar}
+          onClick={onToggleSidebar}
         >
           <SidebarIcon />
         </button>
@@ -140,42 +140,6 @@ export function Canvas({
         svgRef={svgRef}
         hidden={!!interactions.dragging || !!editing}
       />
-      {isComponent &&
-        (inlineCompatible(tool as ComponentType) || needsTerminalChoice(tool as ComponentType)) && (
-          <div className="smart-placement-options" aria-label="Assistenze placement">
-            {inlineCompatible(tool as ComponentType) && (
-              <button
-                aria-pressed={smart.session.kind === 'inline'}
-                onClick={smart.toggleInline}
-                title="Attiva l’inserimento solo quando l’anteprima mostra il taglio del filo"
-              >
-                Inserisci in filo
-              </button>
-            )}
-            {needsTerminalChoice(tool as ComponentType) && (
-              <>
-                <span>Collega terminale:</span>
-                <button
-                  aria-pressed={!smart.session.terminalId}
-                  onClick={() => smart.chooseTerminal(null)}
-                >
-                  Nessuno
-                </button>
-                {componentRegistry[tool as ComponentType].terminals.map((t) => (
-                  <button
-                    key={t.id}
-                    aria-label={`Collega terminale ${t.name ?? t.id}`}
-                    aria-pressed={smart.session.terminalId === t.id}
-                    onClick={() => smart.chooseTerminal(t.id)}
-                  >
-                    {t.name ?? t.id}
-                  </button>
-                ))}
-              </>
-            )}
-            <span className="smart-option-hint">Alt/Option ignora · R ruota</span>
-          </div>
-        )}
       {tool === 'arrow' && (
         <div className="arrow-tool-options" aria-label="Forma freccia">
           {(['straight', 'curve'] as const).map((type, i) => (
@@ -390,7 +354,7 @@ export function Canvas({
             className="zoom-number"
             aria-label="Adatta circuito alla vista"
             title="Adatta circuito alla vista"
-            onClick={interactions.fit}
+            onClick={() => interactions.fit()}
           >
             {Math.round(v.zoom * 100)}%
           </button>
@@ -398,7 +362,7 @@ export function Canvas({
             <Plus size={15} />
           </IconButton>
           <div className="toolbar-divider" />
-          <IconButton label="Adatta alla vista (1)" onClick={interactions.fit}>
+          <IconButton label="Adatta alla vista (1)" onClick={() => interactions.fit()}>
             <Maximize size={15} />
           </IconButton>
           <IconButton
@@ -409,9 +373,47 @@ export function Canvas({
             <Grid2X2 size={15} />
           </IconButton>
         </div>
-        {(isComponent ? (smartHint ?? hint) : hint) && (
-          <div className="canvas-hint" role="status">
-            {isComponent ? (smartHint ?? hint) : hint}
+        {hint && (
+          <div className={`placement-feedback${isComponent ? ' has-placement-controls' : ''}`}>
+            {isComponent &&
+              (inlineCompatible(tool as ComponentType) ||
+                needsTerminalChoice(tool as ComponentType)) && (
+                <div className="placement-controls" role="group" aria-label="Assistenze placement">
+                  {inlineCompatible(tool as ComponentType) && (
+                    <button
+                      aria-pressed={smart.session.kind === 'inline'}
+                      onClick={smart.toggleInline}
+                      title="Attiva l’inserimento solo quando l’anteprima mostra il taglio del filo"
+                    >
+                      Inserisci in filo
+                    </button>
+                  )}
+                  {needsTerminalChoice(tool as ComponentType) && (
+                    <>
+                      <span>Collega terminale:</span>
+                      <button
+                        aria-pressed={!smart.session.terminalId}
+                        onClick={() => smart.chooseTerminal(null)}
+                      >
+                        Nessuno
+                      </button>
+                      {componentRegistry[tool as ComponentType].terminals.map((t) => (
+                        <button
+                          key={t.id}
+                          aria-label={`Collega terminale ${t.name ?? t.id}`}
+                          aria-pressed={smart.session.terminalId === t.id}
+                          onClick={() => smart.chooseTerminal(t.id)}
+                        >
+                          {t.name ?? t.id}
+                        </button>
+                      ))}
+                    </>
+                  )}
+                </div>
+              )}
+            <div className="canvas-hint" role="status">
+              {isComponent ? (smartHint ?? hint) : hint}
+            </div>
           </div>
         )}
       </div>

@@ -38,6 +38,8 @@ import { loopPositionAt } from '../../utils/loops';
 import { createMoveContext, computeMoveGuides } from '../../utils/smartGuides';
 import type { MoveContext, DistanceGuide } from '../../utils/smartGuides';
 import { useSmartPlacement } from '../../smartPlacement/useSmartPlacement';
+import { isMac } from '../../utils/platform';
+import { clampZoom, readZoomPreference, saveZoomPreference } from './zoomPreferences';
 type Drag =
   | { type: 'pan'; screen: Point; view: Viewport }
   | {
@@ -74,9 +76,14 @@ const blank: Overlay = {
   componentTarget: null,
   wireTarget: null,
 };
-export function useCanvasInteractions(svgRef: RefObject<SVGSVGElement | null>) {
+export function useCanvasInteractions(
+  svgRef: RefObject<SVGSVGElement | null>,
+  onToggleSidebar?: () => void,
+) {
   useKeyboardNudge();
-  const [viewport, setViewport] = useState<Viewport>({ x: 600, y: 340, zoom: 1 });
+  const [initialZoom] = useState(readZoomPreference);
+  const [viewport, setViewport] = useState<Viewport>({ x: 600, y: 340, zoom: initialZoom ?? 1 });
+  useEffect(() => saveZoomPreference(viewport.zoom), [viewport.zoom]);
   const [surfaceSize, setSurfaceSize] = useState({ width: 1200, height: 700 });
   const previousSurface = useRef<{ width: number; height: number } | null>(null);
   const smart = useSmartPlacement(viewport);
@@ -147,34 +154,42 @@ export function useCanvasInteractions(svgRef: RefObject<SVGSVGElement | null>) {
     },
     [svgRef, viewport],
   );
-  const fit = useCallback(() => {
-    const svg = svgRef.current;
-    if (!svg) return;
-    const b = svg.getBoundingClientRect(),
-      bounds = documentBounds(useEditorStore.getState().document);
-    setSurfaceSize((previous) =>
-      previous.width === b.width && previous.height === b.height
-        ? previous
-        : { width: b.width, height: b.height },
-    );
-    previousSurface.current = { width: b.width, height: b.height };
-    const z = Math.max(
-      0.2,
-      Math.min(1.45, Math.min((b.width - 130) / bounds.width, (b.height - 180) / bounds.height)),
-    );
-    setViewport({
-      zoom: z,
-      x: b.width / 2 - (bounds.x + bounds.width / 2) * z,
-      y: b.height / 2 - (bounds.y + bounds.height / 2) * z + 15,
-    });
-  }, [svgRef]);
+  const fit = useCallback(
+    (restoredZoom?: number) => {
+      const svg = svgRef.current;
+      if (!svg) return;
+      const b = svg.getBoundingClientRect(),
+        bounds = documentBounds(useEditorStore.getState().document);
+      setSurfaceSize((previous) =>
+        previous.width === b.width && previous.height === b.height
+          ? previous
+          : { width: b.width, height: b.height },
+      );
+      previousSurface.current = { width: b.width, height: b.height };
+      const z =
+        restoredZoom ??
+        Math.max(
+          0.2,
+          Math.min(
+            1.45,
+            Math.min((b.width - 130) / bounds.width, (b.height - 180) / bounds.height),
+          ),
+        );
+      setViewport({
+        zoom: z,
+        x: b.width / 2 - (bounds.x + bounds.width / 2) * z,
+        y: b.height / 2 - (bounds.y + bounds.height / 2) * z + 15,
+      });
+    },
+    [svgRef],
+  );
   const zoomAt = useCallback(
     (factor: number, point?: Point) => {
       const b = svgRef.current?.getBoundingClientRect();
       if (!b) return;
       const p = point ?? { x: b.width / 2, y: b.height / 2 };
       setViewport((v) => {
-        const z = Math.max(0.15, Math.min(4, v.zoom * factor));
+        const z = clampZoom(v.zoom * factor);
         return {
           zoom: z,
           x: p.x - ((p.x - v.x) * z) / v.zoom,
@@ -199,7 +214,7 @@ export function useCanvasInteractions(svgRef: RefObject<SVGSVGElement | null>) {
     return () => svg.removeEventListener('wheel', wheel);
   }, [svgRef, zoomAt]);
   useEffect(() => {
-    fit();
+    fit(initialZoom ?? undefined);
     const fitHandler = () => fit(),
       zoomIn = () => zoomAt(1.2),
       zoomOut = () => zoomAt(1 / 1.2);
@@ -233,7 +248,7 @@ export function useCanvasInteractions(svgRef: RefObject<SVGSVGElement | null>) {
       window.removeEventListener('drawcircuit:zoom-in', zoomIn);
       window.removeEventListener('drawcircuit:zoom-out', zoomOut);
     };
-  }, [fit, zoomAt, svgRef]);
+  }, [fit, zoomAt, svgRef, initialZoom]);
   const finishWire = useCallback((ep: Endpoint) => {
     const d = draftRef.current;
     if (!d) return;
@@ -265,7 +280,20 @@ export function useCanvasInteractions(svgRef: RefObject<SVGSVGElement | null>) {
         spaceDown.current = true;
         setSpace(true);
       }
-      if (mod && e.key.toLowerCase() === 'z') {
+      if (
+        (isMac() ? e.metaKey : e.ctrlKey) &&
+        !e.altKey &&
+        !e.shiftKey &&
+        e.key.toLowerCase() === 't'
+      ) {
+        if (
+          onToggleSidebar &&
+          !document.querySelector('[role="menu"], .context-more[open]')
+        ) {
+          e.preventDefault();
+          if (!e.repeat) onToggleSidebar();
+        }
+      } else if (mod && e.key.toLowerCase() === 'z') {
         e.preventDefault();
         drag.current = null;
         setDragging(null);
@@ -389,7 +417,7 @@ export function useCanvasInteractions(svgRef: RefObject<SVGSVGElement | null>) {
       window.removeEventListener('keyup', keyup);
       window.removeEventListener('blur', blur);
     };
-  }, [finishWire, fit, zoomAt, modifierKey, smartBlur, rotatePlacement]);
+  }, [finishWire, fit, zoomAt, modifierKey, smartBlur, rotatePlacement, onToggleSidebar]);
   // Cancel an unfinished wire when a different tool is chosen.
   useEffect(
     () =>

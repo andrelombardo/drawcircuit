@@ -12,6 +12,7 @@ import {
 export function ComponentSidebar({
   preferences,
   setPreferences,
+  toggleSidebar,
 }: ReturnType<typeof useSidebarPreferences>) {
   const shell = useRef<HTMLDivElement>(null);
   const drag = useRef<{ x: number; width: number; pointerId: number } | null>(null);
@@ -26,7 +27,7 @@ export function ComponentSidebar({
         { width: preferences.width, '--sidebar-width': `${preferences.width}px` } as CSSProperties
       }
     >
-      <Palette onHide={() => setPreferences((p) => ({ ...p, visible: false }))} />
+      <Palette onHide={toggleSidebar} />
       <div
         className="sidebar-resizer"
         role="separator"

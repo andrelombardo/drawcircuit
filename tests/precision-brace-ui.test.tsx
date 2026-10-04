@@ -74,10 +74,8 @@ function drag(start: [number, number], end: [number, number], target: Element = 
   fireEvent.pointerUp(canvas(), client(...end));
 }
 function create(type: 'brace' | 'bracket', end: [number, number]) {
-  fireEvent.click(screen.getByRole('button', { name: 'Annotazioni elettriche' }));
-  fireEvent.click(
-    screen.getByRole('button', { name: type === 'brace' ? 'Brace · Graffa' : 'Bracket · Staffa' }),
-  );
+  fireEvent.click(screen.getByRole('button', { name: 'Graffe e staffe' }));
+  fireEvent.click(screen.getByRole('button', { name: type === 'brace' ? 'Graffa' : 'Staffa' }));
   drag([0, 0], end);
   return state().document.objects.at(-1) as BraceAnnotation;
 }
@@ -202,9 +200,9 @@ describe('precision/annotation/export UI workflows', () => {
     });
     vi.stubGlobal('ClipboardItem', undefined);
     render(<ExportDialog onClose={() => {}} />);
-    fireEvent.click(screen.getByRole('button', { name: 'PNG' }));
-    expect(screen.queryByRole('textbox')).toBeNull();
-    expect(screen.getByText('PNG · 2×')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'PNG' })).toBeNull();
+    expect(screen.getByRole('textbox')).toBeTruthy();
+    expect(screen.queryByText('PNG · 2×')).toBeNull();
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'Copia PNG' }));
     });

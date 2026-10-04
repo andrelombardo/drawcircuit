@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 export const SIDEBAR_STORAGE_KEY = 'drawcircuit.sidebar.v1';
 export const SIDEBAR_DEFAULT_WIDTH = 232;
@@ -27,6 +27,10 @@ function initialPreferences(): { visible: boolean; width: number } {
 }
 export function useSidebarPreferences() {
   const [preferences, setPreferences] = useState(initialPreferences);
+  const toggleSidebar = useCallback(
+    () => setPreferences((p) => ({ ...p, visible: !p.visible })),
+    [],
+  );
   useEffect(() => {
     try {
       localStorage.setItem(SIDEBAR_STORAGE_KEY, JSON.stringify(preferences));
@@ -34,5 +38,5 @@ export function useSidebarPreferences() {
       /* UI preferences remain usable for this session. */
     }
   }, [preferences]);
-  return { preferences, setPreferences };
+  return { preferences, setPreferences, toggleSidebar };
 }

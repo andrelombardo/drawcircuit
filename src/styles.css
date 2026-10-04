@@ -500,38 +500,33 @@ svg {
   fill: #e7efff;
   fill-opacity: 0.7;
 }
-.smart-placement-options {
-  position: absolute;
-  top: 104px;
-  left: 24px;
-  z-index: var(--layer-context);
+/* Placement controls share the existing bottom feedback, without a floating surface. */
+.placement-feedback {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.placement-controls {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: var(--ui-space-1);
-  max-width: calc(100% - 48px);
-  padding: var(--ui-space-1);
-  border: 1px solid var(--ui-border);
-  border-radius: var(--ui-radius-md);
-  background: var(--ui-surface);
-  box-shadow: var(--ui-shadow);
-  color: var(--ui-text-secondary);
+  pointer-events: auto;
   font-size: 11px;
+  color: var(--ui-text-secondary);
 }
-.smart-placement-options button {
-  height: var(--ui-control-height);
+.placement-controls button {
+  min-height: 28px;
   padding: 0 var(--ui-space-2);
   border-radius: var(--ui-radius-sm);
+  border: 1px solid var(--ui-border);
+  background: var(--ui-surface);
   color: var(--ui-text-secondary);
 }
-.smart-placement-options button[aria-pressed='true'] {
+.placement-controls button[aria-pressed='true'] {
   background: var(--ui-accent-soft);
   color: var(--ui-accent);
-}
-.smart-option-hint {
-  margin-left: var(--ui-space-1);
-  padding-right: var(--ui-space-1);
-  color: var(--ui-text-secondary);
 }
 .smart-guide {
   fill: none;
@@ -1621,7 +1616,7 @@ kbd {
 .context-more summary:hover,
 .secondary-property:hover,
 .arrow-tool-options button:hover,
-.smart-placement-options button:hover,
+.placement-controls button:hover,
 .personal-block-row button:hover,
 .personal-library-actions button:hover,
 .export-scope button:hover:not(:disabled),
@@ -2160,8 +2155,7 @@ summary:focus-visible {
   border-radius: 6px;
   background: rgba(250, 251, 248, 0.94);
 }
-.arrow-tool-options,
-.smart-placement-options {
+.arrow-tool-options {
   top: 64px;
   border-radius: 10px;
 }
@@ -2467,7 +2461,6 @@ summary:focus-visible {
 }
 .context-toolbar,
 .arrow-tool-options,
-.smart-placement-options,
 .inline-editor {
   z-index: var(--layer-context);
 }
@@ -2531,14 +2524,36 @@ summary:focus-visible {
   }
 }
 
-.png-export-panel {
-  min-height: 220px;
-  padding: 36px 24px;
-  border: 1px solid var(--border, #e5e7eb);
-  border-radius: 12px;
-  background: #fff;
-  color: #171a20;
+.png-export-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding-left: 6px;
+  border-left: 1px solid var(--ui-border);
 }
-.png-export-panel p {
-  margin-top: 12px;
+.png-export-actions button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: 1px solid var(--ui-border);
+  background: var(--ui-surface);
+  color: var(--ui-text);
+}
+.png-export-actions button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+/* Keep placement instructions and controls available on narrow canvases too. */
+.has-placement-controls .canvas-hint {
+  display: block;
+}
+@container (max-width: 580px) {
+  .editor-bottom:has(.has-placement-controls) {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .has-placement-controls .canvas-hint {
+    font-size: 10px;
+  }
 }

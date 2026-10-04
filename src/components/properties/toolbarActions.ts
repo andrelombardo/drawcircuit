@@ -15,7 +15,7 @@ export function toolbarActions(o: CircuitObject | null) {
         ],
       };
     case 'brace':
-      return { primary: ['label', 'style', 'flip', ...common], secondary };
+      return { primary: ['label', 'style', 'rotate', 'flip', ...common], secondary };
     case 'electrical':
       return {
         primary: ['label', 'style', 'reverse', ...common],

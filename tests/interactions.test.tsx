@@ -845,7 +845,7 @@ describe('expanded library and annotation fonts in the rendered interface', () =
     fireEvent.click(screen.getByRole('button', { name: 'Inserisci resistenza' }));
     click(0, 0);
     key('v');
-    const label = screen.getByLabelText('Label componente');
+    const label = screen.getByLabelText('Etichetta componente');
     fireEvent.change(label, { target: { value: 'r_{AB}' } });
     fireEvent.blur(label);
     key('n');

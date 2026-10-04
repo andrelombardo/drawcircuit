@@ -13,6 +13,8 @@ import { createBrace, braceGeometry } from '../src/annotations/brace';
 import { createElectrical } from '../src/annotations/electrical';
 import { createComponent } from '../src/model/catalog';
 import { createJunction, createTextAnnotation, createWire } from '../src/model/factories';
+import { rotateObjects } from '../src/utils/operations';
+import { exportTikz, exportObsidian } from '../src/tikz/exporter';
 import { getExportSelection } from '../src/tikz/selection';
 import type { CircuitDocument } from '../src/model/types';
 
@@ -109,9 +111,13 @@ beforeEach(() => {
     const reader = new FileReader();
     reader.onload = () => {
       rasterSource = String(reader.result);
-      const png = new Resvg(rasterSource, { fitTo: { mode: 'width', value: this.width } })
-        .render()
-        .asPng();
+      // A browser canvas encodes both independently rounded dimensions. Match that
+      // allocation here instead of letting Resvg round height from width alone.
+      const svg = new DOMParser().parseFromString(rasterSource, 'image/svg+xml').documentElement;
+      svg.setAttribute('width', String(this.width));
+      svg.setAttribute('height', String(this.height));
+      svg.setAttribute('preserveAspectRatio', 'none');
+      const png = new Resvg(new XMLSerializer().serializeToString(svg)).render().asPng();
       callback(new Blob([new Uint8Array(png)], { type: 'image/png' }));
     };
     reader.readAsText(urls.get(imageURL)!);
@@ -152,6 +158,43 @@ describe('SVG-driven PNG export', () => {
     expect(rasterSource).not.toMatch(/grid|toolbar|data-handle|guides|selection-box|foreignObject/);
     expect(URL.revokeObjectURL).toHaveBeenCalledWith(imageURL);
   });
+  it.each(['brace', 'bracket'] as const)(
+    'preserves rotated %s geometry, styles and selection bounds in all four formats at every quarter turn',
+    async (type) => {
+      const o = createBrace(type, { x: 0, y: 0 }, { x: 200, y: 0 });
+      o.label.text = 'R_{eq}';
+      o.label.offset = { x: 12, y: -8 };
+      o.side = -1;
+      o.color = '#8855c2';
+      o.width = 3;
+      let doc = { version: 1 as const, title: 'Rotazioni', objects: [o] };
+      for (let i = 0; i < 4; i++) {
+        const subset = getExportSelection(doc, [o.id]);
+        const svg = exportSVG(subset),
+          dimensions = pngDimensions(svg);
+        const data = await bytes(await exportPNG(subset));
+        expect([...data.slice(0, 8)]).toEqual([137, 80, 78, 71, 13, 10, 26, 10]);
+        const header = new DataView(data.buffer);
+        expect(header.getUint32(16)).toBe(dimensions.width);
+        expect(header.getUint32(20)).toBe(dimensions.height);
+        expect(rasterSource).toContain(braceGeometry(subset.objects[0] as typeof o).d);
+        expect(rasterSource).toContain('stroke="#8855c2" stroke-width="3"');
+        for (const code of [exportTikz(subset), exportObsidian(subset)]) {
+          expect(code).toContain('R_{eq}');
+          expect(code).toContain('8855C2');
+          expect(code).not.toMatch(/NaN|undefined/);
+        }
+        const bound = new DOMParser()
+          .parseFromString(svg, 'image/svg+xml')
+          .documentElement.getAttribute('viewBox')!
+          .split(' ')
+          .map(Number);
+        expect(dimensions.width).toBe(Math.ceil(bound[2] * 2));
+        expect(dimensions.height).toBe(Math.ceil(bound[3] * 2));
+        doc = rotateObjects(doc, [o.id]) as typeof doc;
+      }
+    },
+  );
   it('keeps the shared export selection and excludes unrelated objects', async () => {
     const doc = fixture(),
       brace = doc.objects.find((o) => o.kind === 'brace')!;
@@ -231,12 +274,10 @@ describe('SVG-driven PNG export', () => {
     await expect(copyPNG(fixture())).rejects.toThrow('Scarica PNG');
   });
   it('embeds local KaTeX fonts for an isolated SVG image context', async () => {
-    const fetcher = vi
-      .fn()
-      .mockResolvedValue({
-        ok: true,
-        blob: () => Promise.resolve(new Blob(['font'], { type: 'font/woff2' })),
-      });
+    const fetcher = vi.fn().mockResolvedValue({
+      ok: true,
+      blob: () => Promise.resolve(new Blob(['font'], { type: 'font/woff2' })),
+    });
     vi.stubGlobal('fetch', fetcher);
     const svg = await embedSVGFonts(
       '<svg><title>Math</title><text font-family="KaTeX_Math"/></svg>',

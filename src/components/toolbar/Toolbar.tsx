@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import {
   ArrowUpRight,
+  Braces,
   RefreshCw,
   CircleDot,
   Download,
@@ -37,19 +38,19 @@ export function DrawingToolbar({
     future = useEditorStore((s) => s.future),
     undo = useEditorStore((s) => s.undo),
     redo = useEditorStore((s) => s.redo);
-  const [electricalMenu, setElectricalMenu] = useState(false);
+  const [menu, setMenu] = useState<'group' | 'electrical' | null>(null);
   useEffect(() => {
-    if (!electricalMenu) return;
+    if (!menu) return;
     const escape = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         event.preventDefault();
         event.stopPropagation();
-        setElectricalMenu(false);
+        setMenu(null);
       }
     };
     window.addEventListener('keydown', escape, true);
     return () => window.removeEventListener('keydown', escape, true);
-  }, [electricalMenu]);
+  }, [menu]);
   return (
     <div
       ref={toolbarRef}
@@ -97,71 +98,58 @@ export function DrawingToolbar({
       >
         <RefreshCw size={19} />
       </IconButton>
-      <div className="electrical-tools-wrap">
-        <button
-          className={`icon-button${['current', 'polarity', 'voltage', 'brace', 'bracket'].includes(tool) ? ' active' : ''}`}
-          aria-label="Annotazioni elettriche"
-          aria-pressed={['current', 'polarity', 'voltage', 'brace', 'bracket'].includes(tool)}
-          aria-expanded={electricalMenu}
-          title="Annotazioni · I/V, Brace e Bracket"
-          data-tooltip="Annotazioni · I/V, Brace e Bracket"
-          onClick={() => setElectricalMenu((open) => !open)}
-        >
-          I/V
-        </button>
-        {electricalMenu && (
-          <>
+      {(['group', 'electrical'] as const).map((group) => {
+        const graphic = group === 'group';
+        const label = graphic ? 'Graffe e staffe' : 'Annotazioni elettriche';
+        const tools = graphic ? ['brace', 'bracket'] : ['current', 'polarity', 'voltage'];
+        const options = graphic
+          ? ([
+              ['brace', 'Graffa'],
+              ['bracket', 'Staffa'],
+            ] as const)
+          : ([
+              ['current', 'Corrente su un filo'],
+              ['polarity', 'Polarità + / −'],
+              ['voltage', 'Tensione tra due punti'],
+            ] as const);
+        return (
+          <div className="electrical-tools-wrap" key={group}>
             <button
-              className="menu-backdrop"
-              aria-label="Chiudi annotazioni elettriche"
-              onClick={() => setElectricalMenu(false)}
-            />
-            <div className="file-menu electrical-tools-menu" role="menu" aria-label="Annotazioni">
-              <button
-                onClick={() => {
-                  setTool('current');
-                  setElectricalMenu(false);
-                }}
-              >
-                Corrente su un filo
-              </button>
-              <button
-                onClick={() => {
-                  setTool('polarity');
-                  setElectricalMenu(false);
-                }}
-              >
-                Polarità + / −
-              </button>
-              <button
-                onClick={() => {
-                  setTool('voltage');
-                  setElectricalMenu(false);
-                }}
-              >
-                Tensione tra due punti
-              </button>
-              <div className="toolbar-divider" />
-              <button
-                onClick={() => {
-                  setTool('brace');
-                  setElectricalMenu(false);
-                }}
-              >
-                Brace · Graffa
-              </button>
-              <button
-                onClick={() => {
-                  setTool('bracket');
-                  setElectricalMenu(false);
-                }}
-              >
-                Bracket · Staffa
-              </button>
-            </div>
-          </>
-        )}
-      </div>
+              className={`icon-button${tools.includes(tool) ? ' active' : ''}`}
+              aria-label={label}
+              aria-pressed={tools.includes(tool)}
+              aria-expanded={menu === group}
+              title={label}
+              data-tooltip={label}
+              onClick={() => setMenu((open) => (open === group ? null : group))}
+            >
+              {graphic ? <Braces size={19} /> : 'I/V'}
+            </button>
+            {menu === group && (
+              <>
+                <button
+                  className="menu-backdrop"
+                  aria-label={`Chiudi ${label.toLowerCase()}`}
+                  onClick={() => setMenu(null)}
+                />
+                <div className="file-menu electrical-tools-menu" role="menu" aria-label={label}>
+                  {options.map(([type, name]) => (
+                    <button
+                      key={type}
+                      onClick={() => {
+                        setTool(type);
+                        setMenu(null);
+                      }}
+                    >
+                      {name}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        );
+      })}
       <div className="toolbar-divider" />
       <IconButton
         label="Annulla (⌘/Ctrl Z)"

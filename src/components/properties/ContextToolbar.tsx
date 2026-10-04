@@ -242,7 +242,7 @@ export function ContextToolbar({
     >
       {hasLabel && (
         <label className="property-control">
-          <span>{o.kind === 'junction' ? 'Nodo' : 'Label'}</span>
+          <span>{o.kind === 'junction' ? 'Nodo' : 'Etichetta'}</span>
           <PropertyText
             key={`${o.id}-${o.label.text}`}
             value={o.label.text}
@@ -250,8 +250,8 @@ export function ContextToolbar({
               o.kind === 'junction'
                 ? 'Nome nodo'
                 : o.kind === 'electrical' || o.kind === 'brace'
-                  ? 'Label annotazione'
-                  : 'Label componente'
+                  ? 'Etichetta annotazione'
+                  : 'Etichetta componente'
             }
             onChange={(text) =>
               update(o.id, (obj) =>

@@ -140,8 +140,8 @@ describe('new feature UI integrates with the existing editor', () => {
     const annotation = doc().objects.at(-1) as ElectricalAnnotation;
     expect(annotation.wireId).toBe(w.id);
     expect(useEditorStore.getState().tool).toBe('select');
-    fireEvent.change(screen.getByLabelText('Label annotazione'), { target: { value: 'i_{AB}' } });
-    fireEvent.blur(screen.getByLabelText('Label annotazione'));
+    fireEvent.change(screen.getByLabelText('Etichetta annotazione'), { target: { value: 'i_{AB}' } });
+    fireEvent.blur(screen.getByLabelText('Etichetta annotazione'));
     fireEvent.click(screen.getByRole('button', { name: 'Inverti freccia' }));
     fireEvent.click(screen.getByRole('button', { name: 'Stile' }));
     fireEvent.click(screen.getByRole('button', { name: 'Simbolo: Verde' }));

@@ -161,7 +161,7 @@ describe('user interaction audit of the complete component library', () => {
         key('r');
       }
       expect(component(placed.id).rotation).toBe(0);
-      const label = screen.getByRole('textbox', { name: 'Label componente' });
+      const label = screen.getByRole('textbox', { name: 'Etichetta componente' });
       fireEvent.change(label, { target: { value: 'q_{audit}' } });
       fireEvent.blur(label);
       expect(component(placed.id).label.text).toBe('q_{audit}');
