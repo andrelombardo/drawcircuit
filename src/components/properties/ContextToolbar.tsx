@@ -80,12 +80,12 @@ export function ContextToolbar({
   const root = useRef<HTMLDivElement>(null),
     more = useRef<HTMLDetailsElement>(null),
     style = useRef<HTMLDetailsElement>(null);
-  const [dismissed, setDismissed] = useState(false),
-    [blockDialog, setBlockDialog] = useState(false),
-    [replaceDialog, setReplaceDialog] = useState(false);
   const objects = doc.objects.filter((o) => selection.includes(o.id));
   const o = objects.length === 1 ? objects[0] : null,
     actions = toolbarActions(o);
+  const [dismissed, setDismissed] = useState(o?.kind === 'text'),
+    [blockDialog, setBlockDialog] = useState(false),
+    [replaceDialog, setReplaceDialog] = useState(false);
   useLayoutEffect(() => {
     const outside = (e: PointerEvent) => {
       if (!root.current?.contains(e.target as Node)) {
@@ -128,7 +128,9 @@ export function ContextToolbar({
       };
       // Use actual rendered label rectangles (KaTeX, fractions, rotation) when available.
       const canvasRect = svg.getBoundingClientRect();
-      for (const label of svg.querySelectorAll('[data-layer="labels"] [data-object]')) {
+      for (const label of svg.querySelectorAll(
+        '[data-layer="labels"] [data-object], [data-layer="annotations"] > [data-object]',
+      )) {
         if (!selection.includes(label.getAttribute('data-object') ?? '')) continue;
         const r = label.getBoundingClientRect();
         if (r.width && r.height) {
@@ -153,7 +155,7 @@ export function ContextToolbar({
       const clampY = (y: number) => Math.max(96, Math.min(surfaceSize.height - h - 70, y));
       const obstacles = [
         ...svg.querySelectorAll(
-          '[data-layer="labels"] [data-object], [data-layer="components"] > [data-object], [data-layer="junctions"] > [data-object]',
+          '[data-layer="labels"] [data-object], [data-layer="components"] > [data-object], [data-layer="junctions"] > [data-object], [data-layer="annotations"] > [data-object]',
         ),
       ]
         .map((node) => ({

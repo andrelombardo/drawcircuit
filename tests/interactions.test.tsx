@@ -238,6 +238,9 @@ describe('complete editor workflows', () => {
     expect(useEditorStore.getState().tool).toBe('select');
     expect(screen.queryByLabelText('Modifica testo sul foglio')).toBeNull();
     expect(screen.queryByLabelText('Testo annotazione')).toBeNull();
+    expect((document.querySelector('.context-toolbar') as HTMLElement).style.visibility).toBe(
+      'hidden',
+    );
     expect(document.querySelector('.inline-latex-preview')).toBeNull();
     fireEvent.pointerDown(target(), client(100, -80));
     fireEvent.pointerMove(canvas(), client(120, -60));
