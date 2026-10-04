@@ -264,10 +264,12 @@ export function useCanvasInteractions(
     const keydown = async (e: KeyboardEvent) => {
       const el = e.target as HTMLElement;
       if (
+        e.isComposing ||
         el instanceof HTMLInputElement ||
         el instanceof HTMLTextAreaElement ||
         el instanceof HTMLSelectElement ||
         el.isContentEditable ||
+        el.closest?.('[contenteditable]:not([contenteditable="false"])') ||
         document.querySelector('[role="dialog"]')
       )
         return;
@@ -281,15 +283,12 @@ export function useCanvasInteractions(
         setSpace(true);
       }
       if (
-        (isMac() ? e.metaKey : e.ctrlKey) &&
+        (!mod || (isMac() ? e.metaKey : e.ctrlKey)) &&
         !e.altKey &&
         !e.shiftKey &&
         e.key.toLowerCase() === 't'
       ) {
-        if (
-          onToggleSidebar &&
-          !document.querySelector('[role="menu"], .context-more[open]')
-        ) {
+        if (onToggleSidebar && !document.querySelector('[role="menu"], .context-more[open]')) {
           e.preventDefault();
           if (!e.repeat) onToggleSidebar();
         }
@@ -382,7 +381,6 @@ export function useCanvasInteractions(
       } else if (!mod && e.key.toLowerCase() === 'v') s.setTool('select');
       else if (!mod && e.key.toLowerCase() === 'w') s.setTool('wire');
       else if (!mod && e.key.toLowerCase() === 'n') s.setTool('junction');
-      else if (!mod && e.key.toLowerCase() === 't') s.setTool('text');
       else if (!mod && e.key.toLowerCase() === 'a') s.setTool('arrow');
       else if (!mod && e.key.toLowerCase() === 'l') s.setTool('loop-arrow');
       else if (!mod && e.key.toLowerCase() === 'h') s.setTool('pan');

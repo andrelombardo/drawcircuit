@@ -232,7 +232,7 @@ describe('audit: actual rendered drawing workflows (jsdom, not manual browser)',
         .map((o) => o.direction),
     ).toEqual(['clockwise', 'counterclockwise']);
     drawArrow('a', [-80, -240], [80, -240]);
-    key('t');
+    fireEvent.click(screen.getByRole('button', { name: 'Testo' }));
     click(-80, 300);
     const text = current().objects.at(-1)!;
     fireEvent.doubleClick(

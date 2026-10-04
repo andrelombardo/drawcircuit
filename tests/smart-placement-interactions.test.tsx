@@ -2,9 +2,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import App from '../src/App';
-import { createComponent } from '../src/model/catalog';
+import { componentRegistry, createComponent } from '../src/model/catalog';
 import { emptyDocument } from '../src/model/demo';
 import { deserializeDocument, serializeDocument } from '../src/model/serialization';
+import { componentTypes } from '../src/model/types';
 import type { CircuitComponent, Wire } from '../src/model/types';
 import { useEditorStore } from '../src/store/editorStore';
 import { resolveEndpoint } from '../src/utils/geometry';
@@ -309,17 +310,62 @@ describe('Smart Placement through palette and canvas', () => {
       y: 60,
     });
   });
-  it('uses an explicit multi-terminal pin, keeps its semantic ID, and never chooses one silently', () => {
+  it('connects the nearest multi-terminal pin automatically and keeps its semantic ID', () => {
     first();
     fireEvent.click(screen.getByRole('button', { name: 'Inserisci transistor npn' }));
     move(80, 0);
-    expect(canvas().querySelector('[data-smart-snap]')).toBeNull();
     expect(canvas().querySelectorAll('[data-preview-terminal]')).toHaveLength(3);
-    fireEvent.click(screen.getByRole('button', { name: 'Collega terminale base' }));
-    move(80, 0);
+    expect(canvas().querySelector('[data-preview-terminal] text')).toBeNull();
+    expect(screen.queryByRole('button', { name: /Collega terminale/ })).toBeNull();
     expect(canvas().querySelector('[data-placement-phase="snapped"]')).not.toBeNull();
     click(80, 0);
     expect(wires()[0].endEndpoint).toMatchObject({ terminalId: 'base' });
+  });
+  it.each(componentTypes)('shows graphic preview terminals without names for %s', (type) => {
+    const terminals = structuredClone(componentRegistry[type].terminals);
+    useEditorStore.setState({ tool: type });
+    render(<App />);
+    move(300, 200);
+    const handles = canvas().querySelectorAll('[data-preview-terminal]');
+    expect(handles).toHaveLength(terminals.length);
+    expect([...handles].map((el) => el.getAttribute('data-preview-terminal'))).toEqual(
+      terminals.map((t) => t.id),
+    );
+    for (const el of handles) {
+      expect(el.querySelector('circle')).not.toBeNull();
+      expect(el.querySelector('text')).toBeNull();
+    }
+    expect(componentRegistry[type].terminals).toEqual(terminals);
+    expect(document.querySelector('.placement-feedback')?.textContent).not.toMatch(
+      /Collega terminale|Nessuno|Alt\/Option/,
+    );
+  });
+  it('anchors a multi-terminal component on a direct target click, with semantic wiring and undo', () => {
+    const source = first();
+    fireEvent.click(screen.getByRole('button', { name: 'Inserisci transistor npn' }));
+    const before = useEditorStore.getState().document;
+    click(40, 0);
+    expect(useEditorStore.getState().document).toBe(before);
+    move(140, 60);
+    expect(canvas().querySelector('[data-placement-phase="anchored"]')).not.toBeNull();
+    expect(canvas().querySelector('[data-connection-preview]')).not.toBeNull();
+    click(140, 60);
+    expect(components()[1].type).toBe('npn');
+    expect(wires()[0].startEndpoint).toEqual({
+      kind: 'terminal',
+      componentId: source.id,
+      terminalId: 'b',
+    });
+    expect(wires()[0].endEndpoint).toMatchObject({
+      kind: 'terminal',
+      componentId: components()[1].id,
+      terminalId: 'base',
+    });
+    const after = serializeDocument(useEditorStore.getState().document);
+    key('z', { ctrlKey: true });
+    expect(useEditorStore.getState().document).toEqual(before);
+    key('z', { ctrlKey: true, shiftKey: true });
+    expect(serializeDocument(useEditorStore.getState().document)).toBe(after);
   });
   it('splits a wire with an automatic Junction in one Undo operation', () => {
     const doc = seedWire();

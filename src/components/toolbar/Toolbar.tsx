@@ -85,7 +85,7 @@ export function DrawingToolbar({
       <IconButton label="Nodo (N)" active={tool === 'junction'} onClick={() => setTool('junction')}>
         <CircleDot size={18} />
       </IconButton>
-      <IconButton label="Testo (T)" active={tool === 'text'} onClick={() => setTool('text')}>
+      <IconButton label="Testo" active={tool === 'text'} onClick={() => setTool('text')}>
         <Type size={19} />
       </IconButton>
       <IconButton label="Freccia (A)" active={tool === 'arrow'} onClick={() => setTool('arrow')}>

@@ -228,7 +228,7 @@ describe('complete editor workflows', () => {
       notice: '',
     });
     render(<App />);
-    fireEvent.click(screen.getByRole('button', { name: 'Testo (T)' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Testo' }));
     click(100, -80);
     const text = useEditorStore.getState().document.objects[0];
     const target = () =>
@@ -282,7 +282,7 @@ describe('complete editor workflows', () => {
   });
   it('creates text and a circular arrow with editable handles', () => {
     render(<App />);
-    fireEvent.click(screen.getByRole('button', { name: 'Testo (T)' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Testo' }));
     click(100, -80);
     expect(screen.queryByLabelText('Modifica testo sul foglio')).toBeNull();
     const text = useEditorStore.getState().document.objects.at(-1)!;
@@ -825,7 +825,7 @@ describe('expanded library and annotation fonts in the rendered interface', () =
     expect(screen.queryByRole('textbox', { name: 'Valore' })).toBeNull();
     key('n');
     click(400, 100);
-    key('t');
+    fireEvent.click(screen.getByRole('button', { name: 'Testo' }));
     click(400, 200);
     expect(screen.queryByLabelText('Modifica testo sul foglio')).toBeNull();
     const text = useEditorStore.getState().document.objects.at(-1)!;

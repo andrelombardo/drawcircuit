@@ -22,7 +22,7 @@ export function inlineCompatible(type: ComponentType): boolean {
 }
 function eligibleTerminals(type: ComponentType, terminalId: string | null): Terminal[] {
   const ts = componentRegistry[type].terminals;
-  return terminalId ? ts.filter((t) => t.id === terminalId) : needsTerminalChoice(type) ? [] : ts;
+  return terminalId ? ts.filter((t) => t.id === terminalId) : ts;
 }
 const priority = (c: SnapCandidate) => (c.kind === 'junction' ? 0 : c.kind === 'terminal' ? 1 : 2);
 export function findSnapCandidate(

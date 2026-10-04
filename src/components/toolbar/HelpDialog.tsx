@@ -35,10 +35,10 @@ export function HelpDialog({ onClose }: { onClose: () => void }) {
             libero.
           </p>
           <p>
-            <b>03 · Annota</b>Premi N per un nodo, T per il testo, A per una freccia, L per una
-            maglia. Trascina sul foglio per disegnare una freccia o una maglia. Doppio clic modifica
-            testi ed etichette. Tieni Shift premuto mentre inserisci nodi per ripetere
-            l’inserimento.
+            <b>03 · Annota</b>Premi N per un nodo, A per una freccia, L per una maglia. Usa Testo
+            nella toolbar per scrivere sul foglio. Trascina per disegnare una freccia o una maglia.
+            Doppio clic modifica testi ed etichette. Tieni Shift premuto mentre inserisci nodi per
+            ripetere l’inserimento.
           </p>
         </div>
         <div className="shortcut-grid">
@@ -60,6 +60,7 @@ export function HelpDialog({ onClose }: { onClose: () => void }) {
             ['⌘/Ctrl Z', 'Annulla'],
             ['⌘/Ctrl Shift Z', 'Ripeti'],
             ['G', 'Mostra / nascondi griglia'],
+            ['T', 'Mostra/nascondi componenti'],
             ['1', 'Adatta alla vista'],
             ['+ / −', 'Zoom avanti / indietro'],
             ['H · V', 'Pan / selezione'],

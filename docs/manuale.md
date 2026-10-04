@@ -31,7 +31,7 @@ npm run format:check
 - Scegli un componente nella palette, poi clicca sul foglio; puoi anche trascinarlo. Ogni clic continua a inserirlo. **R** ruota l’anteprima, **Esc** termina.
 - **W**: clic su un terminale, nodo o filo, poi su un altro terminale, nodo o filo. I clic su punti liberi aggiungono svolte; doppio clic oppure Enter termina il filo su un punto libero.
 - **N**: inserisci un nodo sul foglio o su un filo; **Shift + clic** continua a inserire nodi. Sul filo viene creato un vero collegamento e il filo viene diviso.
-- **T**: aggiungi testo. **A**: freccia dritta o Bézier. **L**: trascina un’area per una maglia ellittica; gli angoli ne cambiano larghezza e altezza, il punto sulla punta la sposta continuamente. La toolbar inverte il verso mantenendo il percorso.
+- **T**: mostra/nascondi Componenti. **Testo** si seleziona dalla toolbar. **A**: freccia dritta o Bézier. **L**: trascina un’area per una maglia ellittica; gli angoli ne cambiano larghezza e altezza, il punto sulla punta la sposta continuamente. La toolbar inverte il verso mantenendo il percorso.
 - **V** o Esc: selezione. Shift + clic seleziona più oggetti; trascinare sullo sfondo crea una selezione rettangolare.
 - Trascina un oggetto per spostarlo, oppure la sua label per riposizionarla. I fili seguono i terminali e i nodi. Trascinare un filo collegato modifica il suo percorso; doppio clic sul filo aggiunge una svolta modificabile. Gli handle alle estremità consentono di ricollegare il filo.
 - Doppio clic su una label o un testo per modificarlo. Conferma con Enter o ✓. Esc annulla. Una piccola preview mostra la formula durante l’editing. La toolbar contestuale permette di cambiare label, colore, spessore, dimensione e allineamento. Per i blocchi, il menu **••• → Testo interno** modifica il testo nel simbolo.
@@ -133,7 +133,7 @@ Il registry centrale in `src/model/catalog.ts` raccoglie nomi, categorie, alias,
 
 Durante l’inserimento sono visibili i terminali e i nodi collegabili: avvicina un terminale del ghost al target, verifica l’alone verde e clicca per inserire e collegare. Il clic diretto su un terminale/nodo avvia invece un’ancora; sposta il componente e conferma con un secondo clic. I bipoli si orientano durante l’ancoraggio; **R** ruota l’anteprima e dà priorità alla scelta manuale. **Alt/Option** ignora temporaneamente le assistenze, **Esc** torna a Select.
 
-**Inserisci in filo** abilita esplicitamente l’inserimento inline dei bipoli: conferma solo quando l’anteprima mostra il filo interrotto ai due terminali. Segmenti troppo corti o attraversati da rami/incroci conservano il placement libero. Per transistor, trasformatori, op amp, connettori e porte scegli prima il pin in **Collega terminale**. Il normale placement, il drag degli oggetti esistenti e Wire mantengono le loro interazioni.
+**Inserisci in filo** abilita esplicitamente l’inserimento inline dei bipoli: conferma solo quando l’anteprima mostra il filo interrotto ai due terminali. Segmenti troppo corti o attraversati da rami/incroci conservano il placement libero. Per transistor, trasformatori, op amp, connettori e porte il terminale viene scelto automaticamente dalla preview più vicina al target; il clic diretto su un terminale o nodo avvia un’ancora. La preview mostra indicatori grafici senza nomi dei pin. Il normale placement, il drag degli oggetti esistenti e Wire mantengono le loro interazioni.
 
 Le connessioni usano gli endpoint semantici esistenti e ogni smart placement occupa una sola voce di Undo. JSON v1, localStorage ed export restano compatibili. [Report e Golden UX Test](../docs/smart-placement/report.md), con circuito riapribile e prove browser. **334 test automatici**, inclusi i 281 test precedenti invariati.
 
@@ -154,3 +154,9 @@ La selezione singola evidenzia il simbolo senza cornice; quella multipla conserv
 Nel dialogo Export scegli **Tutto il circuito** oppure **Solo selezione** per TikZ, Obsidian e standalone. La selezione include automaticamente i fili interni; esclude i collegamenti verso oggetti esterni se non selezionati esplicitamente. La toolbar mostra proprietà comprensibili per il tipo di oggetto, con tooltip; More conserva soltanto controlli secondari e non compare su wire, Loop Arrow o gruppi.
 
 **788 test passano**, inclusi 48 nuovi test. Il [report UX completo](../docs/ux-refinement/report.md) contiene audit delle azioni, regole geometriche, Golden Workflow nel browser, screenshot ed evidenze di export.
+
+## Sidebar e logo (4 ottobre 2026)
+
+**T** mostra/nasconde Componenti usando lo stesso comando del pulsante sidebar. Non agisce durante la scrittura in input, ricerca, etichette, testo, contenteditable o dialoghi. Testo si seleziona dalla toolbar e non ha una nuova shortcut. Il precedente ⌘/Ctrl T resta compatibile quando ricevuto dall’app.
+
+Gli hint di placement omettono Alt/Option, che continua a disattivare temporaneamente le assistenze. La toolbar contestuale usa 5 px verticali e 10 px orizzontali. Il branding usa un unico [master XNOR vettoriale trasparente](../assets/brand/drawcircuit-logo.svg); favicon, PNG e icone PWA derivano dal master, senza branding nel workspace.

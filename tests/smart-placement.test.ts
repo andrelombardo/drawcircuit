@@ -129,14 +129,21 @@ describe('Smart Placement candidate detection', () => {
     'potentiometer',
     'connector2',
     'connector3',
-  ] as const)('requires a deliberate pin choice for %s', (type) => {
+  ] as const)('chooses a nearby semantic pin automatically for %s', (type) => {
     const doc = documentWith(junction(0, 0));
-    expect(findSnapCandidate(doc, type, { x: 40, y: 0 }, 0, 1)).toBeNull();
     const id = createComponent(type, { x: 0, y: 0 }, 1).terminals[0].id;
-    const t = createComponent(type, { x: 0, y: 0 }, 1).terminals[0];
+    const component = createComponent(type, { x: 0, y: 0 }, 1);
+    for (const rotation of [0, 90, 180, 270] as const) {
+      component.rotation = rotation;
+      for (const t of component.terminals) {
+        const offset = localToWorld(component, { x: t.localX, y: t.localY });
+        const candidate = findSnapCandidate(doc, type, { x: -offset.x, y: -offset.y }, rotation, 1);
+        expect(candidate).toMatchObject({ terminalId: t.id, kind: 'junction' });
+      }
+    }
+    const t = component.terminals[0];
     expect(findSnapCandidate(doc, type, { x: -t.localX, y: -t.localY }, 0, 1, id)).toMatchObject({
       terminalId: id,
-      kind: 'junction',
     });
   });
   it('caches the spatial index and marks occupied terminals without disabling them', () => {

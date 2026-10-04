@@ -166,11 +166,6 @@ export function PlacementLayer({
                   stroke="#269978"
                   strokeWidth={1.4 / z}
                 />
-                {ts.length > 2 && (
-                  <text x={p.x + 8 / z} y={p.y - 7 / z} fontSize={11 / z} fill="#397662">
-                    {t.name ?? t.id}
-                  </text>
-                )}
               </g>
             );
           })}

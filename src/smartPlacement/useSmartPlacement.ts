@@ -12,7 +12,6 @@ import {
   findInlineCandidate,
   findSnapCandidate,
   inlineCompatible,
-  needsTerminalChoice,
   snappedPosition,
 } from './findCandidates';
 import { smartPlacement } from './smartConnection';
@@ -108,7 +107,6 @@ export function useSmartPlacement(viewport: Viewport) {
         // A clearly closer preview pin wins; a direct click on the target still anchors.
         if (
           anchor &&
-          (!needsTerminalChoice(type) || current.terminalId) &&
           (anchorDistance <= 2 || !candidate || anchorDistance + 2 < candidate.distance)
         )
           next = { phase: 'anchor-target', target: anchor, position, rotation, guides: [] };

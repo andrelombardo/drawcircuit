@@ -89,25 +89,28 @@ describe('sidebar shortcut received by the app', () => {
   it('uses the button preference, ignores repeat and leaves the document/history intact', () => {
     render(<App />);
     const doc = state().document;
-    key('t', { metaKey: true });
+    key('t', {});
     expect(screen.queryByRole('complementary')).toBeNull();
     expect(JSON.parse(stored.get(SIDEBAR_STORAGE_KEY)!).visible).toBe(false);
-    key('t', { metaKey: true, repeat: true });
+    key('t', { repeat: true });
     expect(screen.queryByRole('complementary')).toBeNull();
-    key('t', { metaKey: true });
+    key('t', {});
     expect(screen.getByRole('complementary')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Nascondi componenti' }));
-    key('t', { metaKey: true });
+    key('t', {});
     expect(screen.getByRole('complementary')).toBeTruthy();
     expect(state().document).toBe(doc);
     expect(state().past).toEqual([]);
   });
-  it('uses Ctrl on other platforms while bare T still selects Text', () => {
+  it('toggles with bare T on other platforms while keeping Ctrl+T compatible', () => {
     vi.spyOn(navigator, 'platform', 'get').mockReturnValue('Win32');
     render(<App />);
     key('t', { ctrlKey: true });
     expect(screen.queryByRole('complementary')).toBeNull();
     key('t');
+    expect(screen.getByRole('complementary')).toBeTruthy();
+    expect(state().tool).toBe('select');
+    fireEvent.click(screen.getByRole('button', { name: 'Testo' }));
     expect(state().tool).toBe('text');
   });
   it('ignores search, annotation editing, textarea, contenteditable, menus and dialogs', () => {
@@ -118,29 +121,29 @@ describe('sidebar shortcut received by the app', () => {
     });
     render(<App />);
     const unchanged = () => expect(screen.getByRole('complementary')).toBeTruthy();
-    key('t', { metaKey: true }, screen.getByRole('textbox', { name: 'Cerca componenti' }));
+    key('t', {}, screen.getByRole('textbox', { name: 'Cerca componenti' }));
     unchanged();
-    key('t', { metaKey: true }, screen.getByRole('textbox', { name: 'Etichetta annotazione' }));
+    key('t', {}, screen.getByRole('textbox', { name: 'Etichetta annotazione' }));
     unchanged();
     key('Enter');
-    key('t', { metaKey: true }, screen.getByLabelText('Modifica testo sul foglio'));
+    key('t', {}, screen.getByLabelText('Modifica testo sul foglio'));
     unchanged();
     fireEvent.keyDown(screen.getByLabelText('Modifica testo sul foglio'), { key: 'Escape' });
     const editable = document.createElement('div');
     editable.contentEditable = 'true';
     Object.defineProperty(editable, 'isContentEditable', { value: true });
     document.body.append(editable);
-    key('t', { metaKey: true }, editable);
+    key('t', {}, editable);
     unchanged();
     editable.remove();
     fireEvent.click(screen.getByRole('button', { name: 'Graffe e staffe' }));
-    key('t', { metaKey: true });
+    key('t', {});
     unchanged();
     fireEvent.click(screen.getByRole('button', { name: 'Chiudi graffe e staffe' }));
     fireEvent.click(screen.getByRole('button', { name: 'Esporta' }));
-    key('t', { metaKey: true }, screen.getByRole('textbox', { name: 'Codice TikZ generato' }));
+    key('t', {}, screen.getByRole('textbox', { name: 'Codice TikZ generato' }));
     unchanged();
-    key('t', { metaKey: true });
+    key('t', {});
     unchanged();
     expect(state().past).toEqual([]);
   });
@@ -148,6 +151,8 @@ describe('sidebar shortcut received by the app', () => {
     render(<App />);
     fireEvent.click(screen.getByRole('button', { name: 'Aiuto' }));
     expect(screen.queryByText('⌘T')).toBeNull();
+    expect(screen.getByText('Mostra/nascondi componenti')).toBeTruthy();
+    expect(screen.getByText('T', { selector: 'kbd' })).toBeTruthy();
     cleanup();
     vi.stubGlobal('matchMedia', vi.fn().mockReturnValue({ matches: true }));
     render(<App />);
@@ -161,17 +166,17 @@ describe('sidebar shortcut received by the app', () => {
       selection: [brace.id],
     });
     render(<App />);
-    key('t', { metaKey: true }, canvas());
+    key('t', {}, canvas());
     expect(screen.queryByRole('complementary')).toBeNull();
-    key('t', { metaKey: true }, canvas());
+    key('t', {}, canvas());
     expect(screen.getByRole('complementary')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Stile' }));
     const details = screen.getByRole('button', { name: 'Stile' }).closest('details')!;
     details.open = true;
-    key('t', { metaKey: true }, canvas());
+    key('t', {}, canvas());
     expect(screen.getByRole('complementary')).toBeTruthy();
     details.open = false;
-    key('t', { metaKey: true }, canvas());
+    key('t', {}, canvas());
     expect(screen.queryByRole('complementary')).toBeNull();
     expect(state().selection).toEqual([brace.id]);
     expect(state().past).toEqual([]);
@@ -247,7 +252,7 @@ describe('zoom UI preference', () => {
 });
 
 describe('annotation and placement cleanup', () => {
-  it('keeps a single bottom placement area and the existing inline/terminal controls', () => {
+  it('keeps inline insertion and removes pin controls and Option from placement hints', () => {
     render(<App />);
     fireEvent.click(screen.getByRole('button', { name: 'Inserisci resistenza' }));
     expect(document.querySelector('.smart-placement-options')).toBeNull();
@@ -257,16 +262,14 @@ describe('annotation and placement cleanup', () => {
     expect(inline.getAttribute('aria-pressed')).toBe('true');
     key('r');
     expect(state().placementRotation).toBe(90);
-    expect(document.querySelector('.editor-bottom [role="status"]')!.textContent).toContain(
+    expect(document.querySelector('.editor-bottom [role="status"]')!.textContent).not.toContain(
       'Alt/Option',
     );
     key('Escape');
     fireEvent.click(screen.getByRole('button', { name: 'Inserisci amplificatore operazionale' }));
-    expect(
-      screen
-        .getByRole('button', { name: 'Collega terminale nonInverting' })
-        .closest('.editor-bottom'),
-    ).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /Collega terminale/ })).toBeNull();
+    expect(screen.queryByText('Collega terminale:')).toBeNull();
+    expect(screen.queryByText('Nessuno')).toBeNull();
   });
   it('separates Graffa/Staffa from I/V, uses Italian text and keeps only one menu open', () => {
     render(<App />);

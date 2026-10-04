@@ -2161,7 +2161,7 @@ summary:focus-visible {
 }
 .context-toolbar {
   border-radius: 10px;
-  padding: 5px;
+  padding: 5px 10px;
   gap: 3px;
   backdrop-filter: blur(8px);
 }

@@ -6,7 +6,7 @@ import { LatexPreview } from '../../circuit/annotations/MathText';
 import { useRef } from 'react';
 import { Check, CircleAlert, Grid2X2, HelpCircle, Maximize, Minus, Plus } from 'lucide-react';
 import { useEditorStore } from '../../store/editorStore';
-import { catalog, componentRegistry } from '../../model/catalog';
+import { catalog } from '../../model/catalog';
 import { COLORS, componentTypes, GRID } from '../../model/types';
 import { wirePoints, pointsPath } from '../../utils/geometry';
 import type { ComponentType, Wire } from '../../model/types';
@@ -25,7 +25,7 @@ import { ArrowView } from '../../circuit/annotations/ArrowView';
 import { PlacementLayer } from '../../smartPlacement/PlacementLayer';
 import { PresetPlacementLayer } from '../../presets/PresetPlacementLayer';
 import { presetRegistry } from '../../presets/registry';
-import { inlineCompatible, needsTerminalChoice } from '../../smartPlacement/findCandidates';
+import { inlineCompatible } from '../../smartPlacement/findCandidates';
 export function Canvas({
   sidebarVisible = true,
   onToggleSidebar,
@@ -60,9 +60,9 @@ export function Canvas({
     smart.preview?.phase === 'anchor-target'
       ? 'Clic per ancorare · poi sposta e clicca per inserire'
       : smart.preview?.phase === 'anchored'
-        ? 'Ancorato · clic per inserire e collegare · R ruota · Alt/Option ignora'
+        ? 'Ancorato · clic per inserire e collegare · R ruota'
         : smart.preview?.phase === 'snapped'
-          ? 'Clic per inserire e collegare · Alt/Option ignora'
+          ? 'Clic per inserire e collegare'
           : smart.preview?.phase === 'inline-candidate'
             ? 'Clic per inserire nel filo · una sola operazione Annulla'
             : null;
@@ -107,7 +107,7 @@ export function Canvas({
                       : tool === 'arrow'
                         ? 'Trascina per disegnare · seleziona per modificare gli handle'
                         : isComponent
-                          ? `${catalog.find((c) => c.type === tool)?.name} · clicca per inserire · R ruota · Alt/Option ignora · Esc termina`
+                          ? `${catalog.find((c) => c.type === tool)?.name} · clicca per inserire · R ruota · Esc termina`
                           : tool === 'pan'
                             ? 'Trascina per spostare la vista'
                             : null;
@@ -118,8 +118,8 @@ export function Canvas({
         <button
           className="icon-button sidebar-toggle sidebar-reopen floating-surface"
           aria-label="Mostra componenti"
-          title="Mostra componenti"
-          data-tooltip="Mostra componenti"
+          title="Mostra componenti (T)"
+          data-tooltip="Mostra componenti (T)"
           aria-expanded={false}
           aria-controls="component-library"
           onClick={onToggleSidebar}
@@ -375,42 +375,17 @@ export function Canvas({
         </div>
         {hint && (
           <div className={`placement-feedback${isComponent ? ' has-placement-controls' : ''}`}>
-            {isComponent &&
-              (inlineCompatible(tool as ComponentType) ||
-                needsTerminalChoice(tool as ComponentType)) && (
-                <div className="placement-controls" role="group" aria-label="Assistenze placement">
-                  {inlineCompatible(tool as ComponentType) && (
-                    <button
-                      aria-pressed={smart.session.kind === 'inline'}
-                      onClick={smart.toggleInline}
-                      title="Attiva l’inserimento solo quando l’anteprima mostra il taglio del filo"
-                    >
-                      Inserisci in filo
-                    </button>
-                  )}
-                  {needsTerminalChoice(tool as ComponentType) && (
-                    <>
-                      <span>Collega terminale:</span>
-                      <button
-                        aria-pressed={!smart.session.terminalId}
-                        onClick={() => smart.chooseTerminal(null)}
-                      >
-                        Nessuno
-                      </button>
-                      {componentRegistry[tool as ComponentType].terminals.map((t) => (
-                        <button
-                          key={t.id}
-                          aria-label={`Collega terminale ${t.name ?? t.id}`}
-                          aria-pressed={smart.session.terminalId === t.id}
-                          onClick={() => smart.chooseTerminal(t.id)}
-                        >
-                          {t.name ?? t.id}
-                        </button>
-                      ))}
-                    </>
-                  )}
-                </div>
-              )}
+            {isComponent && inlineCompatible(tool as ComponentType) && (
+              <div className="placement-controls" role="group" aria-label="Assistenze placement">
+                <button
+                  aria-pressed={smart.session.kind === 'inline'}
+                  onClick={smart.toggleInline}
+                  title="Attiva l’inserimento solo quando l’anteprima mostra il taglio del filo"
+                >
+                  Inserisci in filo
+                </button>
+              </div>
+            )}
             <div className="canvas-hint" role="status">
               {isComponent ? (smartHint ?? hint) : hint}
             </div>

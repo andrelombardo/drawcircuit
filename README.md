@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/brand/drawcircuit-official.png" alt="DrawCircuit logo" width="128" />
+  <img src="assets/brand/drawcircuit-logo.svg" alt="DrawCircuit XNOR logo" width="128" />
 </p>
 
 <h1 align="center">DrawCircuit</h1>
@@ -30,7 +30,7 @@ DrawCircuit turns circuit sketches into editable vector diagrams. Place componen
 - **Math labels** — Edit labels and text inline with LaTeX syntax and a live KaTeX preview.
 - **Component replacement** — Swap compatible symbols while preserving their connections, position, label, and style.
 - **Undo and reuse** — Rotate, duplicate, copy, and paste with keyboard shortcuts and undo/redo.
-- **Flexible workspace** — Hide or resize the sidebar and drag the drawing toolbar to a position that suits your circuit.
+- **Flexible workspace** — Press T to show or hide the component sidebar, resize it, and drag the drawing toolbar to a position that suits your circuit. Text remains available in the toolbar.
 
 ### Annotations
 

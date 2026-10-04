@@ -49,7 +49,7 @@ I segmenti troppo corti, i tagli che comprenderebbero nodi, terminali, rami o in
 
 ## 6. Componenti multi-terminal
 
-Transistor, MOSFET, JFET, op amp, trasformatori, potenziometri, connettori e porte logiche mostrano tutti i pin. La barra **Collega terminale** parte da **Nessuno**: occorre scegliere il pin prima di uno snap o ancoraggio. Gli ID semantici originali sono preservati; non viene inferita una scelta né imposta una nuova rotazione automatica.
+Transistor, MOSFET, JFET, op amp, trasformatori, potenziometri, connettori e porte logiche mostrano tutti i pin. **Aggiornamento 4 ottobre 2026:** la barra di scelta è stata rimossa e il terminale viene scelto automaticamente dal target e dalla distanza dei pin del ghost. Restano soltanto gli indicatori grafici della preview; ID e nomi semantici originali sono preservati, senza una nuova rotazione automatica per questi componenti.
 
 Nel browser: NPN mostrato inizialmente senza snap; dopo aver scelto `base`, acquisizione del terminale di R2 e inserimento collegato. Collector ed emitter rimangono distinti.
 
