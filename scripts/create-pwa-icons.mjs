@@ -5,10 +5,15 @@ import { Resvg } from '@resvg/resvg-js';
 // Embed the original pixels: no vector tracing or redesign of the symbol.
 const logo = await readFile(new URL('../public/logo.png', import.meta.url));
 const data = `data:image/png;base64,${logo.toString('base64')}`;
-const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="740" height="740" viewBox="0 0 740 740"><image width="740" height="740" href="${data}"/></svg>`;
+const originalSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="740" height="740" viewBox="0 0 740 740"><image width="740" height="740" href="${data}"/></svg>`;
+// Remove the white matte in the SVG filter, preserving the supplied raster and its colors.
+// Saturated symbol pixels stay opaque; white pixels become transparent, including the holes.
+const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="740" height="740" viewBox="0 0 740 740"><defs><filter id="transparent-matte" color-interpolation-filters="sRGB"><feColorMatrix type="matrix" values="1 0 0 0 0 0 1 0 0 0 0 0 1 0 0 -1 -1 -1 0 3"/></filter></defs><image width="740" height="740" href="${data}" filter="url(#transparent-matte)"/></svg>`;
 await writeFile(new URL('../public/favicon.svg', import.meta.url), svg);
 for (const size of [16, 20, 24, 32, 64, 128, 180, 192, 512]) {
-  const png = new Resvg(svg, { fitTo: { mode: 'width', value: size } }).render().asPng();
+  // Apple touch icons use a solid background; browser favicons and ordinary PWA icons use alpha.
+  const iconSvg = size === 180 ? originalSvg : svg;
+  const png = new Resvg(iconSvg, { fitTo: { mode: 'width', value: size } }).render().asPng();
   const file = size === 180 ? 'apple-touch-icon.png' : `icon-${size}.png`;
   await writeFile(new URL(`../public/icons/${file}`, import.meta.url), png);
 }
