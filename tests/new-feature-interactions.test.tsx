@@ -460,14 +460,15 @@ describe('contextual tool feedback and cancellation', () => {
     expect(canvas().querySelector('[data-voltage-first]')).toBeTruthy();
     fireEvent.pointerUp(canvas(), client(200, 80));
     expect(doc().objects.filter((o) => o.kind === 'electrical')).toHaveLength(1);
+    const notice = useEditorStore.getState().notice;
     key('g');
     expect(canvas().querySelector(':scope > rect')?.getAttribute('fill')).toBe('transparent');
     expect(screen.getByRole('button', { name: 'Griglia (G)' }).getAttribute('aria-pressed')).toBe(
       'false',
     );
-    expect(useEditorStore.getState().notice).toBe('Griglia: nascosta');
+    expect(useEditorStore.getState().notice).toBe(notice);
     key('g');
     expect(canvas().querySelector(':scope > rect')?.getAttribute('fill')).toBe('url(#grid)');
-    expect(useEditorStore.getState().notice).toBe('Griglia: visibile');
+    expect(useEditorStore.getState().notice).toBe(notice);
   });
 });

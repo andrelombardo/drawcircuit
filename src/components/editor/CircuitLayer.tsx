@@ -16,12 +16,14 @@ export const CircuitLayer = memo(function CircuitLayer({
   terminals,
   zoom,
   activeLabel = null,
+  editingTextId,
 }: {
   doc: CircuitDocument;
   selection: string[];
   terminals: boolean;
   zoom: number;
   activeLabel?: string | null;
+  editingTextId?: string;
 }) {
   const selected = useMemo(() => new Set(selection), [selection]);
   const wires = useMemo(
@@ -90,7 +92,7 @@ export const CircuitLayer = memo(function CircuitLayer({
             <ArrowView key={o.id} object={o} zoom={zoom} />
           ) : o.kind === 'loop-arrow' ? (
             <LoopArrowView key={o.id} object={o} zoom={zoom} />
-          ) : o.kind === 'text' ? (
+          ) : o.kind === 'text' && o.id !== editingTextId ? (
             <g
               key={o.id}
               data-object={o.id}

@@ -3,7 +3,7 @@ import { usePersonalBlocks } from '../../personalBlocks/library';
 import { CIRCUIT_FONT } from '../../model/fonts';
 import { LatexPreview } from '../../circuit/annotations/MathText';
 import { useRef } from 'react';
-import { Check, CircleAlert, Grid2X2, Maximize, Minus, Plus } from 'lucide-react';
+import { Check, CircleAlert, Grid2X2, Maximize, Minus, PanelLeft, Plus } from 'lucide-react';
 import { useEditorStore } from '../../store/editorStore';
 import { catalog, componentRegistry } from '../../model/catalog';
 import { COLORS, componentTypes, GRID } from '../../model/types';
@@ -13,7 +13,7 @@ import { wireCandidate } from '../../utils/wires';
 import { TargetFeedbackLayer } from './TargetFeedbackLayer';
 import { DistanceGuideLayer } from './DistanceGuideLayer';
 import { CircuitLayer } from './CircuitLayer';
-import { DocumentTitle } from './DocumentTitle';
+import { DrawingToolbar } from '../toolbar/Toolbar';
 import { useCanvasInteractions } from './useCanvasInteractions';
 import { ContextToolbar } from '../properties/ContextToolbar';
 import { IconButton } from '../toolbar/IconButton';
@@ -24,7 +24,13 @@ import { PlacementLayer } from '../../smartPlacement/PlacementLayer';
 import { PresetPlacementLayer } from '../../presets/PresetPlacementLayer';
 import { presetRegistry } from '../../presets/registry';
 import { inlineCompatible, needsTerminalChoice } from '../../smartPlacement/findCandidates';
-export function Canvas() {
+export function Canvas({
+  sidebarVisible = true,
+  onShowSidebar,
+}: {
+  sidebarVisible?: boolean;
+  onShowSidebar?: () => void;
+}) {
   const svgRef = useRef<SVGSVGElement>(null),
     doc = useEditorStore((s) => s.document),
     tool = useEditorStore((s) => s.tool),
@@ -37,6 +43,8 @@ export function Canvas() {
   const personalName = personalBlocks.find((b) => b.id === pendingPresetId)?.name;
   const interactions = useCanvasInteractions(svgRef),
     { viewport: v, overlay, draft, editing } = interactions;
+  const editedObject = editing ? doc.objects.find((o) => o.id === editing.id) : null;
+  const editedText = editedObject?.kind === 'text' ? editedObject : null;
   const isComponent = componentTypes.includes(tool as ComponentType),
     gridSize = GRID * v.zoom * (v.zoom < 0.4 ? 2 : 1);
   const placementType =
@@ -85,7 +93,7 @@ export function Canvas() {
               : tool === 'junction'
                 ? 'Clicca per inserire un nodo · Shift + clic per più nodi'
                 : tool === 'text'
-                  ? 'Clicca sul foglio per scrivere un’annotazione'
+                  ? 'Clicca per inserire Testo · doppio clic per modificarlo'
                   : tool === 'loop-arrow'
                     ? 'Trascina un’area per la maglia · handle sulla punta per spostarla'
                     : tool === 'arrow'
@@ -97,8 +105,20 @@ export function Canvas() {
                           : null;
   return (
     <main className="editor" aria-label="Editor circuito">
+      <DrawingToolbar />
+      {!sidebarVisible && (
+        <button
+          className="icon-button sidebar-toggle sidebar-reopen"
+          aria-label="Mostra componenti"
+          title="Mostra componenti"
+          aria-expanded={false}
+          aria-controls="component-library"
+          onClick={onShowSidebar}
+        >
+          <PanelLeft size={18} strokeWidth={1.5} />
+        </button>
+      )}
       <div className="document-heading">
-        <DocumentTitle />
         {storageError && (
           <span className="save-status error" role="status">
             <CircleAlert size={12} />
@@ -188,7 +208,7 @@ export function Canvas() {
             x={(v.x % gridSize) - gridSize / 2}
             y={(v.y % gridSize) - gridSize / 2}
           >
-            <circle cx={gridSize / 2} cy={gridSize / 2} r={1} fill="#bdc5c9" />
+            <circle cx={gridSize / 2} cy={gridSize / 2} r={0.7} fill="#dce2e8" />
           </pattern>
         </defs>
         <rect width="100%" height="100%" fill={grid ? 'url(#grid)' : 'transparent'} />
@@ -199,6 +219,7 @@ export function Canvas() {
             terminals={tool === 'wire'}
             zoom={v.zoom}
             activeLabel={interactions.activeLabel}
+            editingTextId={editedText?.id}
           />
           <DistanceGuideLayer guides={overlay.distances} zoom={v.zoom} />
           <g pointerEvents="none">
@@ -278,8 +299,20 @@ export function Canvas() {
       </svg>
       {editing && (
         <form
-          className="inline-editor"
-          style={{ left: editing.point.x * v.zoom + v.x, top: editing.point.y * v.zoom + v.y }}
+          className={`inline-editor${editedText ? ' inline-text-editor' : ''}`}
+          style={{
+            left: editing.point.x * v.zoom + v.x,
+            top: editing.point.y * v.zoom + v.y,
+            ...(editedText
+              ? {
+                  transform: `translate(${editedText.align === 'middle' ? '-50%' : editedText.align === 'end' ? '-100%' : '0'}, -50%) rotate(${editedText.rotation}deg)`,
+                  maxWidth: Math.max(
+                    60,
+                    interactions.surfaceSize.width - (editing.point.x * v.zoom + v.x) - 12,
+                  ),
+                }
+              : {}),
+          }}
           onSubmit={(e) => {
             e.preventDefault();
             interactions.saveEdit();
@@ -288,7 +321,18 @@ export function Canvas() {
           <input
             autoFocus
             aria-label="Modifica testo sul foglio"
-            style={{ fontFamily: CIRCUIT_FONT }}
+            style={{
+              fontFamily: CIRCUIT_FONT,
+              ...(editedText
+                ? {
+                    fontSize: editedText.fontSize * v.zoom,
+                    color: editedText.color,
+                    width: `${Math.max(3, editing.text.length + 1)}ch`,
+                  }
+                : {}),
+            }}
+            autoComplete="off"
+            spellCheck={false}
             value={editing.text}
             onFocus={(e) => e.currentTarget.select()}
             onChange={(e) => interactions.setEditing({ ...editing, text: e.target.value })}
@@ -296,15 +340,20 @@ export function Canvas() {
               if (e.key === 'Escape') {
                 e.preventDefault();
                 interactions.setEditing(null);
+                svgRef.current?.focus();
               }
             }}
           />
-          <button type="submit" aria-label="Conferma testo" title="Conferma testo">
-            <Check size={16} />
-          </button>
-          <div className="inline-latex-preview" aria-label="Anteprima etichetta">
-            <LatexPreview text={editing.text} />
-          </div>
+          {!editedText && (
+            <>
+              <button type="submit" aria-label="Conferma testo" title="Conferma testo">
+                <Check size={16} />
+              </button>
+              <div className="inline-latex-preview" aria-label="Anteprima etichetta">
+                <LatexPreview text={editing.text} />
+              </div>
+            </>
+          )}
         </form>
       )}
       {!doc.objects.length && (

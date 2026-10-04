@@ -255,7 +255,7 @@ describe('adaptive accessible toolbar', () => {
     render(<Canvas />);
     select('R3', 200);
     fireEvent.click(screen.getByLabelText('Altre proprietà'));
-    fireEvent.pointerDown(screen.getByLabelText('Titolo circuito'));
+    fireEvent.pointerDown(screen.getByRole('button', { name: 'Griglia (G)' }));
     expect(useEditorStore.getState().selection).toEqual(['R3']);
     expect(document.querySelector('.context-more')?.hasAttribute('open')).toBe(false);
     expect((document.querySelector('.context-toolbar') as HTMLElement).style.visibility).toBe(

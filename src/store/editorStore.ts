@@ -106,8 +106,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     })),
   select: (selection) => set({ selection }),
   setArrowType: (arrowType) => set({ arrowType }),
-  toggleGrid: () =>
-    set((s) => ({ grid: !s.grid, notice: `Griglia: ${s.grid ? 'nascosta' : 'visibile'}` })),
+  toggleGrid: () => set((s) => ({ grid: !s.grid })),
   commit: (document) =>
     set((s) => ({
       document,

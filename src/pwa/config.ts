@@ -3,7 +3,7 @@ import type { VitePWAOptions } from 'vite-plugin-pwa';
 export const pwaOptions: Partial<VitePWAOptions> = {
   registerType: 'prompt',
   injectRegister: null,
-  includeAssets: ['favicon.svg', 'icons/*.png'],
+  includeAssets: ['favicon.svg', 'logo.png', 'icons/*.png'],
   manifest: {
     name: 'DrawCircuit',
     short_name: 'DrawCircuit',

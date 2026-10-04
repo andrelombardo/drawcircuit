@@ -163,13 +163,61 @@ describe('contextual distances and spatial search', () => {
       y: 40,
     });
   });
-  it('measures component-to-component gaps even when a wire contains an intermediate Junction', () => {
+  it('uses an intermediate Junction as the nearest geometric neighbor', () => {
     const d = row();
-    d.objects.push(createJunction({ x: 120, y: 0 }, 'J'));
+    const node = createJunction({ x: 120, y: 0 }, 'J');
+    d.objects.push(node);
     const result = computeMoveGuides(createMoveContext(d, ['R3']), { x: 46, y: 0 }, 1);
-    expect(result.distances.map((g) => g.neighborId)).toEqual(['R2', 'R4']);
-    expect(result.distances.map((g) => g.value)).toEqual([170, 170]);
-    expect(result.delta.x).toBe(50);
+    expect(result.distances.map((g) => g.neighborId)).toEqual([node.id, 'R4']);
+    expect(result.distances.map((g) => g.value)).toEqual([80, 180]);
+    expect(result.delta.x).toBe(40);
+  });
+  for (const zoom of [0.5, 1, 2])
+    for (const vertical of [false, true])
+      for (const type of [
+        'resistor',
+        'capacitor',
+        'inductor',
+        'voltageSource',
+        'blackBox',
+      ] as const)
+        it(`centres ${type} between nodes at ${zoom} zoom, vertical=${vertical}`, () => {
+          const a = createJunction({ x: 0, y: 0 }, 'A'),
+            b = createJunction(vertical ? { x: 0, y: 400 } : { x: 400, y: 0 }, 'B'),
+            middle = createComponent(type, vertical ? { x: 0, y: 180 } : { x: 180, y: 0 });
+          middle.rotation = vertical ? 90 : 0;
+          const d = doc([a, middle, b]),
+            context = createMoveContext(d, [middle.id]),
+            axis = vertical ? 'y' : 'x';
+          const bounds = visualBounds(middle, d),
+            extent = vertical ? bounds.height : bounds.width,
+            desired = (400 - extent) / 2 - bounds[axis];
+          for (const jitter of [-2, 0, 2]) {
+            const delta = desired + jitter / zoom,
+              result = computeMoveGuides(
+                context,
+                vertical ? { x: 0, y: delta } : { x: delta, y: 0 },
+                zoom,
+              );
+            expect(result.delta[axis]).toBeCloseTo(desired);
+            expect(result.distances.map((g) => g.neighborId)).toEqual([a.id, b.id]);
+            expect(result.distances.every((g) => g.equal)).toBe(true);
+            expect(result.distances[0].value).toBeCloseTo(result.distances[1].value);
+          }
+        });
+  it('equal-spaces between a Junction and a component, and moves a Junction between components', () => {
+    const a = createJunction({ x: 0, y: 0 }, 'A'),
+      middle = resistor('middle', 180),
+      right = resistor('right', 440),
+      d = doc([a, middle, right]);
+    const result = computeMoveGuides(createMoveContext(d, ['middle']), { x: 17, y: 0 }, 1);
+    expect(result.delta.x).toBe(20);
+    expect(result.distances.map((g) => g.value)).toEqual([160, 160]);
+    const node = createJunction({ x: 180, y: 0 }, 'J'),
+      nodes = doc([resistor('left', 0), node, resistor('right', 400)]),
+      nodeResult = computeMoveGuides(createMoveContext(nodes, [node.id]), { x: 17, y: 0 }, 1);
+    expect(nodeResult.delta.x).toBe(20);
+    expect(nodeResult.distances.map((g) => g.value)).toEqual([160, 160]);
   });
   it('still snaps a component terminal to a Junction, independently of the spacing family', () => {
     const d = doc([resistor('R1', 0), createJunction({ x: 120, y: 0 }, 'J')]);
@@ -178,7 +226,9 @@ describe('contextual distances and spatial search', () => {
     expect(result.delta.x).toBe(80);
   });
   it('queries local buckets instead of returning thousands of distant objects', () => {
-    const objects = Array.from({ length: 3000 }, (_, i) => resistor(`r${i}`, i * 200));
+    const objects = Array.from({ length: 3000 }, (_, i) =>
+      i % 2 ? createJunction({ x: i * 200, y: 0 }, 'J') : resistor(`r${i}`, i * 200),
+    );
     const d = doc(objects),
       index = new GuideIndex(d, new Set());
     expect(index.nearby(visualBounds(objects[1500], d)).length).toBeLessThan(15);

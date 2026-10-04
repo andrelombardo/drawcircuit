@@ -237,6 +237,12 @@ describe('audit: actual rendered drawing workflows (jsdom, not manual browser)',
     drawArrow('a', [-80, -240], [80, -240]);
     key('t');
     click(-80, 300);
+    const text = current().objects.at(-1)!;
+    fireEvent.doubleClick(
+      screen
+        .getByTestId('circuit-canvas')
+        .querySelector(`[data-layer="annotations"] [data-object="${text.id}"]`)!,
+    );
     fireEvent.change(screen.getByLabelText('Modifica testo sul foglio'), {
       target: { value: 'Maglie r_{AB}' },
     });

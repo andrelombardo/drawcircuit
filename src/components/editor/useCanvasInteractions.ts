@@ -509,11 +509,8 @@ export function useCanvasInteractions(svgRef: RefObject<SVGSVGElement | null>) {
       return;
     }
     if (s.tool === 'text') {
-      const id = makeId(),
-        point = snapPoint(p);
-      s.add([{ ...createTextAnnotation(point), id }]);
+      s.add([createTextAnnotation(snapPoint(p))]);
       s.setTool('select');
-      setEditing({ id, text: 'Testo', point });
       return;
     }
     if (s.tool === 'voltage') {
@@ -943,6 +940,12 @@ export function useCanvasInteractions(svgRef: RefObject<SVGSVGElement | null>) {
   };
   const saveEdit = () => {
     if (!editing) return;
+    const original = useEditorStore.getState().document.objects.find((o) => o.id === editing.id);
+    if (original?.kind === 'text' && original.text === editing.text) {
+      setEditing(null);
+      svgRef.current?.focus();
+      return;
+    }
     useEditorStore
       .getState()
       .update(editing.id, (o) =>
@@ -953,6 +956,7 @@ export function useCanvasInteractions(svgRef: RefObject<SVGSVGElement | null>) {
             : o,
       );
     setEditing(null);
+    svgRef.current?.focus();
   };
   return {
     viewport,

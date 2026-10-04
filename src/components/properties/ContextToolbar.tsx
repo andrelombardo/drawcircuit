@@ -257,14 +257,6 @@ export function ContextToolbar({
           />
         </label>
       )}
-      {o?.kind === 'text' && (
-        <PropertyText
-          key={`${o.id}-${o.text}`}
-          value={o.text}
-          label="Testo annotazione"
-          onChange={(text) => update(o.id, (obj) => (obj.kind === 'text' ? { ...obj, text } : obj))}
-        />
-      )}
       {!o && <span className="property-caption">{objects.length} elementi</span>}
       <details
         ref={style}

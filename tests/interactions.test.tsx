@@ -219,14 +219,78 @@ describe('complete editor workflows', () => {
       canvas().querySelector('[data-object="r-AB"] .katex-mathml msub > mrow')?.textContent,
     ).toBe('eq');
   });
+  it('inserts selected text directly, drags it, cancels inline edits and preserves LaTeX undo/redo', () => {
+    useEditorStore.setState({
+      document: emptyDocument(),
+      selection: [],
+      past: [],
+      future: [],
+      notice: '',
+    });
+    render(<App />);
+    fireEvent.click(screen.getByRole('button', { name: 'Testo (T)' }));
+    click(100, -80);
+    const text = useEditorStore.getState().document.objects[0];
+    const target = () =>
+      canvas().querySelector(`[data-layer="annotations"] [data-object="${text.id}"]`)!;
+    expect(text).toMatchObject({ kind: 'text', text: 'Testo', x: 100, y: -80 });
+    expect(useEditorStore.getState().selection).toEqual([text.id]);
+    expect(useEditorStore.getState().tool).toBe('select');
+    expect(screen.queryByLabelText('Modifica testo sul foglio')).toBeNull();
+    expect(screen.queryByLabelText('Testo annotazione')).toBeNull();
+    expect(document.querySelector('.inline-latex-preview')).toBeNull();
+    fireEvent.pointerDown(target(), client(100, -80));
+    fireEvent.pointerMove(canvas(), client(120, -60));
+    fireEvent.pointerUp(canvas(), client(120, -60));
+    expect(useEditorStore.getState().document.objects[0]).toMatchObject({ x: 120, y: -60 });
+    const history = useEditorStore.getState().past.length;
+    fireEvent.doubleClick(target());
+    expect(screen.queryByLabelText('Conferma testo')).toBeNull();
+    expect(document.querySelector('.inline-latex-preview')).toBeNull();
+    fireEvent.change(screen.getByLabelText('Modifica testo sul foglio'), {
+      target: { value: 'Discard me' },
+    });
+    fireEvent.keyDown(screen.getByLabelText('Modifica testo sul foglio'), { key: 'Escape' });
+    expect(useEditorStore.getState().document.objects[0]).toMatchObject({ text: 'Testo' });
+    expect(useEditorStore.getState().past).toHaveLength(history);
+    fireEvent.doubleClick(target());
+    fireEvent.submit(screen.getByLabelText('Modifica testo sul foglio').closest('form')!);
+    expect(useEditorStore.getState().past).toHaveLength(history);
+    fireEvent.doubleClick(target());
+    fireEvent.change(screen.getByLabelText('Modifica testo sul foglio'), {
+      target: { value: 'V_{out}' },
+    });
+    fireEvent.submit(screen.getByLabelText('Modifica testo sul foglio').closest('form')!);
+    expect(target().querySelector('.katex-mathml msub > mrow')?.textContent).toBe('out');
+    act(() => useEditorStore.getState().undo());
+    expect(useEditorStore.getState().document.objects[0]).toMatchObject({ text: 'Testo' });
+    act(() => useEditorStore.getState().redo());
+    expect(useEditorStore.getState().document.objects[0]).toMatchObject({
+      text: 'V_{out}',
+      x: 120,
+      y: -60,
+    });
+    act(() => useEditorStore.getState().undo());
+    act(() => useEditorStore.getState().undo());
+    act(() => useEditorStore.getState().undo());
+    expect(useEditorStore.getState().document.objects).toEqual([]);
+    act(() => useEditorStore.getState().redo());
+    expect(useEditorStore.getState().document.objects[0]).toMatchObject({ text: 'Testo' });
+  });
   it('creates text and a circular arrow with editable handles', () => {
     render(<App />);
     fireEvent.click(screen.getByRole('button', { name: 'Testo (T)' }));
     click(100, -80);
+    expect(screen.queryByLabelText('Modifica testo sul foglio')).toBeNull();
+    const text = useEditorStore.getState().document.objects.at(-1)!;
+    expect(text).toMatchObject({ kind: 'text', text: 'Testo' });
+    fireEvent.doubleClick(
+      canvas().querySelector(`[data-layer="annotations"] [data-object="${text.id}"]`)!,
+    );
     fireEvent.change(screen.getByRole('textbox', { name: 'Modifica testo sul foglio' }), {
       target: { value: 'maglia 2' },
     });
-    fireEvent.click(screen.getByRole('button', { name: 'Conferma testo' }));
+    fireEvent.submit(screen.getByLabelText('Modifica testo sul foglio').closest('form')!);
     expect(useEditorStore.getState().document.objects.at(-1)).toMatchObject({
       kind: 'text',
       text: 'maglia 2',
@@ -762,10 +826,15 @@ describe('expanded library and annotation fonts in the rendered interface', () =
     click(400, 100);
     key('t');
     click(400, 200);
+    expect(screen.queryByLabelText('Modifica testo sul foglio')).toBeNull();
+    const text = useEditorStore.getState().document.objects.at(-1)!;
+    fireEvent.doubleClick(
+      canvas().querySelector(`[data-layer="annotations"] [data-object="${text.id}"]`)!,
+    );
     expect(screen.getByLabelText('Modifica testo sul foglio').style.fontFamily).toContain(
       'Comic Sans',
     );
-    fireEvent.click(screen.getByRole('button', { name: 'Conferma testo' }));
+    fireEvent.submit(screen.getByLabelText('Modifica testo sul foglio').closest('form')!);
     expect(serializeDocument(useEditorStore.getState().document)).not.toContain('fontFamily');
     expect(useEditorStore.getState().document.objects.at(-1)).toMatchObject({ kind: 'text' });
   });

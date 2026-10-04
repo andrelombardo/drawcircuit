@@ -26,7 +26,7 @@ export function ComponentSidebar({
         { width: preferences.width, '--sidebar-width': `${preferences.width}px` } as CSSProperties
       }
     >
-      <Palette />
+      <Palette onHide={() => setPreferences((p) => ({ ...p, visible: false }))} />
       <div
         className="sidebar-resizer"
         role="separator"

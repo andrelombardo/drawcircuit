@@ -119,6 +119,12 @@ afterEach(() => {
 describe('persistent resizable component sidebar', () => {
   it('hides, reopens and restores visibility/width without including UI preferences in JSON', () => {
     render(<App />);
+    expect(screen.getByLabelText('Nascondi componenti').closest('.palette-heading')).toBeTruthy();
+    expect(document.querySelector('.topbar .sidebar-toggle')).toBeNull();
+    expect(
+      screen.getByRole('toolbar', { name: 'Strumenti di disegno' }).closest('.editor'),
+    ).toBeTruthy();
+    expect(screen.getByLabelText('Titolo circuito').closest('.topbar')).toBeTruthy();
     const separator = screen.getByRole('separator', { name: 'Ridimensiona barra componenti' });
     fireEvent.keyDown(separator, { key: 'End' });
     expect(separator.getAttribute('aria-valuenow')).toBe('480');
@@ -126,6 +132,7 @@ describe('persistent resizable component sidebar', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Nascondi componenti' }));
     expect(screen.queryByRole('complementary')).toBeNull();
     expect(canvas().getBoundingClientRect().width).toBe(1280);
+    expect(screen.getByLabelText('Mostra componenti').closest('.editor')).toBeTruthy();
     expect(JSON.parse(stored.get(SIDEBAR_STORAGE_KEY)!)).toEqual({ visible: false, width: 480 });
     cleanup();
     render(<App />);

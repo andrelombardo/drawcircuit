@@ -20,15 +20,13 @@ export default function App() {
   return (
     <div className="app-shell">
       <PwaStatus />
-      <Toolbar
-        sidebarVisible={sidebar.preferences.visible}
-        onToggleSidebar={() => sidebar.setPreferences((p) => ({ ...p, visible: !p.visible }))}
-        onExport={() => setDialog('export')}
-        onHelp={() => setDialog('help')}
-      />
+      <Toolbar onExport={() => setDialog('export')} onHelp={() => setDialog('help')} />
       <div className="workspace">
         <ComponentSidebar {...sidebar} />
-        <Canvas />
+        <Canvas
+          sidebarVisible={sidebar.preferences.visible}
+          onShowSidebar={() => sidebar.setPreferences((p) => ({ ...p, visible: true }))}
+        />
       </div>
       {dialog === 'export' && <ExportDialog onClose={() => setDialog(null)} />}{' '}
       {dialog === 'help' && <HelpDialog onClose={() => setDialog(null)} />}

@@ -188,7 +188,8 @@ export function computeMoveGuides(
     threshold = 7 / zoom;
   const rawBounds = translate(original, raw),
     candidates = context.index.nearby(rawBounds).filter((e) => e.family === moving.family),
-    spacingCandidates = candidates.filter((e) => e.spacingFamily === moving.spacingFamily);
+    // Components and Junctions share geometric neighbors; annotations remain separate.
+    spacingCandidates = candidates;
   // Terminal/Junction proximity wins; this changes geometry only, never endpoint references.
   let target: Point | null = null,
     best = threshold;
