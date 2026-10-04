@@ -2186,6 +2186,7 @@ summary:focus-visible {
 .sidebar-toggle {
   width: 30px;
   height: 30px;
+  color: #8e8e93;
 }
 .file-trigger {
   gap: 5px;

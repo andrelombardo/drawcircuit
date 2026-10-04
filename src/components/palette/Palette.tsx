@@ -1,7 +1,8 @@
 import { usePersonalBlocks } from '../../personalBlocks/library';
 import { PersonalBlockPalette } from '../../personalBlocks/PersonalBlockPalette';
 import { useState } from 'react';
-import { ChevronDown, PanelLeft, Search, X } from 'lucide-react';
+import { ChevronDown, Search, X } from 'lucide-react';
+import { SidebarIcon } from '../toolbar/SidebarIcon';
 import { categories, catalog, matchesComponent } from '../../model/catalog';
 import { useEditorStore } from '../../store/editorStore';
 import { ComponentPreview } from './ComponentPreview';
@@ -30,7 +31,7 @@ export function Palette({ onHide }: { onHide: () => void }) {
           aria-controls="component-library"
           onClick={onHide}
         >
-          <PanelLeft size={18} strokeWidth={1.5} />
+          <SidebarIcon />
         </button>
       </div>
       <div className="search-field">

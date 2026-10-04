@@ -3,7 +3,7 @@ import { usePersonalBlocks } from '../../personalBlocks/library';
 import { CIRCUIT_FONT } from '../../model/fonts';
 import { LatexPreview } from '../../circuit/annotations/MathText';
 import { useRef } from 'react';
-import { Check, CircleAlert, Grid2X2, Maximize, Minus, PanelLeft, Plus } from 'lucide-react';
+import { Check, CircleAlert, Grid2X2, Maximize, Minus, Plus } from 'lucide-react';
 import { useEditorStore } from '../../store/editorStore';
 import { catalog, componentRegistry } from '../../model/catalog';
 import { COLORS, componentTypes, GRID } from '../../model/types';
@@ -14,6 +14,7 @@ import { TargetFeedbackLayer } from './TargetFeedbackLayer';
 import { DistanceGuideLayer } from './DistanceGuideLayer';
 import { CircuitLayer } from './CircuitLayer';
 import { DrawingToolbar } from '../toolbar/Toolbar';
+import { SidebarIcon } from '../toolbar/SidebarIcon';
 import { useCanvasInteractions } from './useCanvasInteractions';
 import { ContextToolbar } from '../properties/ContextToolbar';
 import { IconButton } from '../toolbar/IconButton';
@@ -115,7 +116,7 @@ export function Canvas({
           aria-controls="component-library"
           onClick={onShowSidebar}
         >
-          <PanelLeft size={18} strokeWidth={1.5} />
+          <SidebarIcon />
         </button>
       )}
       <div className="document-heading">
