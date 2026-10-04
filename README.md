@@ -12,10 +12,6 @@
   <a href="docs/manuale.md">Documentation</a>
 </p>
 
-<p align="center">
-  <img src="assets/readme/drawcircuit.png" alt="DrawCircuit editor with an annotated Wheatstone bridge, component library and floating toolbar" width="850" />
-</p>
-
 DrawCircuit turns circuit sketches into editable vector diagrams. Place components, connect terminals, add annotations, and export the result for your notes or teaching material. Everything runs in the browser, with automatic local saving and offline support after the first completed visit. There are no accounts or backend services; the editor focuses on drawing rather than circuit simulation.
 
 ## Features
@@ -51,12 +47,6 @@ DrawCircuit turns circuit sketches into editable vector diagrams. Place componen
 - **Selection export** — Export the whole circuit or only the selected elements, including their internal wires.
 - **Local saving and PWA** — Keep your circuit in the current browser and work offline after the app is cached; available installation options depend on the browser.
 
-## Screenshots
-
-<p align="center">
-  <img src="assets/readme/annotations.png" alt="Editing a voltage label in LaTeX with a live mathematical preview, current and loop arrows" width="49%" />
-  <img src="assets/readme/export.png" alt="Obsidian export dialog with whole-circuit and selection options" width="49%" />
-</p>
 
 ## Quick Start
 
