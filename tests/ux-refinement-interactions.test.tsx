@@ -133,7 +133,7 @@ describe('polished selection and independent label interaction', () => {
     fireEvent.change(screen.getByLabelText('Modifica testo sul foglio'), {
       target: { value: 'R_{test}' },
     });
-    fireEvent.click(screen.getByLabelText('Conferma testo'));
+    fireEvent.keyDown(screen.getByLabelText('Modifica testo sul foglio'), { key: 'Enter' });
     expect(after.objects[1]).not.toBe(useEditorStore.getState().document.objects[1]);
     select('R3', 200);
     expect(canvas().querySelector('[data-active-label]')).toBeNull();
@@ -186,11 +186,11 @@ describe('Golden spacing and group workflow in the canvas', () => {
       fireEvent.pointerMove(canvas(), to);
       const guides = canvas().querySelectorAll('[data-layer="distance-guides"] [data-distance]');
       expect(guides).toHaveLength(2);
-      expect([...guides].map((el) => el.getAttribute('data-distance'))).toEqual(['170', '170']);
+      expect([...guides].map((el) => el.getAttribute('data-distance'))).toEqual(['210', '210']);
       expect([...guides].every((el) => el.hasAttribute('data-equal'))).toBe(true);
       expect(useEditorStore.getState().past).toHaveLength(0);
       expect(serializeDocument(useEditorStore.getState().document)).not.toContain('guides');
-      expect(exportTikz(useEditorStore.getState().document)).not.toContain('170 =');
+      expect(exportTikz(useEditorStore.getState().document)).not.toContain('210 =');
       fireEvent.pointerUp(canvas(), to);
       expect(canvas().querySelectorAll('[data-distance]')).toHaveLength(0);
       expect(useEditorStore.getState().document.objects[1]).toMatchObject(

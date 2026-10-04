@@ -1,7 +1,11 @@
 import type { CircuitDocument } from '../model/types';
 import { exportSVG } from '../svg/exporter';
+import { CIRCUIT_FONT } from '../model/fonts';
+import { isMathSource } from '../math/latex';
 
-export const PNG_SCALE = 2;
+export const PNG_SCALE = 4;
+export const PNG_MAX_DIMENSION = 16_384;
+export const PNG_MAX_PIXELS = 32_000_000;
 const fontURLs = import.meta.glob<string>('/node_modules/katex/dist/fonts/*.woff2', {
   eager: true,
   query: '?url',
@@ -40,20 +44,50 @@ export async function embedSVGFonts(svg: string): Promise<string> {
 }
 
 export function pngDimensions(svg: string, scale = PNG_SCALE) {
-  const bounds = /viewBox="[^" ]+ [^" ]+ ([\d.]+) ([\d.]+)"/.exec(svg);
+  const bounds = /viewBox="([^"]+)"/.exec(svg)?.[1].trim().split(/\s+/).map(Number);
   if (!bounds || !Number.isFinite(scale) || scale <= 0)
     throw new Error('Dimensioni PNG non valide.');
-  const width = Math.max(1, Math.ceil(Number(bounds[1]) * scale));
-  const height = Math.max(1, Math.ceil(Number(bounds[2]) * scale));
-  // Avoid browser allocation failures for malformed or enormous imported documents.
-  if (width > 32767 || height > 32767 || width * height > 64_000_000)
+  if (
+    bounds.length !== 4 ||
+    bounds.some((n) => !Number.isFinite(n)) ||
+    bounds[2] <= 0 ||
+    bounds[3] <= 0
+  )
+    throw new Error('Dimensioni PNG non valide.');
+  const [, , sourceWidth, sourceHeight] = bounds;
+  // Keep normal drawings at 4×. Large drawings share one reduced scale, preserving
+  // their aspect ratio while bounding the RGBA allocation (128 MB at most).
+  const effectiveScale = Math.min(
+    scale,
+    PNG_MAX_DIMENSION / sourceWidth,
+    PNG_MAX_DIMENSION / sourceHeight,
+    Math.sqrt(PNG_MAX_PIXELS / (sourceWidth * sourceHeight)),
+  );
+  if (effectiveScale < Math.min(1, scale))
     throw new Error('PNG troppo grande: esporta una selezione più piccola.');
+  let width = Math.min(PNG_MAX_DIMENSION, Math.max(1, Math.ceil(sourceWidth * effectiveScale)));
+  let height = Math.min(PNG_MAX_DIMENSION, Math.max(1, Math.ceil(sourceHeight * effectiveScale)));
+  // Ceil can cross the pixel budget; leave space for that final pixel on each axis.
+  if (width * height > PNG_MAX_PIXELS) {
+    // Floor the actual bounded dimensions. Recomputing a scale then taking ceil
+    // can round straight back up and exceed the budget for fractional viewBoxes.
+    width = Math.max(1, Math.floor(sourceWidth * effectiveScale));
+    height = Math.max(1, Math.floor(sourceHeight * effectiveScale));
+  }
   return { width, height };
 }
 
 export async function rasterizeSVG(svg: string, scale = PNG_SCALE): Promise<Blob> {
   const { width, height } = pngDimensions(svg, scale);
-  const url = URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml' }));
+  // Give the SVG image its final physical size before decoding, so the browser
+  // rasterizes vector paths/text directly at the output resolution.
+  const sizedSVG = svg.replace(/<svg\b[^>]*>/, (tag) =>
+    tag
+      .replace(/\s(?:width|height)="[^"]*"/g, '')
+      .replace(/>$/, ` width="${width}" height="${height}">`),
+  );
+  const url = URL.createObjectURL(new Blob([sizedSVG], { type: 'image/svg+xml' }));
+  let canvas: HTMLCanvasElement | undefined;
   try {
     const image = new Image();
     await new Promise<void>((resolve, reject) => {
@@ -61,27 +95,53 @@ export async function rasterizeSVG(svg: string, scale = PNG_SCALE): Promise<Blob
       image.onerror = () => reject(new Error('Impossibile rasterizzare il circuito.'));
       image.src = url;
     });
-    const canvas = document.createElement('canvas');
+    canvas = document.createElement('canvas');
     canvas.width = width;
     canvas.height = height;
     const context = canvas.getContext('2d');
     if (!context) throw new Error('Canvas PNG non disponibile.');
+    context.imageSmoothingEnabled = true;
+    context.imageSmoothingQuality = 'high';
     context.fillStyle = 'white';
     context.fillRect(0, 0, width, height);
     context.drawImage(image, 0, 0, width, height);
     return await new Promise<Blob>((resolve, reject) =>
-      canvas.toBlob(
+      canvas!.toBlob(
         (blob) => (blob ? resolve(blob) : reject(new Error('Impossibile creare il PNG.'))),
         'image/png',
       ),
     );
   } finally {
     URL.revokeObjectURL(url);
+    // Release the large backing store as soon as the encoded blob is available.
+    if (canvas) canvas.width = canvas.height = 0;
   }
 }
 
+/** Loading after layout is too late: KaTeX first requests glyph faces when its
+ * temporary measurement nodes are inserted. Prime them before exportSVG measures. */
+export async function preparePNGFonts(doc: CircuitDocument): Promise<void> {
+  if (!document.fonts) return;
+  const sources = doc.objects.flatMap((o) =>
+    o.kind === 'text' ? [o.text] : 'label' in o ? [o.label.text] : [],
+  );
+  const text = sources.join(' ');
+  const requests = [document.fonts.load(`22px ${CIRCUIT_FONT}`, text || 'DrawCircuit')];
+  if (sources.some((source) => isMathSource(source))) {
+    for (const path of Object.keys(fontURLs)) {
+      const match = /\/(KaTeX_[^-]+)-(Regular|Bold|Italic|BoldItalic)\.woff2$/.exec(path);
+      if (!match) continue;
+      const style = match[2].includes('Italic') ? 'italic' : 'normal';
+      const weight = match[2].includes('Bold') ? '700' : '400';
+      requests.push(document.fonts.load(`${style} ${weight} 22px ${match[1]}`, text));
+    }
+  }
+  await Promise.all(requests);
+  await document.fonts.ready;
+}
+
 export async function exportPNG(doc: CircuitDocument): Promise<Blob> {
-  await document.fonts?.ready;
+  await preparePNGFonts(doc);
   return rasterizeSVG(await embedSVGFonts(exportSVG(doc)));
 }
 

@@ -8,11 +8,15 @@ export function ElectricalView({
   object: o,
   doc,
   selected = false,
+  labelSelected = false,
+  hideLabel = false,
   zoom = 1,
 }: {
   object: ElectricalAnnotation;
   doc: CircuitDocument;
   selected?: boolean;
+  labelSelected?: boolean;
+  hideLabel?: boolean;
   zoom?: number;
 }) {
   const g = electricalGeometry(o, doc);
@@ -65,15 +69,18 @@ export function ElectricalView({
           <path d={pointsPath(head)} />
         </g>
       )}
-      <MathText
-        text={o.label.text}
-        x={g.labelPoint.x}
-        y={g.labelPoint.y}
-        color={o.label.color}
-        fontSize={o.label.fontSize}
-        rotation={o.label.rotation}
-        labelId={o.id}
-      />
+      {!hideLabel && (
+        <MathText
+          text={o.label.text}
+          x={g.labelPoint.x}
+          y={g.labelPoint.y}
+          color={o.label.color}
+          fontSize={o.label.fontSize}
+          rotation={o.label.rotation}
+          labelId={o.id}
+          selected={labelSelected}
+        />
+      )}
     </g>
   );
 }

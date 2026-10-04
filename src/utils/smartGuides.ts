@@ -1,16 +1,21 @@
-import type { CircuitDocument, CircuitObject, Point } from '../model/types';
-import { localToWorld, snap } from './geometry';
-import { visualBounds, unionBounds } from './visualBounds';
+import type { CircuitDocument, CircuitObject, Endpoint, Point } from '../model/types';
+import { localToWorld, snap, wirePoints } from './geometry';
+import { contentBounds, visualBounds, unionBounds } from './visualBounds';
 import type { Bounds } from './visualBounds';
+import { measurementBounds } from './measurementGeometry';
+import { simplifyPolyline } from './wires';
 
 export interface GuideItem {
   id: string;
   family: 'node' | 'annotation';
   spacingFamily: 'component' | 'junction' | 'annotation';
   bounds: Bounds;
+  alignmentBounds?: Bounds;
+  displayBounds?: Bounds;
   anchor: Point;
   pins: Point[];
   baseline?: number;
+  referenceKind?: DistanceGuide['referenceKind'];
 }
 export interface DistanceGuide {
   axis: 'x' | 'y';
@@ -20,6 +25,9 @@ export interface DistanceGuide {
   value: number;
   equal: boolean;
   neighborId: string;
+  referenceKind?: 'component' | 'junction' | 'bend' | 'endpoint';
+  /** Dimension rail is offset from the measured branch; witnesses end at `at`. */
+  displayAt?: number;
 }
 export interface MoveGuides {
   delta: Point;
@@ -37,18 +45,21 @@ function pins(o: CircuitObject): Point[] {
       : [];
 }
 function item(o: CircuitObject, doc: CircuitDocument): GuideItem {
-  const bounds = visualBounds(o, doc);
+  const bounds = measurementBounds(o, doc);
   return {
     id: o.id,
     family: o.kind === 'component' || o.kind === 'junction' ? 'node' : 'annotation',
     spacingFamily:
       o.kind === 'component' ? 'component' : o.kind === 'junction' ? 'junction' : 'annotation',
     bounds,
+    alignmentBounds: visualBounds(o, doc),
+    displayBounds: contentBounds(o, doc),
     anchor:
       o.kind === 'component' || o.kind === 'junction'
         ? { x: o.x, y: o.y }
         : { x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height / 2 },
     pins: pins(o),
+    ...(o.kind === 'component' || o.kind === 'junction' ? { referenceKind: o.kind } : {}),
     ...(o.kind === 'text' ? { baseline: o.y } : {}),
   };
 }
@@ -61,7 +72,7 @@ export class GuideIndex {
     for (const o of doc.objects) {
       if (excluded.has(o.id) || o.kind === 'wire') continue;
       const entry = item(o, doc),
-        b = entry.bounds;
+        b = entry.displayBounds ?? entry.bounds;
       if ((b.width / CELL + 2) * (b.height / CELL + 2) > 256) {
         this.large.push(entry);
         continue;
@@ -101,18 +112,48 @@ export class GuideIndex {
     }
     return [...found].sort((a, b) => a.id.localeCompare(b.id));
   }
+  /** Line query used only when preparing connected branches, never per frame. */
+  along(a: Point, b: Point): GuideItem[] {
+    const found = new Set<GuideItem>(this.large);
+    for (
+      let x = Math.floor(Math.min(a.x, b.x) / CELL);
+      x <= Math.floor(Math.max(a.x, b.x) / CELL);
+      x++
+    )
+      for (
+        let y = Math.floor(Math.min(a.y, b.y) / CELL);
+        y <= Math.floor(Math.max(a.y, b.y) / CELL);
+        y++
+      )
+        for (const entry of this.cells.get(`${x}:${y}`) ?? []) found.add(entry);
+    return [...found];
+  }
+}
+interface BranchReference {
+  axis: 'x' | 'y';
+  side: -1 | 1;
+  at: number;
+  boundary: number;
+  neighborId: string;
+  kind: NonNullable<DistanceGuide['referenceKind']>;
 }
 export interface MoveContext {
   index: GuideIndex;
   moving: GuideItem;
+  branches: BranchReference[];
 }
 export function createMoveContext(doc: CircuitDocument, ids: string[]): MoveContext {
   const selected = new Set(ids),
     objects = doc.objects.filter((o) => selected.has(o.id));
   const entries = objects.map((o) => item(o, doc)),
     bounds = unionBounds(entries.map((e) => e.bounds));
+  const index = new GuideIndex(doc, selected);
   return {
-    index: new GuideIndex(doc, selected),
+    index,
+    branches:
+      entries.length === 1 && entries[0].family === 'node'
+        ? connectedBranches(doc, selected, index)
+        : [],
     moving:
       entries.length === 1
         ? entries[0]
@@ -125,10 +166,74 @@ export function createMoveContext(doc: CircuitDocument, ids: string[]): MoveCont
                 ? 'junction'
                 : 'annotation',
             bounds,
+            alignmentBounds: unionBounds(entries.map((e) => e.alignmentBounds ?? e.bounds)),
+            displayBounds: unionBounds(entries.map((e) => e.displayBounds ?? e.bounds)),
             anchor: { x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height / 2 },
             pins: [],
           },
   };
+}
+/** Resolve topology and first straight runs once against the immutable gesture
+ * document. A bend always ends a branch, including an automatically routed one.
+ * Crossings have no semantic endpoint and are never promoted to Junctions. */
+function connectedBranches(
+  doc: CircuitDocument,
+  selected: Set<string>,
+  index: GuideIndex,
+): BranchReference[] {
+  const objects = new Map(doc.objects.map((o) => [o.id, o]));
+  const belongs = (ep: Endpoint) =>
+    ep.kind === 'terminal'
+      ? selected.has(ep.componentId)
+      : ep.kind === 'junction' && selected.has(ep.junctionId);
+  const references: BranchReference[] = [];
+  for (const wire of doc.objects) {
+    if (wire.kind !== 'wire' || selected.has(wire.id)) continue;
+    const fromStart = belongs(wire.startEndpoint),
+      fromEnd = belongs(wire.endEndpoint);
+    if (fromStart === fromEnd) continue;
+    const route = simplifyPolyline(wirePoints(wire, doc));
+    if (!fromStart) route.reverse();
+    if (route.length < 2) continue;
+    const origin = route[0],
+      limit = route[1];
+    const axis = origin.x === limit.x ? 'y' : 'x',
+      cross = axis === 'x' ? 'y' : 'x';
+    const side = limit[axis] > origin[axis] ? 1 : -1;
+    let boundary = limit[axis],
+      neighborId = wire.id,
+      kind: BranchReference['kind'] = 'bend';
+    if (route.length === 2) {
+      const endpoint = fromStart ? wire.endEndpoint : wire.startEndpoint;
+      kind = 'endpoint';
+      if (endpoint.kind === 'terminal') {
+        const object = objects.get(endpoint.componentId);
+        if (object?.kind === 'component') {
+          const bounds = measurementBounds(object, doc);
+          boundary = side === 1 ? bounds[axis] : end(bounds, axis);
+          neighborId = object.id;
+          kind = 'component';
+        }
+      } else if (endpoint.kind === 'junction') {
+        neighborId = endpoint.junctionId;
+        kind = 'junction';
+      }
+    }
+    // An unsplit imported node/body on this run still blocks more remote refs.
+    // Only the line's spatial buckets are inspected during gesture preparation.
+    for (const candidate of index.along(origin, limit)) {
+      if (candidate.family !== 'node') continue;
+      const box = candidate.bounds;
+      if (origin[cross] < box[cross] - 0.001 || origin[cross] > end(box, cross) + 0.001) continue;
+      const edge = side === 1 ? box[axis] : end(box, axis);
+      if ((edge - origin[axis]) * side < -0.001 || (edge - boundary) * side > 0.001) continue;
+      boundary = edge;
+      neighborId = candidate.id;
+      kind = candidate.spacingFamily === 'junction' ? 'junction' : 'component';
+    }
+    references.push({ axis, side, at: origin[cross], boundary, neighborId, kind });
+  }
+  return references;
 }
 const center = (b: Bounds, axis: 'x' | 'y') =>
   axis === 'x' ? b.x + b.width / 2 : b.y + b.height / 2;
@@ -166,21 +271,142 @@ export function freeGap(a: Bounds, b: Bounds, axis: 'x' | 'y') {
   return b[axis] - end(a, axis);
 }
 function anchors(e: GuideItem, axis: 'x' | 'y'): number[] {
+  const bounds = e.alignmentBounds ?? e.bounds;
   return [
     e.anchor[axis],
-    e.bounds[axis],
-    end(e.bounds, axis),
+    bounds[axis],
+    end(bounds, axis),
     ...e.pins.map((p) => p[axis]),
     ...(axis === 'y' && e.baseline !== undefined ? [e.baseline] : []),
   ];
+}
+function moveNeighbors(
+  context: MoveContext,
+  b: Bounds,
+  candidates: GuideItem[],
+  axis: 'x' | 'y',
+  tolerance: number,
+  delta: Point,
+) {
+  const cross = axis === 'x' ? 'y' : 'x';
+  const at = context.moving.anchor[cross] + delta[cross];
+  const result = nearestNeighbors(b, candidates, axis, tolerance, at);
+  // Leaving the straight run suppresses its old references. The cross-axis
+  // alignment snap can put the body back on the run before this is evaluated.
+  if (Math.abs(delta[cross]) > tolerance) return result;
+  for (const reference of context.branches) {
+    if (reference.axis !== axis) continue;
+    const bounds =
+      axis === 'x'
+        ? { x: reference.boundary, y: reference.at, width: 0, height: 0 }
+        : { x: reference.at, y: reference.boundary, width: 0, height: 0 };
+    const entry: GuideItem = {
+      id: reference.neighborId,
+      family: 'node',
+      spacingFamily: reference.kind === 'junction' ? 'junction' : 'component',
+      bounds,
+      anchor: { ...context.moving.anchor, [cross]: at },
+      pins: [],
+      referenceKind: reference.kind,
+    };
+    if (
+      reference.side === -1 &&
+      reference.boundary <= b[axis] + 0.001 &&
+      (!result.before || reference.boundary >= end(result.before.bounds, axis))
+    )
+      result.before = entry;
+    if (
+      reference.side === 1 &&
+      reference.boundary >= end(b, axis) - 0.001 &&
+      (!result.after || reference.boundary <= result.after.bounds[axis])
+    )
+      result.after = entry;
+  }
+  return result;
+}
+
+function chipBounds(guide: DistanceGuide, rail: number, zoom: number): Bounds {
+  const value =
+    Math.abs(guide.value - Math.round(guide.value)) < 0.01
+      ? String(Math.round(guide.value))
+      : guide.value.toFixed(1);
+  const width = (value.length * 6.5 + 12) / zoom,
+    height = 20 / zoom,
+    mid = (guide.from + guide.to) / 2;
+  return {
+    x: (guide.axis === 'x' ? mid : rail) - width / 2,
+    y: (guide.axis === 'x' ? rail : mid) - height / 2,
+    width,
+    height,
+  };
+}
+const overlaps = (a: Bounds, b: Bounds, pad: number) =>
+  a.x < b.x + b.width + pad &&
+  a.x + a.width + pad > b.x &&
+  a.y < b.y + b.height + pad &&
+  a.y + a.height + pad > b.y;
+
+/** A shared rail keeps the pair readable. Pick its side/offset from the local
+ * content boxes (labels included) and reserve earlier chips before later ones. */
+function placeDistanceChips(
+  context: MoveContext,
+  guides: DistanceGuide[],
+  delta: Point,
+  zoom: number,
+): DistanceGuide[] {
+  if (!guides.length) return guides;
+  const movingBox = translate(context.moving.displayBounds ?? context.moving.bounds, delta);
+  // Query each gap's midpoint, including on very long branches; querying one
+  // huge union box would miss annotations between its edge search windows.
+  const local = new Set(
+    guides.flatMap((guide) => context.index.nearby(chipBounds(guide, guide.at, zoom))),
+  );
+  const obstacles = [movingBox, ...[...local].map((entry) => entry.displayBounds ?? entry.bounds)];
+  let chosen = 22 / zoom,
+    best = Infinity;
+  for (const screenOffset of [22, -22, 40, -40, 58, -58, 76, -76, 94, -94, 112, -112]) {
+    const boxes: Bounds[] = [];
+    let collisions = 0;
+    for (const guide of guides) {
+      const box = chipBounds(guide, guide.at + screenOffset / zoom, zoom);
+      collisions += obstacles.filter((obstacle) => overlaps(box, obstacle, 3 / zoom)).length;
+      collisions += boxes.filter((other) => overlaps(box, other, 4 / zoom)).length;
+      boxes.push(box);
+    }
+    if (collisions < best) {
+      chosen = screenOffset / zoom;
+      best = collisions;
+    }
+    if (!collisions) break;
+  }
+  const reserved: Bounds[] = [];
+  return guides.map((guide) => {
+    let rail = guide.at + chosen;
+    // Very short opposing gaps can have overlapping chips even on an empty
+    // common rail. Stagger only that chip while keeping the normal pair level.
+    for (const extra of [0, 22, -22, 44, -44, 66, -66]) {
+      const candidate = guide.at + chosen + extra / zoom;
+      const box = chipBounds(guide, candidate, zoom);
+      if (
+        reserved.some((other) => overlaps(box, other, 4 / zoom)) ||
+        obstacles.some((obstacle) => overlaps(box, obstacle, 3 / zoom))
+      )
+        continue;
+      rail = candidate;
+      break;
+    }
+    reserved.push(chipBounds(guide, rail, zoom));
+    return { ...guide, displayAt: rail };
+  });
 }
 export function computeMoveGuides(
   context: MoveContext,
   raw: Point,
   zoom: number,
   disabled = false,
+  precision = false,
 ): MoveGuides {
-  const delta = { x: snap(raw.x), y: snap(raw.y) },
+  const delta = precision ? { ...raw } : { x: snap(raw.x), y: snap(raw.y) },
     alignment: MoveGuides['alignment'] = {};
   if (disabled) return { delta, alignment, distances: [], target: null };
   const moving = context.moving,
@@ -193,7 +419,7 @@ export function computeMoveGuides(
   // Terminal/Junction proximity wins; this changes geometry only, never endpoint references.
   let target: Point | null = null,
     best = threshold;
-  for (const pin of moving.pins)
+  for (const pin of precision ? [] : moving.pins)
     for (const c of candidates)
       for (const p of c.pins) {
         const d = Math.hypot(pin.x + raw.x - p.x, pin.y + raw.y - p.y);
@@ -204,7 +430,7 @@ export function computeMoveGuides(
           target = p;
         }
       }
-  if (!target) {
+  if (!target && !precision) {
     for (const axis of ['x', 'y'] as const) {
       let best = threshold;
       const own = anchors(moving, axis);
@@ -240,18 +466,23 @@ export function computeMoveGuides(
     }
     // Equal spacing takes precedence on its axis, but keeps cross-axis alignment.
     for (const axis of ['x', 'y'] as const) {
+      // Connected bodies distribute along their branches. A perpendicular row
+      // of nearby symbols must not pull a vertical component sideways off wire.
+      if (context.branches.length && !context.branches.some((branch) => branch.axis === axis))
+        continue;
       const b = translate(original, { ...delta, [axis]: raw[axis] });
-      const { before, after } = nearestNeighbors(
+      const { before, after } = moveNeighbors(
+        context,
         b,
         spacingCandidates,
         axis,
         threshold,
-        moving.anchor[axis === 'x' ? 'y' : 'x'] + delta[axis === 'x' ? 'y' : 'x'],
+        delta,
       );
       let desired: number | undefined;
       if (before && after)
         desired = (end(before.bounds, axis) + after.bounds[axis] - size(b, axis)) / 2;
-      else if (before || after) {
+      else if ((before || after) && !context.branches.some((branch) => branch.axis === axis)) {
         const neighbor = (before ?? after)!;
         const adjacent = nearestNeighbors(
           neighbor.bounds,
@@ -280,13 +511,9 @@ export function computeMoveGuides(
   const b = translate(original, delta),
     distances: DistanceGuide[] = [];
   for (const axis of ['x', 'y'] as const) {
-    const { before, after } = nearestNeighbors(
-      b,
-      spacingCandidates,
-      axis,
-      threshold,
-      moving.anchor[axis === 'x' ? 'y' : 'x'] + delta[axis === 'x' ? 'y' : 'x'],
-    );
+    if (context.branches.length && !context.branches.some((branch) => branch.axis === axis))
+      continue;
+    const { before, after } = moveNeighbors(context, b, spacingCandidates, axis, threshold, delta);
     const gaps = [
       before ? freeGap(before.bounds, b, axis) : undefined,
       after ? freeGap(b, after.bounds, axis) : undefined,
@@ -303,6 +530,7 @@ export function computeMoveGuides(
         value: gaps[0]!,
         equal,
         neighborId: before.id,
+        referenceKind: before.referenceKind,
       });
     if (after)
       distances.push({
@@ -313,9 +541,10 @@ export function computeMoveGuides(
         value: gaps[1]!,
         equal,
         neighborId: after.id,
+        referenceKind: after.referenceKind,
       });
     // Matching a neighboring gap displays that reference too (local distribution).
-    if (!equal && (before || after)) {
+    if (!equal && (before || after) && !context.branches.some((branch) => branch.axis === axis)) {
       const neighbor = (before ?? after)!;
       const adjacent = nearestNeighbors(
         neighbor.bounds,
@@ -360,6 +589,13 @@ export function computeMoveGuides(
     delta,
     alignment,
     target,
-    distances: target ? [] : distances.filter((d) => d.axis === preferred).slice(0, 2),
+    distances: target
+      ? []
+      : placeDistanceChips(
+          context,
+          distances.filter((d) => d.axis === preferred).slice(0, 2),
+          delta,
+          zoom,
+        ),
   };
 }

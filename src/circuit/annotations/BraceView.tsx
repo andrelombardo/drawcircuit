@@ -2,7 +2,17 @@ import type { BraceAnnotation } from '../../model/types';
 import { braceGeometry } from '../../annotations/brace';
 import { MathText } from './MathText';
 
-export function BraceView({ object: o, zoom }: { object: BraceAnnotation; zoom: number }) {
+export function BraceView({
+  object: o,
+  zoom,
+  labelSelected = false,
+  hideLabel = false,
+}: {
+  object: BraceAnnotation;
+  zoom: number;
+  labelSelected?: boolean;
+  hideLabel?: boolean;
+}) {
   const g = braceGeometry(o);
   return (
     <g data-object={o.id} className="circuit-object">
@@ -15,15 +25,18 @@ export function BraceView({ object: o, zoom }: { object: BraceAnnotation; zoom: 
         strokeLinecap="round"
         strokeLinejoin="round"
       />
-      <MathText
-        text={o.label.text}
-        x={g.labelPoint.x}
-        y={g.labelPoint.y}
-        color={o.label.color}
-        fontSize={o.label.fontSize}
-        rotation={o.label.rotation}
-        labelId={o.id}
-      />
+      {!hideLabel && (
+        <MathText
+          text={o.label.text}
+          x={g.labelPoint.x}
+          y={g.labelPoint.y}
+          color={o.label.color}
+          fontSize={o.label.fontSize}
+          rotation={o.label.rotation}
+          labelId={o.id}
+          selected={labelSelected}
+        />
+      )}
     </g>
   );
 }

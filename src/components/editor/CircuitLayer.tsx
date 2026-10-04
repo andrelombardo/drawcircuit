@@ -18,6 +18,7 @@ export const CircuitLayer = memo(function CircuitLayer({
   zoom,
   activeLabel = null,
   editingTextId,
+  editingLabelId,
 }: {
   doc: CircuitDocument;
   selection: string[];
@@ -25,6 +26,7 @@ export const CircuitLayer = memo(function CircuitLayer({
   zoom: number;
   activeLabel?: string | null;
   editingTextId?: string;
+  editingLabelId?: string;
 }) {
   const selected = useMemo(() => new Set(selection), [selection]);
   const wires = useMemo(
@@ -48,7 +50,7 @@ export const CircuitLayer = memo(function CircuitLayer({
             <ComponentView
               key={o.id}
               object={o}
-              selected={selected.has(o.id)}
+              selected={selected.has(o.id) && activeLabel !== o.id}
               terminals={terminals || selected.has(o.id)}
             />
           ) : null,
@@ -57,13 +59,17 @@ export const CircuitLayer = memo(function CircuitLayer({
       <g data-layer="junctions">
         {doc.objects.map((o) =>
           o.kind === 'junction' ? (
-            <JunctionView key={o.id} object={o} selected={selected.has(o.id)} />
+            <JunctionView
+              key={o.id}
+              object={o}
+              selected={selected.has(o.id) && activeLabel !== o.id}
+            />
           ) : null,
         )}
       </g>
       <g data-layer="labels">
         {doc.objects.map((o) =>
-          o.kind === 'component' || o.kind === 'junction' ? (
+          (o.kind === 'component' || o.kind === 'junction') && o.id !== editingLabelId ? (
             <g key={o.id} data-object={o.id}>
               <MathText
                 text={o.label.text}
@@ -82,13 +88,21 @@ export const CircuitLayer = memo(function CircuitLayer({
       <g data-layer="annotations">
         {doc.objects.map((o) =>
           o.kind === 'brace' ? (
-            <BraceView key={o.id} object={o} zoom={zoom} />
+            <BraceView
+              key={o.id}
+              object={o}
+              zoom={zoom}
+              labelSelected={selected.has(o.id) && activeLabel === o.id}
+              hideLabel={o.id === editingLabelId}
+            />
           ) : o.kind === 'electrical' ? (
             <ElectricalView
               key={o.id}
               object={o}
               doc={doc}
-              selected={selected.has(o.id)}
+              selected={selected.has(o.id) && activeLabel !== o.id}
+              labelSelected={selected.has(o.id) && activeLabel === o.id}
+              hideLabel={o.id === editingLabelId}
               zoom={zoom}
             />
           ) : o.kind === 'arrow' ? (
@@ -114,7 +128,11 @@ export const CircuitLayer = memo(function CircuitLayer({
           ) : null,
         )}
       </g>
-      <SelectionLayer doc={doc} selection={selection} zoom={zoom} />
+      <SelectionLayer
+        doc={doc}
+        selection={selection.filter((id) => id !== activeLabel)}
+        zoom={zoom}
+      />
     </>
   );
 });

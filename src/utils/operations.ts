@@ -112,10 +112,42 @@ function detachWireEndpoints(
 /** Shared geometric move used by pointer dragging and keyboard nudging. */
 export function moveSelection(doc: CircuitDocument, ids: string[], delta: Point): CircuitDocument {
   const selected = new Set(ids);
+  const attachedToSelection = (ep: Endpoint) =>
+    ep.kind === 'terminal'
+      ? selected.has(ep.componentId)
+      : ep.kind === 'junction' && selected.has(ep.junctionId);
   return {
     ...doc,
     objects: doc.objects.map((o) => {
-      if (!selected.has(o.id)) return o;
+      if (!selected.has(o.id)) {
+        if (
+          o.kind === 'wire' &&
+          !o.vertices.length &&
+          (delta.x || delta.y) &&
+          (attachedToSelection(o.startEndpoint) || attachedToSelection(o.endEndpoint))
+        ) {
+          // Auto-routing has no stored bends: freeze the existing path before an
+          // attached object moves, so the distant branch stays where it was.
+          const points = wirePoints(o, doc);
+          if (points.length > 2) {
+            const vertices = points.slice(1, -1).map((point) => ({ ...point }));
+            if (attachedToSelection(o.startEndpoint)) {
+              const axis = points[0].x === points[1].x ? 'x' : 'y';
+              vertices[0][axis] += delta[axis];
+            }
+            if (attachedToSelection(o.endEndpoint)) {
+              const axis = points.at(-1)!.x === points.at(-2)!.x ? 'x' : 'y';
+              vertices.at(-1)![axis] += delta[axis];
+            }
+            return { ...o, vertices };
+          }
+          const first = points[0],
+            last = points.at(-1)!;
+          if ((first.x === last.x && delta.x !== 0) || (first.y === last.y && delta.y !== 0))
+            return { ...o, vertices: [midpoint(first, last)] };
+        }
+        return o;
+      }
       if (o.kind === 'wire' && !o.vertices.length) {
         const fixed = (ep: Endpoint) =>
           ep.kind === 'terminal'

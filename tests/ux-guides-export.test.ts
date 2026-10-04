@@ -71,10 +71,10 @@ describe('contextual distances and spatial search', () => {
         context = createMoveContext(d, ['R3']),
         axis = vertical ? 'y' : 'x';
       const initial = computeMoveGuides(context, { x: 0, y: 0 }, 1);
-      expect(initial.distances.map((g) => g.value)).toEqual([120, 220]);
+      expect(initial.distances.map((g) => g.value)).toEqual([160, 260]);
       const result = computeMoveGuides(context, vertical ? { x: 0, y: 46 } : { x: 46, y: 0 }, 1);
       expect(result.delta[axis]).toBe(50);
-      expect(result.distances.map((g) => g.value)).toEqual([170, 170]);
+      expect(result.distances.map((g) => g.value)).toEqual([210, 210]);
       expect(result.distances.every((g) => g.equal)).toBe(true);
       expect(result.alignment[vertical ? 'x' : 'y']).toBeDefined();
     });
@@ -93,7 +93,7 @@ describe('contextual distances and spatial search', () => {
       for (const screenOffset of [-2, -1, 0, 1, 2, 0, -1]) {
         const result = computeMoveGuides(c, { x: 50 + screenOffset / zoom, y: 0 }, zoom);
         expect(result.delta.x).toBe(50);
-        expect(result.distances.map((g) => g.value)).toEqual([170, 170]);
+        expect(result.distances.map((g) => g.value)).toEqual([210, 210]);
         expect(result.distances.every((g) => g.equal)).toBe(true);
       }
     }
@@ -107,7 +107,7 @@ describe('contextual distances and spatial search', () => {
     ]);
     const result = computeMoveGuides(createMoveContext(d, ['R4']), { x: -56, y: 0 }, 1);
     expect(result.delta.x).toBe(-60);
-    expect(result.distances.map((g) => g.value)).toEqual([120, 120]);
+    expect(result.distances.map((g) => g.value)).toEqual([160, 160]);
     expect(result.distances.every((g) => g.equal)).toBe(true);
   });
   it('gives terminal snapping priority over measurements', () => {
@@ -124,7 +124,7 @@ describe('contextual distances and spatial search', () => {
         resistor('right', 700),
       ]),
       c = createMoveContext(d, ['a', 'b']);
-    expect(c.moving.bounds.width).toBe(280);
+    expect(c.moving.bounds.width).toBe(240);
     expect(c.moving.pins).toEqual([]);
     const result = computeMoveGuides(c, { x: 2, y: 0 }, 1);
     expect(result.distances.map((g) => g.neighborId)).toEqual(['left', 'right']);
@@ -169,7 +169,7 @@ describe('contextual distances and spatial search', () => {
     d.objects.push(node);
     const result = computeMoveGuides(createMoveContext(d, ['R3']), { x: 46, y: 0 }, 1);
     expect(result.distances.map((g) => g.neighborId)).toEqual([node.id, 'R4']);
-    expect(result.distances.map((g) => g.value)).toEqual([80, 180]);
+    expect(result.distances.map((g) => g.value)).toEqual([100, 220]);
     expect(result.delta.x).toBe(40);
   });
   for (const zoom of [0.5, 1, 2])
@@ -210,14 +210,14 @@ describe('contextual distances and spatial search', () => {
       middle = resistor('middle', 180),
       right = resistor('right', 440),
       d = doc([a, middle, right]);
-    const result = computeMoveGuides(createMoveContext(d, ['middle']), { x: 17, y: 0 }, 1);
-    expect(result.delta.x).toBe(20);
-    expect(result.distances.map((g) => g.value)).toEqual([160, 160]);
+    const result = computeMoveGuides(createMoveContext(d, ['middle']), { x: 27, y: 0 }, 1);
+    expect(result.delta.x).toBe(30);
+    expect(result.distances.map((g) => g.value)).toEqual([190, 190]);
     const node = createJunction({ x: 180, y: 0 }, 'J'),
       nodes = doc([resistor('left', 0), node, resistor('right', 400)]),
       nodeResult = computeMoveGuides(createMoveContext(nodes, [node.id]), { x: 17, y: 0 }, 1);
     expect(nodeResult.delta.x).toBe(20);
-    expect(nodeResult.distances.map((g) => g.value)).toEqual([160, 160]);
+    expect(nodeResult.distances.map((g) => g.value)).toEqual([180, 180]);
   });
   it('still snaps a component terminal to a Junction, independently of the spacing family', () => {
     const d = doc([resistor('R1', 0), createJunction({ x: 120, y: 0 }, 'J')]);

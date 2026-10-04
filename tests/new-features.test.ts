@@ -478,9 +478,9 @@ describe('pure SVG and PWA contracts', () => {
       scope: './',
     });
     expect(m && typeof m === 'object' && m.icons?.map((icon) => icon.src)).toEqual([
-      'icons/xnor-192.png',
-      'icons/xnor-512.png',
-      'icons/maskable-xnor-512.png',
+      'icons/xnor-large-192.png',
+      'icons/xnor-large-512.png',
+      'icons/maskable-xnor-large-512.png',
     ]);
     expect(pwaOptions.registerType).toBe('prompt');
     expect(pwaOptions.workbox?.skipWaiting).toBe(false);

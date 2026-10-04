@@ -514,39 +514,113 @@ describe('audit UX/input evidence', () => {
     );
   });
 
-  it('balances native window/wheel listeners through repeated mount/unmount', () => {
+  it('balances native callbacks and capture identity through zoom and repeated mount/unmount', () => {
     const addWindow = vi.spyOn(window, 'addEventListener'),
       removeWindow = vi.spyOn(window, 'removeEventListener');
     const addElement = vi.spyOn(Element.prototype, 'addEventListener'),
       removeElement = vi.spyOn(Element.prototype, 'removeEventListener');
     for (let i = 0; i < 8; i++) {
       const view = render(<App />);
+      fireEvent.wheel(canvas(), { deltaY: -180, clientX: 700, clientY: 350 });
+      fireEvent.wheel(canvas(), { deltaY: 100, clientX: 600, clientY: 300 });
       view.unmount();
     }
-    for (const type of [
+    const capture = (
+      options: boolean | AddEventListenerOptions | EventListenerOptions | undefined,
+    ) => (typeof options === 'boolean' ? options : Boolean(options?.capture));
+    type NativeCall = {
+      target: EventTarget;
+      type: string;
+      listener: EventListenerOrEventListenerObject | null;
+      capture: boolean;
+      added: boolean;
+      order: number;
+    };
+    const assertBalanced = (calls: NativeCall[]) => {
+      const active: NativeCall[] = [];
+      expect(calls.some((call) => call.added)).toBe(true);
+      for (const call of calls.sort((a, b) => a.order - b.order)) {
+        const index = active.findIndex(
+          (current) =>
+            current.target === call.target &&
+            current.type === call.type &&
+            current.listener === call.listener &&
+            current.capture === call.capture,
+        );
+        if (call.added) {
+          expect(index, `duplicate active ${call.type} callback`).toBe(-1);
+          active.push(call);
+        } else {
+          expect(
+            index,
+            `removed ${call.type} callback must match its target and capture`,
+          ).toBeGreaterThanOrEqual(0);
+          active.splice(index, 1);
+        }
+      }
+      expect(active, 'no native callbacks may remain active after unmount').toEqual([]);
+    };
+    const windowTypes = new Set([
       'keydown',
       'keyup',
       'blur',
+      'focusin',
+      'pointerdown',
       'drawcircuit:fit',
       'drawcircuit:zoom-in',
       'drawcircuit:zoom-out',
-    ]) {
-      const added = addWindow.mock.calls.filter(([t]) => t === type);
-      const removed = removeWindow.mock.calls.filter(([t]) => t === type);
-      const listenersPerMount = ['keydown', 'keyup', 'blur'].includes(type) ? 2 : 1;
-      expect(added).toHaveLength(8 * listenersPerMount);
-      expect(removed).toHaveLength(8 * listenersPerMount);
-      expect(added.map((call) => [call[1], call[2]])).toEqual(
-        removed.map((call) => [call[1], call[2]]),
-      );
-    }
-    const addedWheel = addElement.mock.calls.filter(
-      ([type, , options]) =>
-        type === 'wheel' && typeof options === 'object' && options.passive === false,
+      'drawcircuit:component-drag-start',
+      'drawcircuit:component-drag-end',
+    ]);
+    assertBalanced(
+      [
+        ...addWindow.mock.calls.map(([type, listener, options], i) => ({
+          target: window,
+          type,
+          listener,
+          capture: capture(options),
+          added: true,
+          order: addWindow.mock.invocationCallOrder[i],
+        })),
+        ...removeWindow.mock.calls.map(([type, listener, options], i) => ({
+          target: window,
+          type,
+          listener,
+          capture: capture(options),
+          added: false,
+          order: removeWindow.mock.invocationCallOrder[i],
+        })),
+      ].filter((call) => windowTypes.has(call.type)),
     );
-    const removedWheel = removeElement.mock.calls.filter(([type]) => type === 'wheel');
-    expect(addedWheel).toHaveLength(8);
-    expect(removedWheel).toHaveLength(8);
-    expect(addedWheel.map((call) => call[1])).toEqual(removedWheel.map((call) => call[1]));
+    assertBalanced([
+      ...addElement.mock.calls.flatMap(([type, listener, options], i) =>
+        type === 'wheel' && typeof options === 'object' && options.passive === false
+          ? [
+              {
+                target: addElement.mock.contexts[i] as EventTarget,
+                type,
+                listener,
+                capture: capture(options),
+                added: true,
+                order: addElement.mock.invocationCallOrder[i],
+              },
+            ]
+          : [],
+      ),
+      ...removeElement.mock.calls.flatMap(([type, listener, options], i) =>
+        type === 'wheel'
+          ? [
+              {
+                target: removeElement.mock.contexts[i] as EventTarget,
+                type,
+                listener,
+                capture: capture(options),
+                added: false,
+                order: removeElement.mock.invocationCallOrder[i],
+              },
+            ]
+          : [],
+      ),
+    ]);
   });
 });

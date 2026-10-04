@@ -1,6 +1,6 @@
 import { createCurrent, electricalGeometry } from '../annotations/electrical';
 import { makeId } from '../model/catalog';
-import { createJunction } from '../model/factories';
+import { createJunction, createWire } from '../model/factories';
 import type {
   CircuitDocument,
   CircuitObject,
@@ -16,11 +16,96 @@ import {
   nearestWire,
   projectOnSegment,
   snapPoint,
+  safeWirePoints,
   wirePoints,
 } from './geometry';
 export type WireCandidate =
   | { point: Point; endpoint: Endpoint; kind: 'terminal' | 'junction' | 'grid' }
   | { point: Point; kind: 'wire'; wireId: string };
+export interface WireDraft {
+  start: Endpoint;
+  vertices: Point[];
+}
+export const TERMINAL_DRAG_THRESHOLD = 5;
+
+/** A wire target is resolved only on begin/commit, so hover never changes topology. */
+export function resolveWireCandidate(doc: CircuitDocument, candidate: WireCandidate) {
+  if (candidate.kind !== 'wire') return { doc, endpoint: candidate.endpoint };
+  const result = insertJunction(doc, candidate.point);
+  return {
+    doc: result.doc,
+    endpoint: { kind: 'junction', junctionId: result.junction.id } as Endpoint,
+  };
+}
+
+/** Shared by the multi-step tool and the quick terminal gesture. */
+export function beginWire(doc: CircuitDocument, candidate: WireCandidate) {
+  const resolved = resolveWireCandidate(doc, candidate);
+  return { doc: resolved.doc, draft: { start: resolved.endpoint, vertices: [] } as WireDraft };
+}
+
+function routeNewWire(wire: Wire, doc: CircuitDocument): Wire {
+  const original = wirePoints(wire, doc),
+    safe = safeWirePoints(wire, doc);
+  return original.length === safe.length &&
+    original.every((point, i) => distance(point, safe[i]) < 0.001)
+    ? wire
+    : { ...wire, vertices: safe.slice(1, -1) };
+}
+
+export function wirePreview(
+  draft: WireDraft,
+  candidate: WireCandidate,
+  doc: CircuitDocument,
+): Wire {
+  return routeNewWire(
+    {
+      ...createWire(
+        draft.start,
+        candidate.kind === 'wire' ? { kind: 'free', point: candidate.point } : candidate.endpoint,
+        draft.vertices,
+      ),
+      id: 'preview',
+    },
+    doc,
+  );
+}
+
+/** Commit all auto-created nodes/splits and the new wire as one document change. */
+export function commitWire(doc: CircuitDocument, draft: WireDraft, candidate: WireCandidate) {
+  const resolved = resolveWireCandidate(doc, candidate),
+    wire = routeNewWire(createWire(draft.start, resolved.endpoint, draft.vertices), resolved.doc),
+    points = wirePoints(wire, resolved.doc);
+  if (points.length < 2 || points.every((point) => distance(point, points[0]) < 0.001)) return null;
+  const key = (endpoint: Endpoint) =>
+    endpoint.kind === 'terminal'
+      ? `terminal:${endpoint.componentId}:${endpoint.terminalId}`
+      : endpoint.kind === 'junction'
+        ? `junction:${endpoint.junctionId}`
+        : `free:${endpoint.point.x}:${endpoint.point.y}`;
+  const route = simplifyPolyline(points),
+    startKey = key(wire.startEndpoint),
+    endKey = key(wire.endEndpoint);
+  if (
+    resolved.doc.objects.some((object) => {
+      if (object.kind !== 'wire') return false;
+      const same = key(object.startEndpoint) === startKey && key(object.endEndpoint) === endKey,
+        reversed = key(object.startEndpoint) === endKey && key(object.endEndpoint) === startKey;
+      if (!same && !reversed) return false;
+      const existing = simplifyPolyline(wirePoints(object, resolved.doc));
+      if (reversed) existing.reverse();
+      return (
+        existing.length === route.length &&
+        existing.every((point, i) => distance(point, route[i]) < 0.001)
+      );
+    })
+  )
+    return null;
+  return {
+    doc: normalizeDocumentWires({ ...resolved.doc, objects: [...resolved.doc.objects, wire] }),
+    wireId: wire.id,
+  };
+}
 export function wireCandidate(
   p: Point,
   doc: CircuitDocument,

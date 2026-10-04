@@ -6,6 +6,9 @@ import {
   embedSVGFonts,
   exportPNG,
   pngDimensions,
+  PNG_MAX_DIMENSION,
+  PNG_MAX_PIXELS,
+  preparePNGFonts,
   rasterizeSVG,
 } from '../src/png/exporter';
 import { exportSVG } from '../src/svg/exporter';
@@ -133,9 +136,13 @@ const bytes = (blob: Blob) =>
     reader.onload = () => resolve(new Uint8Array(reader.result as ArrayBuffer));
     reader.readAsArrayBuffer(blob);
   });
+const vectorContent = (svg: string) =>
+  svg
+    .replace('<style></style>', '')
+    .replace(/<svg\b[^>]*>/, (tag) => tag.replace(/\s(?:width|height)="[^"]*"/g, ''));
 
 describe('SVG-driven PNG export', () => {
-  it('produces a valid PNG at 2× with the exact SVG geometry for every supported kind', async () => {
+  it('produces a valid PNG at 4× with the exact SVG geometry for every supported kind', async () => {
     const doc = fixture(),
       svg = exportSVG(doc),
       dimensions = pngDimensions(svg);
@@ -146,7 +153,8 @@ describe('SVG-driven PNG export', () => {
     const header = new DataView(data.buffer);
     expect(header.getUint32(16)).toBe(dimensions.width);
     expect(header.getUint32(20)).toBe(dimensions.height);
-    expect(rasterSource.replace('<style></style>', '')).toBe(svg);
+    expect(vectorContent(rasterSource)).toBe(vectorContent(svg));
+    expect(rasterSource).toContain(`width="${dimensions.width}" height="${dimensions.height}"`);
     for (const o of doc.objects.filter((o) => o.kind === 'brace'))
       expect(rasterSource).toContain(braceGeometry(o).d);
     expect(rasterSource).toContain('&#82;&#95;&#123;&#101;&#113;&#125;');
@@ -189,8 +197,8 @@ describe('SVG-driven PNG export', () => {
           .documentElement.getAttribute('viewBox')!
           .split(' ')
           .map(Number);
-        expect(dimensions.width).toBe(Math.ceil(bound[2] * 2));
-        expect(dimensions.height).toBe(Math.ceil(bound[3] * 2));
+        expect(dimensions.width).toBe(Math.ceil(bound[2] * 4));
+        expect(dimensions.height).toBe(Math.ceil(bound[3] * 4));
         doc = rotateObjects(doc, [o.id]) as typeof doc;
       }
     },
@@ -200,7 +208,7 @@ describe('SVG-driven PNG export', () => {
       brace = doc.objects.find((o) => o.kind === 'brace')!;
     const subset = getExportSelection(doc, [brace.id]);
     await exportPNG(subset);
-    expect(rasterSource.replace('<style></style>', '')).toBe(exportSVG(subset));
+    expect(vectorContent(rasterSource)).toBe(vectorContent(exportSVG(subset)));
     expect(rasterSource).not.toContain('stroke="#269978"');
     expect(pngDimensions(rasterSource).width).toBeLessThan(pngDimensions(exportSVG(doc)).width);
   });
@@ -215,8 +223,8 @@ describe('SVG-driven PNG export', () => {
       .split(' ')
       .map(Number);
     expect(pngDimensions(svg)).toEqual({
-      width: Math.ceil(width * 2),
-      height: Math.ceil(height * 2),
+      width: Math.ceil(width * 4),
+      height: Math.ceil(height * 4),
     });
     expect(pngDimensions(svg, 1)).toEqual({ width: Math.ceil(width), height: Math.ceil(height) });
   });
@@ -237,6 +245,68 @@ describe('SVG-driven PNG export', () => {
     for (const scale of [0, -1, Infinity])
       expect(() => pngDimensions(exportSVG(fixture()), scale)).toThrow();
     expect(() => pngDimensions('<svg viewBox="0 0 999999 999999"/>')).toThrow('troppo grande');
+    for (const box of ['0 0 0 2', '0 0 NaN 2', '0 0 -4 2', '0 0 1'])
+      expect(() => pngDimensions(`<svg viewBox="${box}"/>`)).toThrow('non valide');
+  });
+  it('adapts large drawings within dimension and memory limits using one scale', () => {
+    for (const [width, height] of [
+      [6000, 1000],
+      [4000, 4000],
+      [3500.25, 1999.5],
+      [1500, 2344],
+      [1501, 2260],
+      [6787.654740214036, 2369.781352968333],
+    ]) {
+      const size = pngDimensions(`<svg viewBox="-20 -30 ${width} ${height}"/>`);
+      expect(size.width).toBeLessThanOrEqual(PNG_MAX_DIMENSION);
+      expect(size.height).toBeLessThanOrEqual(PNG_MAX_DIMENSION);
+      expect(size.width * size.height).toBeLessThanOrEqual(PNG_MAX_PIXELS);
+      expect(Math.abs(size.width / size.height - width / height)).toBeLessThan(0.002);
+      expect(size.width).toBeGreaterThanOrEqual(width);
+    }
+  });
+  it('loads the circuit and math faces before taking vector text measurements', async () => {
+    const load = vi.fn().mockResolvedValue([]);
+    const previous = Object.getOwnPropertyDescriptor(document, 'fonts');
+    Object.defineProperty(document, 'fonts', {
+      configurable: true,
+      value: { load, ready: Promise.resolve() },
+    });
+    try {
+      await preparePNGFonts(fixture());
+      expect(load).toHaveBeenCalledWith(
+        expect.stringContaining('Comic Sans MS'),
+        expect.stringContaining('R_{eq}'),
+      );
+      expect(load).toHaveBeenCalledWith(expect.stringContaining('KaTeX_Main'), expect.any(String));
+      expect(load).toHaveBeenCalledWith(expect.stringContaining('KaTeX_Math'), expect.any(String));
+      load.mockClear();
+      await preparePNGFonts({
+        version: 1,
+        title: 'Greek',
+        objects: [createTextAnnotation({ x: 0, y: 0 }, 'α')],
+      });
+      expect(load).toHaveBeenCalledWith(expect.stringContaining('KaTeX_Main'), 'α');
+    } finally {
+      if (previous) Object.defineProperty(document, 'fonts', previous);
+      else Reflect.deleteProperty(document, 'fonts');
+    }
+  });
+  it('keeps a white margin around arrowheads, brace ends, rotated labels and curves at final size', async () => {
+    await exportPNG(fixture());
+    const image = new Resvg(rasterSource).render();
+    const { pixels, width, height } = image;
+    const white = (x: number, y: number) => [
+      ...pixels.slice((y * width + x) * 4, (y * width + x) * 4 + 4),
+    ];
+    for (let x = 0; x < width; x++) {
+      expect(white(x, 0)).toEqual([255, 255, 255, 255]);
+      expect(white(x, height - 1)).toEqual([255, 255, 255, 255]);
+    }
+    for (let y = 0; y < height; y++) {
+      expect(white(0, y)).toEqual([255, 255, 255, 255]);
+      expect(white(width - 1, y)).toEqual([255, 255, 255, 255]);
+    }
   });
   it('copies a real image/png promise immediately to preserve browser user activation', async () => {
     const write = vi.fn().mockResolvedValue(undefined);

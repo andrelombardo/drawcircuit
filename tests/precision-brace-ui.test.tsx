@@ -120,6 +120,9 @@ describe('precision/annotation/export UI workflows', () => {
     });
     fireEvent.keyDown(screen.getByLabelText('Modifica testo sul foglio'), { key: 'Escape' });
     expect(brace().label.text).toBe('R_{eq}');
+    expect(canvas().querySelectorAll('[data-handle]')).toHaveLength(0);
+    fireEvent.pointerDown(hit(), client(100, 0));
+    fireEvent.pointerUp(canvas(), client(100, 0));
     fireEvent.click(screen.getByRole('button', { name: 'Inverti lato' }));
     expect(brace().side).toBe(-1);
     drag([240, 0], [320, 0], canvas().querySelector('[data-handle="end"]')!);

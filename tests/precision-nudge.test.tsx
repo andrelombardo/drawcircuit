@@ -6,6 +6,7 @@ import {
   NUDGE_STEP,
   NUDGE_LARGE_STEP,
 } from '../src/components/editor/useKeyboardNudge';
+import { DistanceGuideLayer } from '../src/components/editor/DistanceGuideLayer';
 import { useEditorStore } from '../src/store/editorStore';
 import { createComponent } from '../src/model/catalog';
 import { createJunction, createTextAnnotation, createWire } from '../src/model/factories';
@@ -18,11 +19,13 @@ import { deserializeDocument, serializeDocument } from '../src/model/serializati
 import type { CircuitDocument, CircuitObject } from '../src/model/types';
 
 function Harness({ zoom = 1 }: { zoom?: number }) {
-  useKeyboardNudge();
+  const distances = useKeyboardNudge(zoom);
   return (
     <>
       <svg tabIndex={0} data-testid="canvas">
-        <g transform={`scale(${zoom})`} />
+        <g transform={`scale(${zoom})`}>
+          <DistanceGuideLayer guides={distances} zoom={zoom} />
+        </g>
       </svg>
       <input aria-label="Input" />
       <textarea />
@@ -57,6 +60,7 @@ beforeEach(() =>
     future: [],
     gestureStart: null,
     tool: 'select',
+    activeLabel: null,
   }),
 );
 afterEach(() => {
@@ -65,6 +69,32 @@ afterEach(() => {
 });
 
 describe('exact keyboard movement through the shared drag operation', () => {
+  it('shows the same bilateral body measurements only during a held nudge gesture', () => {
+    const component = createComponent('resistor', { x: 180, y: 0 });
+    const left = createWire(
+      { kind: 'free', point: { x: 0, y: 0 } },
+      { kind: 'terminal', componentId: component.id, terminalId: 'a' },
+    );
+    const right = createWire(
+      { kind: 'terminal', componentId: component.id, terminalId: 'b' },
+      { kind: 'free', point: { x: 400, y: 0 } },
+    );
+    const view = setup([component, left, right]);
+    act(() => state().select([component.id]));
+    down();
+    expect(
+      [...view.container.querySelectorAll('[data-distance]')].map((g) =>
+        g.getAttribute('data-distance'),
+      ),
+    ).toEqual(['161', '199']);
+    for (let i = 0; i < 19; i++) down('ArrowRight', { repeat: true });
+    expect(view.container.querySelectorAll('[data-equal="true"]')).toHaveLength(2);
+    expect(serializeDocument(state().document)).not.toContain('distance');
+    up();
+    expect(view.container.querySelectorAll('[data-distance]')).toHaveLength(0);
+    expect(state().past).toHaveLength(1);
+  });
+
   it.each([0.5, 1, 2])('moves one component by canvas units at zoom %s', (zoom) => {
     const c = createComponent('resistor', { x: 23, y: 17 });
     setup([c], zoom);

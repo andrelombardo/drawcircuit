@@ -190,8 +190,10 @@ describe('additive quick block palette and placement', () => {
     fireEvent.change(screen.getByRole('textbox', { name: 'Modifica testo sul foglio' }), {
       target: { value: 'R_1 = 50 \\ohm' },
     });
-    expect(screen.getByLabelText('Anteprima etichetta').textContent).toContain('Ω');
-    fireEvent.click(screen.getByRole('button', { name: 'Conferma testo' }));
+    expect(screen.queryByLabelText('Anteprima etichetta')).toBeNull();
+    fireEvent.keyDown(screen.getByRole('textbox', { name: 'Modifica testo sul foglio' }), {
+      key: 'Enter',
+    });
     expect(
       canvas().querySelector(`[data-object="${first.id}"] .katex-html`)?.textContent,
     ).toContain('Ω');

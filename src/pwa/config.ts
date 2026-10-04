@@ -3,7 +3,7 @@ import type { VitePWAOptions } from 'vite-plugin-pwa';
 export const pwaOptions: Partial<VitePWAOptions> = {
   registerType: 'prompt',
   injectRegister: null,
-  includeAssets: ['favicon.svg', 'logo.png', 'icons/*.png'],
+  includeAssets: ['favicon.svg', 'favicon-adaptive.svg', 'logo.png', 'icons/*.png'],
   manifest: {
     name: 'DrawCircuit',
     short_name: 'DrawCircuit',
@@ -15,10 +15,10 @@ export const pwaOptions: Partial<VitePWAOptions> = {
     background_color: '#ffffff',
     lang: 'it',
     icons: [
-      { src: 'icons/xnor-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
-      { src: 'icons/xnor-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
+      { src: 'icons/xnor-large-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
+      { src: 'icons/xnor-large-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
       {
-        src: 'icons/maskable-xnor-512.png',
+        src: 'icons/maskable-xnor-large-512.png',
         sizes: '512x512',
         type: 'image/png',
         purpose: 'maskable',

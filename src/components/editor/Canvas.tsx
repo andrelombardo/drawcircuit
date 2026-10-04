@@ -1,19 +1,20 @@
 import { BraceView } from '../../circuit/annotations/BraceView';
 import { ElectricalView } from '../../circuit/annotations/ElectricalView';
 import { usePersonalBlocks } from '../../personalBlocks/library';
-import { CIRCUIT_FONT } from '../../model/fonts';
-import { LatexPreview } from '../../circuit/annotations/MathText';
 import { useRef } from 'react';
-import { Check, CircleAlert, Grid2X2, HelpCircle, Maximize, Minus, Plus } from 'lucide-react';
+import { CircleAlert, Grid2X2, HelpCircle, Maximize, Minus, Plus } from 'lucide-react';
 import { useEditorStore } from '../../store/editorStore';
 import { catalog } from '../../model/catalog';
-import { COLORS, componentTypes, GRID } from '../../model/types';
+import { componentTypes, GRID } from '../../model/types';
 import { wirePoints, pointsPath } from '../../utils/geometry';
-import type { ComponentType, Wire } from '../../model/types';
-import { wireCandidate } from '../../utils/wires';
+import type { ComponentType } from '../../model/types';
+import { wireCandidate, wirePreview } from '../../utils/wires';
 import { TargetFeedbackLayer } from './TargetFeedbackLayer';
 import { DistanceGuideLayer } from './DistanceGuideLayer';
 import { CircuitLayer } from './CircuitLayer';
+import { InlineTextEditor } from './InlineTextEditor';
+import { inlineTextTarget } from '../../utils/labels';
+import { useKeyboardNudge } from './useKeyboardNudge';
 import { DrawingToolbar } from '../toolbar/Toolbar';
 import { SidebarIcon } from '../toolbar/SidebarIcon';
 import { useCanvasInteractions } from './useCanvasInteractions';
@@ -50,7 +51,8 @@ export function Canvas({
   const interactions = useCanvasInteractions(svgRef, onToggleSidebar),
     { viewport: v, overlay, draft, editing } = interactions;
   const editedObject = editing ? doc.objects.find((o) => o.id === editing.id) : null;
-  const editedText = editedObject?.kind === 'text' ? editedObject : null;
+  const editTarget = inlineTextTarget(editedObject, doc);
+  const nudgeDistances = useKeyboardNudge(v.zoom);
   const isComponent = componentTypes.includes(tool as ComponentType),
     gridSize = GRID * v.zoom * (v.zoom < 0.4 ? 2 : 1);
   const placementType =
@@ -69,16 +71,7 @@ export function Canvas({
   let previewPath = '';
   if (draft && overlay.mouse) {
     const candidate = wireCandidate(overlay.mouse, doc, v.zoom);
-    const wire: Wire = {
-      kind: 'wire',
-      id: 'preview',
-      startEndpoint: draft.start,
-      endEndpoint:
-        candidate.kind === 'wire' ? { kind: 'free', point: candidate.point } : candidate.endpoint,
-      vertices: draft.vertices,
-      color: COLORS.ink,
-      width: 2,
-    };
+    const wire = wirePreview(draft, candidate, doc);
     previewPath = pointsPath(wirePoints(wire, doc));
   }
   const hint =
@@ -187,12 +180,16 @@ export function Canvas({
           <CircuitLayer
             doc={doc}
             selection={selection}
-            terminals={tool === 'wire'}
+            terminals={tool === 'wire' || tool === 'select'}
             zoom={v.zoom}
             activeLabel={interactions.activeLabel}
-            editingTextId={editedText?.id}
+            editingTextId={editedObject?.kind === 'text' ? editedObject.id : undefined}
+            editingLabelId={editedObject?.kind !== 'text' ? editedObject?.id : undefined}
           />
-          <DistanceGuideLayer guides={overlay.distances} zoom={v.zoom} />
+          <DistanceGuideLayer
+            guides={overlay.distances.length ? overlay.distances : nudgeDistances}
+            zoom={v.zoom}
+          />
           <g pointerEvents="none">
             {overlay.guides.x !== undefined && (
               <path
@@ -270,64 +267,18 @@ export function Canvas({
           <PresetPlacementLayer point={overlay.mouse} zoom={v.zoom} />
         </g>
       </svg>
-      {editing && (
-        <form
-          className={`inline-editor${editedText ? ' inline-text-editor' : ''}`}
-          style={{
-            left: editing.point.x * v.zoom + v.x,
-            top: editing.point.y * v.zoom + v.y,
-            ...(editedText
-              ? {
-                  transform: `translate(${editedText.align === 'middle' ? '-50%' : editedText.align === 'end' ? '-100%' : '0'}, -50%) rotate(${editedText.rotation}deg)`,
-                  maxWidth: Math.max(
-                    60,
-                    interactions.surfaceSize.width - (editing.point.x * v.zoom + v.x) - 12,
-                  ),
-                }
-              : {}),
-          }}
-          onSubmit={(e) => {
-            e.preventDefault();
-            interactions.saveEdit();
-          }}
-        >
-          <input
-            autoFocus
-            aria-label="Modifica testo sul foglio"
-            style={{
-              fontFamily: CIRCUIT_FONT,
-              ...(editedText
-                ? {
-                    fontSize: editedText.fontSize * v.zoom,
-                    color: editedText.color,
-                    width: `${Math.max(3, editing.text.length + 1)}ch`,
-                  }
-                : {}),
-            }}
-            autoComplete="off"
-            spellCheck={false}
-            value={editing.text}
-            onFocus={(e) => e.currentTarget.select()}
-            onChange={(e) => interactions.setEditing({ ...editing, text: e.target.value })}
-            onKeyDown={(e) => {
-              if (e.key === 'Escape') {
-                e.preventDefault();
-                interactions.setEditing(null);
-                svgRef.current?.focus();
-              }
-            }}
-          />
-          {!editedText && (
-            <>
-              <button type="submit" aria-label="Conferma testo" title="Conferma testo">
-                <Check size={16} />
-              </button>
-              <div className="inline-latex-preview" aria-label="Anteprima etichetta">
-                <LatexPreview text={editing.text} />
-              </div>
-            </>
-          )}
-        </form>
+      {editing && editTarget && (
+        <InlineTextEditor
+          key={`inline:${editing.id}`}
+          target={editTarget}
+          text={editing.text}
+          viewport={v}
+          surfaceSize={interactions.surfaceSize}
+          svgRef={svgRef}
+          onChange={(text) => interactions.setEditing({ ...editing, text })}
+          onSave={interactions.saveEdit}
+          onCancel={() => interactions.setEditing(null)}
+        />
       )}
       {!doc.objects.length && (
         <div className="empty-sheet">

@@ -1,11 +1,5 @@
-import { braceGeometry, createBrace, resizeBrace } from '../../annotations/brace';
-import { useKeyboardNudge } from './useKeyboardNudge';
-import {
-  createCurrent,
-  createElectrical,
-  createPolarity,
-  electricalGeometry,
-} from '../../annotations/electrical';
+import { createBrace, resizeBrace } from '../../annotations/brace';
+import { createCurrent, createElectrical, createPolarity } from '../../annotations/electrical';
 import type { BraceAnnotation, ElectricalAnnotation } from '../../model/types';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { DragEvent, PointerEvent as ReactPointerEvent, RefObject } from 'react';
@@ -33,7 +27,16 @@ import {
 } from '../../utils/geometry';
 import { deserializeDocument, serializeDocument } from '../../model/serialization';
 import { cloneObjects, extractSelection, moveSelection } from '../../utils/operations';
-import { insertJunction, normalizeDocumentWires, wireCandidate } from '../../utils/wires';
+import { inlineTextTarget, moveLabel, replaceInlineText } from '../../utils/labels';
+import {
+  beginWire,
+  commitWire,
+  insertJunction,
+  normalizeDocumentWires,
+  TERMINAL_DRAG_THRESHOLD,
+  wireCandidate,
+} from '../../utils/wires';
+import type { WireCandidate, WireDraft } from '../../utils/wires';
 import { loopPositionAt } from '../../utils/loops';
 import { createMoveContext, computeMoveGuides } from '../../utils/smartGuides';
 import type { MoveContext, DistanceGuide } from '../../utils/smartGuides';
@@ -51,11 +54,8 @@ type Drag =
       moveContext?: MoveContext;
     }
   | { type: 'marquee'; origin: Point; additive: boolean }
+  | { type: 'terminal-wire'; screen: Point; start: WireCandidate; started: boolean }
   | { type: 'arrow' | 'loop-arrow' | 'voltage' | 'brace' | 'bracket'; origin: Point };
-export interface WireDraft {
-  start: Endpoint;
-  vertices: Point[];
-}
 export interface Overlay {
   mouse: Point | null;
   target: Point | null;
@@ -80,7 +80,6 @@ export function useCanvasInteractions(
   svgRef: RefObject<SVGSVGElement | null>,
   onToggleSidebar?: () => void,
 ) {
-  useKeyboardNudge();
   const [initialZoom] = useState(readZoomPreference);
   const [viewport, setViewport] = useState<Viewport>({ x: 600, y: 340, zoom: initialZoom ?? 1 });
   useEffect(() => saveZoomPreference(viewport.zoom), [viewport.zoom]);
@@ -113,8 +112,9 @@ export function useCanvasInteractions(
   };
   const [draft, setDraft] = useState<WireDraft | null>(null);
   const [space, setSpace] = useState(false);
-  const [dragging, setDragging] = useState<'move' | 'pan' | 'handle' | null>(null);
-  const [activeLabel, setActiveLabel] = useState<string | null>(null);
+  const [dragging, setDragging] = useState<'move' | 'pan' | 'handle' | 'wire' | null>(null);
+  const activeLabel = useEditorStore((s) => s.activeLabel);
+  const setActiveLabel = useEditorStore((s) => s.setActiveLabel);
   const [editing, setEditing] = useState<{ id: string; text: string; point: Point } | null>(null);
   useEffect(() => {
     const start = (e: Event) => {
@@ -139,6 +139,7 @@ export function useCanvasInteractions(
     spaceDown = useRef(false),
     draftRef = useRef<WireDraft | null>(null),
     mouseRef = useRef<Point>({ x: 0, y: 0 }),
+    screenPointerRef = useRef<Point | null>(null),
     clipboard = useRef<CircuitDocument | null>(null);
   const setWireDraft = (d: WireDraft | null) => {
     draftRef.current = d;
@@ -154,6 +155,18 @@ export function useCanvasInteractions(
     },
     [svgRef, viewport],
   );
+  useEffect(() => {
+    if (!draftRef.current || !screenPointerRef.current || !svgRef.current) return;
+    const pointer = screenPointerRef.current,
+      p = world(pointer.x, pointer.y),
+      candidate = wireCandidate(p, useEditorStore.getState().document, viewport.zoom);
+    mouseRef.current = p;
+    setOverlay({
+      ...blank,
+      mouse: candidate.point,
+      target: candidate.kind === 'grid' ? null : candidate.point,
+    });
+  }, [viewport, world, svgRef]);
   const fit = useCallback(
     (restoredZoom?: number) => {
       const svg = svgRef.current;
@@ -249,16 +262,20 @@ export function useCanvasInteractions(
       window.removeEventListener('drawcircuit:zoom-out', zoomOut);
     };
   }, [fit, zoomAt, svgRef, initialZoom]);
-  const finishWire = useCallback((ep: Endpoint) => {
+  const finishWire = useCallback((candidate: WireCandidate) => {
     const d = draftRef.current;
     if (!d) return;
-    const s = useEditorStore.getState();
-    if (JSON.stringify(d.start) === JSON.stringify(ep) && !d.vertices.length) return;
-    const wire = createWire(d.start, ep, d.vertices);
-    s.preview(normalizeDocumentWires({ ...s.document, objects: [...s.document.objects, wire] }));
+    const s = useEditorStore.getState(),
+      result = commitWire(s.document, d, candidate);
     setWireDraft(null);
+    if (!result) {
+      s.cancelGesture();
+      setOverlay(blank);
+      return;
+    }
+    s.preview(result.doc);
     s.endGesture();
-    s.select([wire.id]);
+    s.select([result.wireId]);
   }, []);
   useEffect(() => {
     const keydown = async (e: KeyboardEvent) => {
@@ -352,26 +369,16 @@ export function useCanvasInteractions(
         s.setTool('select');
         s.select([]);
         setEditing(null);
-      } else if (e.key === 'Enter' && draftRef.current)
-        finishWire({ kind: 'free', point: snapPoint(mouseRef.current) });
-      else if (e.key === 'Enter' && s.selection.length === 1) {
+      } else if (e.key === 'Enter' && draftRef.current) {
+        e.preventDefault();
+        finishWire(wireCandidate(mouseRef.current, s.document, viewport.zoom));
+      } else if (e.key === 'Enter' && s.selection.length === 1) {
         const o = s.document.objects.find((o) => o.id === s.selection[0]);
-        if (o?.kind === 'component' || o?.kind === 'junction') {
+        const target = inlineTextTarget(o, s.document);
+        if (target) {
           e.preventDefault();
-          setEditing({ id: o.id, text: o.label.text, point: add(o, o.label.offset) });
-        } else if (o?.kind === 'electrical') {
-          e.preventDefault();
-          setEditing({
-            id: o.id,
-            text: o.label.text,
-            point: electricalGeometry(o, s.document).labelPoint,
-          });
-        } else if (o?.kind === 'brace') {
-          e.preventDefault();
-          setEditing({ id: o.id, text: o.label.text, point: braceGeometry(o).labelPoint });
-        } else if (o?.kind === 'text') {
-          e.preventDefault();
-          setEditing({ id: o.id, text: o.text, point: o });
+          setActiveLabel(o?.kind === 'text' ? null : target.id);
+          setEditing(target);
         }
       } else if (!mod && e.key.toLowerCase() === 'r') {
         if (s.tool === 'preset') s.rotatePlacement();
@@ -397,9 +404,9 @@ export function useCanvasInteractions(
       }
     };
     const blur = () => {
-      if (drag.current && ['move', 'label', 'handle'].includes(drag.current.type))
-        useEditorStore.getState().cancelGesture();
+      if (draftRef.current || drag.current) useEditorStore.getState().cancelGesture();
       drag.current = null;
+      setWireDraft(null);
       setDragging(null);
       setOverlay(blank);
       setFirstPoint(null);
@@ -415,12 +422,29 @@ export function useCanvasInteractions(
       window.removeEventListener('keyup', keyup);
       window.removeEventListener('blur', blur);
     };
-  }, [finishWire, fit, zoomAt, modifierKey, smartBlur, rotatePlacement, onToggleSidebar]);
+  }, [
+    finishWire,
+    fit,
+    zoomAt,
+    modifierKey,
+    smartBlur,
+    rotatePlacement,
+    onToggleSidebar,
+    viewport.zoom,
+    setActiveLabel,
+  ]);
   // Cancel an unfinished wire when a different tool is chosen.
   useEffect(
     () =>
       useEditorStore.subscribe((s, prev) => {
-        if (s.tool !== prev.tool || s.pendingPresetId !== prev.pendingPresetId) {
+        if (
+          s.tool !== prev.tool ||
+          s.pendingPresetId !== prev.pendingPresetId ||
+          (prev.gestureStart && !s.gestureStart && draftRef.current) ||
+          (s.document !== prev.document &&
+            drag.current?.type === 'terminal-wire' &&
+            !drag.current.started)
+        ) {
           const unfinished = draftRef.current;
           setWireDraft(null);
           if (unfinished || drag.current) s.cancelGesture();
@@ -431,7 +455,7 @@ export function useCanvasInteractions(
           setFirstPoint(null);
         }
       }),
-    [],
+    [setActiveLabel],
   );
   const placeComponent = (type: (typeof componentTypes)[number], p: Point) => {
     const s = useEditorStore.getState(),
@@ -468,16 +492,6 @@ export function useCanvasInteractions(
     if (result.doc !== s.document) s.commit(result.doc);
     s.select([result.junction.id]);
   };
-  const candidateEndpoint = (p: Point): { endpoint: Endpoint; attached: boolean } => {
-    const s = useEditorStore.getState(),
-      candidate = wireCandidate(p, s.document, viewport.zoom);
-    if (candidate.kind === 'wire') {
-      const result = insertJunction(s.document, candidate.point);
-      s.preview(result.doc);
-      return { endpoint: { kind: 'junction', junctionId: result.junction.id }, attached: true };
-    }
-    return { endpoint: candidate.endpoint, attached: candidate.kind !== 'grid' };
-  };
   const pointerDown = (e: ReactPointerEvent<SVGSVGElement>) => {
     if (e.button !== 0 && e.button !== 1) return;
     e.preventDefault();
@@ -489,6 +503,7 @@ export function useCanvasInteractions(
     const p = world(e.clientX, e.clientY),
       s = useEditorStore.getState();
     mouseRef.current = p;
+    screenPointerRef.current = { x: e.clientX, y: e.clientY };
     if (e.button === 1 || spaceDown.current || s.tool === 'pan') {
       svg.setPointerCapture(e.pointerId);
       setDragging('pan');
@@ -502,11 +517,15 @@ export function useCanvasInteractions(
     if (s.tool === 'wire') {
       const d = draftRef.current;
       if (!d && e.detail >= 2) return;
-      if (!d) s.beginGesture();
-      const target = candidateEndpoint(p);
-      if (!d) setWireDraft({ start: target.endpoint, vertices: [] });
-      else if (target.attached || e.detail >= 2) finishWire(target.endpoint);
-      else setWireDraft({ ...d, vertices: [...d.vertices, snapPoint(p)] });
+      const target = wireCandidate(p, s.document, viewport.zoom);
+      if (!d) {
+        s.beginGesture();
+        const result = beginWire(s.document, target);
+        if (result.doc !== s.document) s.preview(result.doc);
+        setWireDraft(result.draft);
+      } else if (target.kind !== 'grid' || e.detail >= 2) finishWire(target);
+      else if (!d.vertices.length || distance(d.vertices.at(-1)!, target.point) > 0.001)
+        setWireDraft({ ...d, vertices: [...d.vertices, target.point] });
       const candidate = wireCandidate(p, useEditorStore.getState().document, viewport.zoom);
       setOverlay({
         ...blank,
@@ -578,6 +597,29 @@ export function useCanvasInteractions(
       id = el?.getAttribute('data-object'),
       handle = target.closest('[data-handle]')?.getAttribute('data-handle'),
       labelId = target.closest('[data-label]')?.getAttribute('data-label');
+    const terminalId = target.closest('[data-terminal]')?.getAttribute('data-terminal'),
+      component = id ? objectMap.get(id) : null;
+    if (s.tool === 'select' && terminalId && component?.kind === 'component' && !e.shiftKey) {
+      const terminal = component.terminals.find((t) => t.id === terminalId);
+      if (terminal) {
+        s.select([component.id]);
+        svg.setPointerCapture(e.pointerId);
+        drag.current = {
+          type: 'terminal-wire',
+          screen: { x: e.clientX, y: e.clientY },
+          start: {
+            kind: 'terminal',
+            point: add(
+              component,
+              rotatePoint({ x: terminal.localX, y: terminal.localY }, component.rotation),
+            ),
+            endpoint: { kind: 'terminal', componentId: component.id, terminalId },
+          },
+          started: false,
+        };
+        return;
+      }
+    }
     if (id) {
       if (e.altKey && handle?.startsWith('vertex:')) {
         s.update(id, (o) =>
@@ -594,9 +636,9 @@ export function useCanvasInteractions(
         return;
       }
       const ids = labelId ? [id] : s.selection.includes(id) ? s.selection : [id];
-      setActiveLabel(labelId ?? null);
       window.dispatchEvent(new Event('drawcircuit:show-properties'));
       s.select(ids);
+      setActiveLabel(labelId ?? null);
       s.beginGesture();
       drag.current = {
         type: handle ? 'handle' : labelId ? 'label' : 'move',
@@ -617,12 +659,31 @@ export function useCanvasInteractions(
     const p = world(e.clientX, e.clientY),
       s = useEditorStore.getState();
     mouseRef.current = p;
+    screenPointerRef.current = { x: e.clientX, y: e.clientY };
     const d = drag.current;
     if (d?.type === 'pan') {
       setViewport({
         ...d.view,
         x: d.view.x + e.clientX - d.screen.x,
         y: d.view.y + e.clientY - d.screen.y,
+      });
+      return;
+    }
+    if (d?.type === 'terminal-wire') {
+      if (!d.started) {
+        if (distance({ x: e.clientX, y: e.clientY }, d.screen) < TERMINAL_DRAG_THRESHOLD) return;
+        s.beginGesture();
+        const result = beginWire(s.document, d.start);
+        if (result.doc !== s.document) s.preview(result.doc);
+        setWireDraft(result.draft);
+        d.started = true;
+        setDragging('wire');
+      }
+      const candidate = wireCandidate(p, useEditorStore.getState().document, viewport.zoom);
+      setOverlay({
+        ...blank,
+        mouse: candidate.point,
+        target: candidate.kind === 'grid' ? null : candidate.point,
       });
       return;
     }
@@ -715,77 +776,66 @@ export function useCanvasInteractions(
       const objects =
         d.type === 'move'
           ? moveSelection(d.doc, d.ids, delta).objects
-          : d.doc.objects.map((o) => {
-              if (!selected.has(o.id)) return o;
-              if (
-                d.type === 'label' &&
-                (o.kind === 'component' ||
-                  o.kind === 'junction' ||
-                  o.kind === 'electrical' ||
-                  o.kind === 'brace')
-              )
-                return {
-                  ...o,
-                  label: {
-                    ...o.label,
-                    offset: add(o.label.offset, {
-                      x: Math.round(p.x - d.origin.x),
-                      y: Math.round(p.y - d.origin.y),
-                    }),
-                  },
-                };
-              if (d.type === 'handle') {
-                if (o.kind === 'loop-arrow') {
-                  if (d.handle === 'loopHead') return { ...o, arrowPosition: loopPositionAt(o, p) };
-                  const q = snapPoint(p);
-                  if (d.handle === 'loopNW')
-                    return {
-                      ...o,
-                      x: Math.min(q.x, o.x + o.width - 20),
-                      y: Math.min(q.y, o.y + o.height - 20),
-                      width: Math.max(20, o.x + o.width - q.x),
-                      height: Math.max(20, o.y + o.height - q.y),
-                    };
-                  if (d.handle === 'loopSE')
-                    return {
-                      ...o,
-                      width: Math.max(20, q.x - o.x),
-                      height: Math.max(20, q.y - o.y),
-                    };
-                }
-                if (o.kind === 'brace' && (d.handle === 'start' || d.handle === 'end')) {
-                  return resizeBrace(o, d.handle, snapPoint(p));
-                }
-                if (o.kind === 'arrow') {
-                  const q = snapPoint(p),
-                    handle = d.handle;
-                  if (handle === 'start' || handle === 'end') return { ...o, [handle]: q };
-                  if (handle?.startsWith('control:')) {
-                    const cps: [Point, Point] = [...o.controlPoints];
-                    cps[Number(handle.split(':')[1])] = q;
-                    return { ...o, controlPoints: cps };
+          : d.type === 'label'
+            ? moveLabel(d.doc, d.ids[0], {
+                x: Math.round(raw.x),
+                y: Math.round(raw.y),
+              }).objects
+            : d.doc.objects.map((o) => {
+                if (!selected.has(o.id)) return o;
+                if (d.type === 'handle') {
+                  if (o.kind === 'loop-arrow') {
+                    if (d.handle === 'loopHead')
+                      return { ...o, arrowPosition: loopPositionAt(o, p) };
+                    const q = snapPoint(p);
+                    if (d.handle === 'loopNW')
+                      return {
+                        ...o,
+                        x: Math.min(q.x, o.x + o.width - 20),
+                        y: Math.min(q.y, o.y + o.height - 20),
+                        width: Math.max(20, o.x + o.width - q.x),
+                        height: Math.max(20, o.y + o.height - q.y),
+                      };
+                    if (d.handle === 'loopSE')
+                      return {
+                        ...o,
+                        width: Math.max(20, q.x - o.x),
+                        height: Math.max(20, q.y - o.y),
+                      };
                   }
-                }
-                if (o.kind === 'wire') {
-                  if (d.handle?.startsWith('vertex:'))
-                    return {
-                      ...o,
-                      vertices: o.vertices.map((v, i) =>
-                        i === Number(d.handle!.split(':')[1]) ? snapPoint(p) : v,
-                      ),
-                    };
-                  const target = wireCandidate(p, d.doc, viewport.zoom, new Set([o.id])),
-                    endpoint: Endpoint =
-                      target.kind === 'wire'
-                        ? { kind: 'free', point: target.point }
-                        : target.endpoint;
-                  if (d.handle === 'wireStart') return { ...o, startEndpoint: endpoint };
-                  if (d.handle === 'wireEnd') return { ...o, endEndpoint: endpoint };
+                  if (o.kind === 'brace' && (d.handle === 'start' || d.handle === 'end')) {
+                    return resizeBrace(o, d.handle, snapPoint(p));
+                  }
+                  if (o.kind === 'arrow') {
+                    const q = snapPoint(p),
+                      handle = d.handle;
+                    if (handle === 'start' || handle === 'end') return { ...o, [handle]: q };
+                    if (handle?.startsWith('control:')) {
+                      const cps: [Point, Point] = [...o.controlPoints];
+                      cps[Number(handle.split(':')[1])] = q;
+                      return { ...o, controlPoints: cps };
+                    }
+                  }
+                  if (o.kind === 'wire') {
+                    if (d.handle?.startsWith('vertex:'))
+                      return {
+                        ...o,
+                        vertices: o.vertices.map((v, i) =>
+                          i === Number(d.handle!.split(':')[1]) ? snapPoint(p) : v,
+                        ),
+                      };
+                    const target = wireCandidate(p, d.doc, viewport.zoom, new Set([o.id])),
+                      endpoint: Endpoint =
+                        target.kind === 'wire'
+                          ? { kind: 'free', point: target.point }
+                          : target.endpoint;
+                    if (d.handle === 'wireStart') return { ...o, startEndpoint: endpoint };
+                    if (d.handle === 'wireEnd') return { ...o, endEndpoint: endpoint };
+                  }
+                  return o;
                 }
                 return o;
-              }
-              return o;
-            });
+              });
       s.preview({ ...d.doc, objects });
       setOverlay({ ...blank, guides, distances, target });
       return;
@@ -860,6 +910,8 @@ export function useCanvasInteractions(
     setDragging(null);
     if (svgRef.current?.hasPointerCapture(e.pointerId))
       svgRef.current.releasePointerCapture(e.pointerId);
+    if (d?.type === 'terminal-wire' && d.started)
+      finishWire(wireCandidate(world(e.clientX, e.clientY), s.document, viewport.zoom));
     if (d?.type === 'move' || d?.type === 'label' || d?.type === 'handle') {
       if (
         s.document !== d.doc &&
@@ -889,7 +941,13 @@ export function useCanvasInteractions(
         }
       }
       const doc = useEditorStore.getState().document;
-      if (doc !== d.doc) s.preview(normalizeDocumentWires(doc));
+      const changesWireGeometry =
+        d.type === 'handle' ||
+        (d.type === 'move' &&
+          d.doc.objects.some(
+            (o) => d.ids.includes(o.id) && ['wire', 'component', 'junction'].includes(o.kind),
+          ));
+      if (doc !== d.doc && changesWireGeometry) s.preview(normalizeDocumentWires(doc));
       s.endGesture();
     }
     if (d?.type === 'marquee') {
@@ -945,25 +1003,20 @@ export function useCanvasInteractions(
   const doubleClick = (e: ReactPointerEvent<SVGSVGElement>) => {
     const s = useEditorStore.getState();
     if (s.tool === 'wire') {
-      if (draftRef.current) finishWire(candidateEndpoint(world(e.clientX, e.clientY)).endpoint);
+      if (draftRef.current)
+        finishWire(wireCandidate(world(e.clientX, e.clientY), s.document, viewport.zoom));
       return;
     }
     if (s.tool !== 'select') return;
     const id = (e.target as Element).closest('[data-object]')?.getAttribute('data-object'),
       o = s.document.objects.find((o) => o.id === id);
     if (!o) return;
-    if (o.kind === 'component' || o.kind === 'junction')
-      setEditing({ id: o.id, text: o.label.text, point: add(o, o.label.offset) });
-    else if (o.kind === 'electrical')
-      setEditing({
-        id: o.id,
-        text: o.label.text,
-        point: electricalGeometry(o, s.document).labelPoint,
-      });
-    else if (o.kind === 'brace')
-      setEditing({ id: o.id, text: o.label.text, point: braceGeometry(o).labelPoint });
-    else if (o.kind === 'text') setEditing({ id: o.id, text: o.text, point: { x: o.x, y: o.y } });
-    else if (o.kind === 'wire') {
+    const target = inlineTextTarget(o, s.document);
+    if (target) {
+      s.select([target.id]);
+      setActiveLabel(o.kind === 'text' ? null : target.id);
+      setEditing(target);
+    } else if (o.kind === 'wire') {
       const p = world(e.clientX, e.clientY),
         near = nearestWire(p, s.document, 14 / viewport.zoom);
       if (!near || near.wire.id !== o.id) return;
@@ -988,23 +1041,12 @@ export function useCanvasInteractions(
   const saveEdit = () => {
     if (!editing) return;
     const original = useEditorStore.getState().document.objects.find((o) => o.id === editing.id);
-    if (original?.kind === 'text' && original.text === editing.text) {
+    if (!original || replaceInlineText(original, editing.text) === original) {
       setEditing(null);
       svgRef.current?.focus();
       return;
     }
-    useEditorStore
-      .getState()
-      .update(editing.id, (o) =>
-        o.kind === 'text'
-          ? { ...o, text: editing.text }
-          : o.kind === 'component' ||
-              o.kind === 'junction' ||
-              o.kind === 'electrical' ||
-              o.kind === 'brace'
-            ? { ...o, label: { ...o.label, text: editing.text } }
-            : o,
-      );
+    useEditorStore.getState().update(editing.id, (o) => replaceInlineText(o, editing.text));
     setEditing(null);
     svgRef.current?.focus();
   };

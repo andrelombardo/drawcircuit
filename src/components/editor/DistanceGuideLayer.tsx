@@ -4,14 +4,15 @@ export function DistanceGuideLayer({ guides, zoom }: { guides: DistanceGuide[]; 
     <g data-layer="distance-guides" pointerEvents="none" aria-hidden="true">
       {guides.map((g, i) => {
         const horizontal = g.axis === 'x',
+          rail = g.displayAt ?? g.at,
           mid = (g.from + g.to) / 2,
           tick = 4 / zoom;
         const value =
           Math.abs(g.value - Math.round(g.value)) < 0.01
             ? String(Math.round(g.value))
             : g.value.toFixed(1);
-        const x = horizontal ? mid : g.at,
-          y = horizontal ? g.at : mid,
+        const x = horizontal ? mid : rail,
+          y = horizontal ? rail : mid,
           width = (value.length * 6.5 + 12) / zoom,
           height = 20 / zoom;
         return (
@@ -26,8 +27,8 @@ export function DistanceGuideLayer({ guides, zoom }: { guides: DistanceGuide[]; 
               strokeWidth={1 / zoom}
               d={
                 horizontal
-                  ? `M${g.from} ${g.at}H${g.to}M${g.from} ${g.at - tick}V${g.at + tick}M${g.to} ${g.at - tick}V${g.at + tick}`
-                  : `M${g.at} ${g.from}V${g.to}M${g.at - tick} ${g.from}H${g.at + tick}M${g.at - tick} ${g.to}H${g.at + tick}`
+                  ? `M${g.from} ${rail}H${g.to}M${g.from} ${g.at}V${rail + tick}M${g.to} ${g.at}V${rail + tick}M${g.from} ${rail - tick}V${rail + tick}M${g.to} ${rail - tick}V${rail + tick}`
+                  : `M${rail} ${g.from}V${g.to}M${g.at} ${g.from}H${rail + tick}M${g.at} ${g.to}H${rail + tick}M${rail - tick} ${g.from}H${rail + tick}M${rail - tick} ${g.to}H${rail + tick}`
               }
             />
             <rect

@@ -24,6 +24,7 @@ import { contentBounds, unionBounds } from '../../utils/visualBounds';
 import { useEditorStore } from '../../store/editorStore';
 import { IconButton } from '../toolbar/IconButton';
 import { toolbarActions } from './toolbarActions';
+import { replaceInlineText } from '../../utils/labels';
 function PropertyText({
   value,
   label,
@@ -253,16 +254,7 @@ export function ContextToolbar({
                   ? 'Etichetta annotazione'
                   : 'Etichetta componente'
             }
-            onChange={(text) =>
-              update(o.id, (obj) =>
-                obj.kind === 'component' ||
-                obj.kind === 'junction' ||
-                obj.kind === 'electrical' ||
-                obj.kind === 'brace'
-                  ? { ...obj, label: { ...obj.label, text } }
-                  : obj,
-              )
-            }
+            onChange={(text) => update(o.id, (obj) => replaceInlineText(obj, text))}
           />
         </label>
       )}

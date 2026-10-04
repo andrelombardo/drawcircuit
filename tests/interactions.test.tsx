@@ -8,7 +8,7 @@ import { COLORS } from '../src/model/types';
 import type { CircuitDocument, Wire } from '../src/model/types';
 import { useEditorStore } from '../src/store/editorStore';
 import { deserializeDocument, serializeDocument } from '../src/model/serialization';
-import { resolveEndpoint } from '../src/utils/geometry';
+import { resolveEndpoint, wirePoints } from '../src/utils/geometry';
 import { exportStandalone } from '../src/tikz/exporter';
 let clipboardText = '';
 beforeEach(() => {
@@ -152,7 +152,18 @@ describe('complete editor workflows', () => {
       kind: 'wire',
       startEndpoint: { kind: 'terminal', componentId: 'r-AB', terminalId: 'a' },
       endEndpoint: { kind: 'terminal', componentId: 'r-AD', terminalId: 'b' },
-      vertices: [{ x: -160, y: 180 }],
+      vertices: expect.arrayContaining([{ x: -160, y: 180 }]),
+    });
+    if (wire.kind !== 'wire') throw new Error('Wire creation failed');
+    const points = wirePoints(wire, useEditorStore.getState().document);
+    expect(points[0]).toEqual({ x: -160, y: 0 });
+    expect(points[1].x).toBeLessThan(points[0].x);
+    expect(points[1].y).toBe(points[0].y);
+    expect(points).toContainEqual({ x: -160, y: 180 });
+    expect(points.at(-1)).toEqual({ x: -240, y: 160 });
+    points.slice(1).forEach((point, i) => {
+      expect(point).not.toEqual(points[i]);
+      expect(point.x === points[i].x || point.y === points[i].y).toBe(true);
     });
   });
   it('splits a wire when inserting a named junction and preserves connectivity', () => {
@@ -211,7 +222,9 @@ describe('complete editor workflows', () => {
     fireEvent.change(screen.getByRole('textbox', { name: 'Modifica testo sul foglio' }), {
       target: { value: 'R_{eq}' },
     });
-    fireEvent.click(screen.getByRole('button', { name: 'Conferma testo' }));
+    fireEvent.keyDown(screen.getByRole('textbox', { name: 'Modifica testo sul foglio' }), {
+      key: 'Enter',
+    });
     expect(useEditorStore.getState().document.objects.find((o) => o.id === 'r-AB')).toMatchObject({
       label: { text: 'R_{eq}' },
     });
@@ -985,7 +998,10 @@ describe('expanded library and annotation fonts in the rendered interface', () =
         .document.objects.find((o) => o.id === original.id)!;
       expect(afterRotation).toMatchObject({ x: original.x, y: original.y, rotation: 90 });
       fireEvent.pointerDown(hit, client(original.x, original.y));
-      fireEvent.pointerMove(canvas(), client(original.x + 40, original.y + 40));
+      fireEvent.pointerMove(canvas(), {
+        ...client(original.x + 40, original.y + 40),
+        altKey: true,
+      });
       fireEvent.pointerUp(canvas(), client(original.x + 40, original.y + 40));
       const doc = useEditorStore.getState().document;
       expect(doc.objects.find((o) => o.id === original.id)).toMatchObject({

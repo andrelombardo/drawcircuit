@@ -27,6 +27,7 @@ const initialDocument = documentStorage.load();
 interface EditorState {
   document: CircuitDocument;
   selection: string[];
+  activeLabel: string | null;
   tool: Tool;
   pendingPresetId: string | null;
   replaceComponent: (id: string, type: ComponentType) => void;
@@ -43,6 +44,7 @@ interface EditorState {
   storageError: boolean;
   setTool: (tool: Tool) => void;
   select: (ids: string[]) => void;
+  setActiveLabel: (id: string | null) => void;
   setArrowType: (type: ArrowAnnotation['type']) => void;
   toggleGrid: () => void;
   commit: (doc: CircuitDocument) => void;
@@ -63,6 +65,7 @@ interface EditorState {
 export const useEditorStore = create<EditorState>((set, get) => ({
   document: initialDocument.value,
   selection: [],
+  activeLabel: null,
   tool: 'select',
   pendingPresetId: null,
   selectPreset: (id) => {
@@ -103,8 +106,10 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       pendingPresetId: null,
       placementRotation: 0,
       selection: tool === 'select' ? s.selection : [],
+      activeLabel: null,
     })),
-  select: (selection) => set({ selection }),
+  select: (selection) => set({ selection, activeLabel: null }),
+  setActiveLabel: (activeLabel) => set({ activeLabel }),
   setArrowType: (arrowType) => set({ arrowType }),
   toggleGrid: () => set((s) => ({ grid: !s.grid })),
   commit: (document) =>
@@ -123,7 +128,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     const s = get();
     s.commit({ ...s.document, objects: s.document.objects.map((o) => (o.id === id ? fn(o) : o)) });
   },
-  beginGesture: () => set((s) => ({ gestureStart: s.document })),
+  beginGesture: () => set((s) => ({ gestureStart: s.gestureStart ?? s.document })),
   preview: (document) => set({ document }),
   endGesture: () => {
     const s = get();
@@ -139,7 +144,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     const s = get();
     if (s.gestureStart) {
       s.cancelGesture();
-      set({ selection: [], tool: 'select', pendingPresetId: null });
+      set({ selection: [], activeLabel: null, tool: 'select', pendingPresetId: null });
       return;
     }
     if (!s.past.length) return;
@@ -148,6 +153,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       past: s.past.slice(0, -1),
       future: [s.document, ...s.future].slice(0, 100),
       selection: [],
+      activeLabel: null,
       gestureStart: null,
       tool: 'select',
       pendingPresetId: null,
@@ -157,7 +163,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     const s = get();
     if (s.gestureStart) {
       s.cancelGesture();
-      set({ selection: [], tool: 'select', pendingPresetId: null });
+      set({ selection: [], activeLabel: null, tool: 'select', pendingPresetId: null });
       return;
     }
     if (!s.future.length) return;
@@ -166,6 +172,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       future: s.future.slice(1),
       past: [...s.past, s.document].slice(-100),
       selection: [],
+      activeLabel: null,
       gestureStart: null,
       tool: 'select',
       pendingPresetId: null,
@@ -190,7 +197,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   replace: (document) => {
     get().cancelGesture();
     get().commit(document);
-    set({ selection: [], tool: 'select', pendingPresetId: null });
+    set({ selection: [], activeLabel: null, tool: 'select', pendingPresetId: null });
   },
   notify: (notice) => set({ notice }),
 }));

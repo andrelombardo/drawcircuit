@@ -2,6 +2,7 @@ import { braceGeometry } from '../annotations/brace';
 import { electricalGeometry } from '../annotations/electrical';
 import { componentRegistry } from '../model/catalog';
 import { GRID } from '../model/types';
+import { getMeasurementBounds } from './measurementGeometry';
 import type {
   ArrowAnnotation,
   CircuitComponent,
@@ -79,21 +80,179 @@ function orthogonal(a: Point, b: Point, direction: 'x' | 'y', both = false): Poi
   }
   return [a, direction === 'x' ? { x: b.x, y: a.y } : { x: a.x, y: b.y }, b];
 }
+
+function terminalExit(endpoint: Endpoint | null, doc: CircuitDocument) {
+  if (endpoint?.kind !== 'terminal') return null;
+  const component = objectIndex(doc).get(endpoint.componentId);
+  if (component?.kind !== 'component') return null;
+  const terminal = component.terminals.find((t) => t.id === endpoint.terminalId);
+  if (!terminal) return null;
+  const body = componentRegistry[component.type].measurementBounds,
+    axis =
+      terminal.direction ??
+      componentRegistry[component.type].terminals.find((t) => t.id === terminal.id)?.direction ??
+      (Math.abs(terminal.localX) >= Math.abs(terminal.localY) ? 'x' : 'y'),
+    coordinate =
+      axis === 'x'
+        ? terminal.localX - body.x - body.width / 2
+        : terminal.localY - body.y - body.height / 2,
+    sign = Math.sign(coordinate) || 1;
+  return {
+    direction: rotatePoint(
+      axis === 'x' ? { x: sign, y: 0 } : { x: 0, y: sign },
+      component.rotation,
+    ),
+    bounds: getMeasurementBounds(component),
+  };
+}
+
+/** Preserve familiar routes; only reroute when a terminal would point inward or
+ * the connection would cross one of its own symbol bodies. The small visibility
+ * graph concerns at most the two endpoint bodies, not a document-wide router. */
+function terminalSafeRoute(
+  original: Point[],
+  startEndpoint: Endpoint | null,
+  endEndpoint: Endpoint | null,
+  doc: CircuitDocument,
+): Point[] {
+  const startExit = terminalExit(startEndpoint, doc),
+    endExit = terminalExit(endEndpoint, doc),
+    obstacles = [startExit?.bounds, endExit?.bounds].filter((b) => b !== undefined),
+    points = original.filter((p, i) => i === 0 || distance(p, original[i - 1]) > 0.001),
+    start = points[0],
+    end = points.at(-1)!;
+  if (points.length < 2 || !obstacles.length) return points;
+  const follows = (from: Point, to: Point, direction: Point) =>
+    (to.x - from.x) * direction.x + (to.y - from.y) * direction.y > 0.001 &&
+    (direction.x ? to.y === from.y : to.x === from.x);
+  const clear = (a: Point, b: Point) =>
+    obstacles.every((box) =>
+      a.x === b.x
+        ? !(
+            a.x > box.x + 0.001 &&
+            a.x < box.x + box.width - 0.001 &&
+            Math.max(a.y, b.y) > box.y + 0.001 &&
+            Math.min(a.y, b.y) < box.y + box.height - 0.001
+          )
+        : !(
+            a.y > box.y + 0.001 &&
+            a.y < box.y + box.height - 0.001 &&
+            Math.max(a.x, b.x) > box.x + 0.001 &&
+            Math.min(a.x, b.x) < box.x + box.width - 0.001
+          ),
+    );
+  if (
+    (!startExit || follows(start, points[1], startExit.direction)) &&
+    (!endExit || follows(end, points.at(-2)!, endExit.direction)) &&
+    points.slice(1).every((p, i) => clear(points[i], p))
+  )
+    return points;
+  const xs = [
+      ...new Set([
+        start.x,
+        end.x,
+        ...(startExit ? [start.x + startExit.direction.x * GRID] : []),
+        ...(endExit ? [end.x + endExit.direction.x * GRID] : []),
+        ...obstacles.flatMap((b) => [b.x - GRID, b.x + b.width + GRID]),
+      ]),
+    ].sort((a, b) => a - b),
+    ys = [
+      ...new Set([
+        start.y,
+        end.y,
+        ...(startExit ? [start.y + startExit.direction.y * GRID] : []),
+        ...(endExit ? [end.y + endExit.direction.y * GRID] : []),
+        ...obstacles.flatMap((b) => [b.y - GRID, b.y + b.height + GRID]),
+      ]),
+    ].sort((a, b) => a - b),
+    nodes = ys.flatMap((y) => xs.map((x) => ({ x, y }))),
+    first = nodes.findIndex((p) => p.x === start.x && p.y === start.y),
+    last = nodes.findIndex((p) => p.x === end.x && p.y === end.y);
+  type State = { node: number; axis: 'x' | 'y' | ''; cost: number; path: number[] };
+  const pending: State[] = [{ node: first, axis: '', cost: 0, path: [first] }],
+    visited = new Set<string>();
+  while (pending.length) {
+    pending.sort((a, b) => a.cost - b.cost);
+    const current = pending.shift()!,
+      key = `${current.node}:${current.axis}`;
+    if (visited.has(key)) continue;
+    visited.add(key);
+    if (current.node === last) {
+      const result: Point[] = [];
+      for (const index of current.path) {
+        const p = nodes[index],
+          a = result.at(-2),
+          b = result.at(-1);
+        if (a && b && ((a.x === b.x && b.x === p.x) || (a.y === b.y && b.y === p.y))) result.pop();
+        result.push(p);
+      }
+      return result;
+    }
+    const x = current.node % xs.length,
+      y = Math.floor(current.node / xs.length),
+      a = nodes[current.node];
+    for (const [nx, ny] of [
+      [x - 1, y],
+      [x + 1, y],
+      [x, y - 1],
+      [x, y + 1],
+    ]) {
+      if (nx < 0 || nx >= xs.length || ny < 0 || ny >= ys.length) continue;
+      const node = ny * xs.length + nx,
+        b = nodes[node],
+        axis = a.x === b.x ? 'y' : 'x';
+      if (
+        !clear(a, b) ||
+        (current.node === first && startExit && !follows(a, b, startExit.direction)) ||
+        (node === last && endExit && !follows(b, a, endExit.direction))
+      )
+        continue;
+      pending.push({
+        node,
+        axis,
+        cost: current.cost + distance(a, b) + (current.axis && current.axis !== axis ? 0.01 : 0),
+        path: [...current.path, node],
+      });
+    }
+  }
+  // Overlapping symbols or a waypoint placed inside its own body cannot be routed
+  // around without moving user geometry. Preserve that authored waypoint.
+  return points;
+}
 export function wirePoints(wire: Wire, doc: CircuitDocument): Point[] {
+  return routeWire(wire, doc, false);
+}
+
+/** New connections use signed exits without changing historical automatic paths. */
+export function safeWirePoints(wire: Wire, doc: CircuitDocument): Point[] {
+  return routeWire(wire, doc, true);
+}
+
+function routeWire(wire: Wire, doc: CircuitDocument, protectTerminals: boolean): Point[] {
   const start = resolveEndpoint(wire.startEndpoint, doc),
     end = resolveEndpoint(wire.endEndpoint, doc);
   const sd = endpointDirection(wire.startEndpoint, doc),
     ed = endpointDirection(wire.endEndpoint, doc);
+  const route = (points: Point[], start: Endpoint | null, end: Endpoint | null) =>
+    protectTerminals ? terminalSafeRoute(points, start, end, doc) : points;
   if (!wire.vertices.length)
-    return orthogonal(start, end, sd, sd === ed).filter(
-      (p, i, arr) => i === 0 || distance(p, arr[i - 1]) > 0.001,
-    );
+    return route(
+      orthogonal(start, end, sd, sd === ed),
+      wire.startEndpoint,
+      wire.endEndpoint,
+    ).filter((p, i, points) => i === 0 || distance(p, points[i - 1]) > 0.001);
   const result: Point[] = [start];
   wire.vertices.forEach((p, i) =>
-    result.push(...orthogonal(result[result.length - 1], p, i === 0 ? sd : 'x').slice(1)),
+    result.push(
+      ...route(
+        orthogonal(result[result.length - 1], p, i === 0 ? sd : 'x'),
+        i === 0 ? wire.startEndpoint : null,
+        null,
+      ).slice(1),
+    ),
   );
   result.push(
-    ...orthogonal(end, result[result.length - 1], ed)
+    ...route(orthogonal(end, result[result.length - 1], ed), wire.endEndpoint, null)
       .reverse()
       .slice(1),
   );

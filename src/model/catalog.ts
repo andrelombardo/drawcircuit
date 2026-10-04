@@ -1,6 +1,7 @@
 import { COLORS, componentTypes } from './types';
 import type { CircuitComponent, ComponentType, Point, Terminal } from './types';
 import * as g from './symbolGeometry';
+import { symbolMeasurementBounds } from './symbolBounds';
 export const categories = [
   'Passivi',
   'Generatori',
@@ -38,6 +39,8 @@ export interface ComponentDefinition {
   terminals: Terminal[];
   shapes: g.SymbolShape[];
   bounds: { x: number; y: number; width: number; height: number };
+  /** Unpadded body geometry, derived once from the rendered shapes without leads. */
+  measurementBounds: { x: number; y: number; width: number; height: number };
   labelOffset: Point;
   tikz: TikzMapping;
   internalText?: string;
@@ -117,6 +120,7 @@ const def = (
     searchTerms: [type, ...aliases],
     terminals,
     bounds: { x, y, width: right - x, height: bottom - y },
+    measurementBounds: symbolMeasurementBounds(shapes),
     labelOffset: { x: 0, y: y - 14 },
     ...(internalText !== undefined ? { internalText } : {}),
   };
@@ -176,7 +180,7 @@ export const componentRegistry: Record<ComponentType, ComponentDefinition> = {
     'Potenziometro',
     'Passivi',
     'P',
-    [...g.resistor, g.path('M0-40V-11'), g.head(0, -11, 90)],
+    [...g.resistor, g.leadPath('M0-40V-11'), ...g.auxiliary([g.head(0, -11, 90)])],
     bi('pR', { w: 'wiper' }),
     ['potentiometer', 'pot'],
     [...two, terminal('w', 0, -40, 'y')],
@@ -204,7 +208,7 @@ export const componentRegistry: Record<ComponentType, ComponentDefinition> = {
     'Batteria multicella',
     'Generatori',
     'E',
-    [g.path('M-40 0H-12M12 0H40M-12-19V19M-4-10V10M4-19V19M12-10V10')],
+    [g.bodyPath('M-40 0H-12M12 0H40M-12-19V19M-4-10V10M4-19V19M12-10V10', [2, 5])],
     bi('battery'),
     ['battery', 'multi-cell battery', 'batteria'],
   ),
@@ -306,7 +310,7 @@ export const componentRegistry: Record<ComponentType, ComponentDefinition> = {
     'Termistore',
     'Passivi',
     'R',
-    [...g.resistor, g.path('M-20 23L20-23H30'), g.text('T', 28, -10, 10)],
+    [...g.resistor, ...g.auxiliary([g.path('M-20 23L20-23H30'), g.text('T', 28, -10, 10)])],
     bi('thR'),
     ['thermistor', 'ntc', 'ptc', 'resistor'],
   ),
@@ -378,7 +382,7 @@ export const componentRegistry: Record<ComponentType, ComponentDefinition> = {
     'Batteria a cella singola',
     'Generatori',
     'E',
-    [g.path('M-40 0H-4M4 0H40M-4-19V19M4-10V10')],
+    [g.bodyPath('M-40 0H-4M4 0H40M-4-19V19M4-10V10', [2, 3])],
     bi('battery1'),
     ['single cell battery', 'battery', 'batteria'],
   ),
@@ -405,7 +409,7 @@ export const componentRegistry: Record<ComponentType, ComponentDefinition> = {
     'Diodo varicap',
     'Diodi',
     'D',
-    [g.diodeBody, g.path('M-40 0H-14M18 0H40M12-14V14M18-14V14')],
+    [g.diodeBody, g.bodyPath('M-40 0H-14M18 0H40M12-14V14M18-14V14', [2, 3])],
     bi('VC'),
     ['varactor', 'varicap diode'],
   ),
@@ -571,7 +575,7 @@ export const componentRegistry: Record<ComponentType, ComponentDefinition> = {
     'Trasformatore a presa centrale',
     'Trasformatori',
     'T',
-    [...g.transformer, g.path('M20 0H60')],
+    [...g.transformer, g.leadPath('M20 0H60')],
     fallback('Center-tap transformer with five exact semantic terminals.'),
     ['center tap transformer', 'centertap'],
     [...transformerTerminals, terminal('centerTap', 60, 0)],
@@ -581,7 +585,7 @@ export const componentRegistry: Record<ComponentType, ComponentDefinition> = {
     'Induttori accoppiati',
     'Trasformatori',
     'L',
-    [g.path(g.transformerCoils)],
+    [g.transformerWinding],
     nativeNode('transformer', { a: 'A1', b: 'A2', c: 'B1', d: 'B2' }, 0.65),
     ['coupled inductors', 'coupled coils'],
     transformerTerminals,
@@ -691,7 +695,7 @@ export const componentRegistry: Record<ComponentType, ComponentDefinition> = {
     'Terminale',
     'Utilità',
     '',
-    [g.path('M-40 0H-5'), g.circle(0, 0, 5)],
+    [g.leadPath('M-40 0H-5'), g.circle(0, 0, 5)],
     ref('ocirc'),
     ['terminal', 'connection'],
     [terminal('a', -40, 0)],
@@ -701,7 +705,7 @@ export const componentRegistry: Record<ComponentType, ComponentDefinition> = {
     'Punto di test',
     'Utilità',
     'TP',
-    [g.path('M0 40V5'), g.circle(0, 0, 5)],
+    [g.leadPath('M0 40V5'), g.circle(0, 0, 5)],
     ref('ocirc'),
     ['test point', 'testpoint'],
     [terminal('a', 0, 40, 'y')],
@@ -731,7 +735,7 @@ export const componentRegistry: Record<ComponentType, ComponentDefinition> = {
     'Porta generica',
     'Utilità',
     '',
-    [g.path('M-40 0H-20'), g.path('M-20-12H10L22 0 10 12H-20Z', 'white')],
+    [g.leadPath('M-40 0H-20'), g.path('M-20-12H10L22 0 10 12H-20Z', 'white')],
     fallback('Single-connection diagram port outline.'),
     ['generic port', 'porta'],
     [terminal('connection', -40, 0)],
@@ -763,7 +767,7 @@ export const componentRegistry: Record<ComponentType, ComponentDefinition> = {
     'Utilità',
     'LS',
     [
-      g.path('M-40 0H-12M12 0H40'),
+      g.leadPath('M-40 0H-12M12 0H40'),
       g.rect(-12, -7, 24, 14),
       g.path('M-12-7L-21-20H21L12-7Z', 'white'),
     ],
@@ -775,7 +779,11 @@ export const componentRegistry: Record<ComponentType, ComponentDefinition> = {
     'Buzzer',
     'Utilità',
     'BZ',
-    [g.leads, g.rect(-20, -12, 40, 24), g.path('M-10-19Q0-29 10-19M-15-25Q0-40 15-25')],
+    [
+      g.leads,
+      g.rect(-20, -12, 40, 24),
+      ...g.auxiliary([g.path('M-10-19Q0-29 10-19M-15-25Q0-40 15-25')]),
+    ],
     fallback(
       'Buzzer: native symbol unavailable in the bundled CircuitikZ compiler; shared SVG-equivalent geometry.',
     ),
