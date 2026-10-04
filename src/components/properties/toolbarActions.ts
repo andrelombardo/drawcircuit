@@ -14,6 +14,8 @@ export function toolbarActions(o: CircuitObject | null) {
           ...(componentRegistry[o.type].internalText !== undefined ? ['bodyText'] : []),
         ],
       };
+    case 'brace':
+      return { primary: ['label', 'style', 'flip', ...common], secondary };
     case 'electrical':
       return {
         primary: ['label', 'style', 'reverse', ...common],

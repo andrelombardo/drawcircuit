@@ -1,3 +1,4 @@
+import { BraceView } from '../../circuit/annotations/BraceView';
 import { ElectricalView } from '../../circuit/annotations/ElectricalView';
 import { usePersonalBlocks } from '../../personalBlocks/library';
 import { CIRCUIT_FONT } from '../../model/fonts';
@@ -81,33 +82,35 @@ export function Canvas({
     previewPath = pointsPath(wirePoints(wire, doc));
   }
   const hint =
-    tool === 'preset'
-      ? `${pendingPresetId ? (presetRegistry[pendingPresetId]?.name ?? personalName) : 'Blocco rapido'} · clicca per inserire · R ruota · Esc annulla`
-      : tool === 'current'
-        ? 'Corrente · clicca un filo evidenziato · Esc annulla'
-        : tool === 'polarity'
-          ? 'Polarità · clicca un componente evidenziato · Esc annulla'
-          : tool === 'voltage'
-            ? interactions.voltageStart
-              ? 'A selezionato · seleziona il secondo punto · Esc annulla'
-              : 'Seleziona il primo punto · clicca o trascina verso il secondo · Esc annulla'
-            : tool === 'wire'
-              ? draft
-                ? 'Aggiungi una svolta · clic su terminale, nodo o filo per collegare · Enter per terminare'
-                : 'Clicca un terminale, un nodo o un filo per iniziare'
-              : tool === 'junction'
-                ? 'Clicca per inserire un nodo · Shift + clic per più nodi'
-                : tool === 'text'
-                  ? 'Clicca per inserire Testo · doppio clic per modificarlo'
-                  : tool === 'loop-arrow'
-                    ? 'Trascina un’area per la maglia · handle sulla punta per spostarla'
-                    : tool === 'arrow'
-                      ? 'Trascina per disegnare · seleziona per modificare gli handle'
-                      : isComponent
-                        ? `${catalog.find((c) => c.type === tool)?.name} · clicca per inserire · R ruota · Esc termina`
-                        : tool === 'pan'
-                          ? 'Trascina per spostare la vista'
-                          : null;
+    tool === 'brace' || tool === 'bracket'
+      ? 'Trascina per raggruppare · doppio clic per la label · Inverti lato nelle proprietà'
+      : tool === 'preset'
+        ? `${pendingPresetId ? (presetRegistry[pendingPresetId]?.name ?? personalName) : 'Blocco rapido'} · clicca per inserire · R ruota · Esc annulla`
+        : tool === 'current'
+          ? 'Corrente · clicca un filo evidenziato · Esc annulla'
+          : tool === 'polarity'
+            ? 'Polarità · clicca un componente evidenziato · Esc annulla'
+            : tool === 'voltage'
+              ? interactions.voltageStart
+                ? 'A selezionato · seleziona il secondo punto · Esc annulla'
+                : 'Seleziona il primo punto · clicca o trascina verso il secondo · Esc annulla'
+              : tool === 'wire'
+                ? draft
+                  ? 'Aggiungi una svolta · clic su terminale, nodo o filo per collegare · Enter per terminare'
+                  : 'Clicca un terminale, un nodo o un filo per iniziare'
+                : tool === 'junction'
+                  ? 'Clicca per inserire un nodo · Shift + clic per più nodi'
+                  : tool === 'text'
+                    ? 'Clicca per inserire Testo · doppio clic per modificarlo'
+                    : tool === 'loop-arrow'
+                      ? 'Trascina un’area per la maglia · handle sulla punta per spostarla'
+                      : tool === 'arrow'
+                        ? 'Trascina per disegnare · seleziona per modificare gli handle'
+                        : isComponent
+                          ? `${catalog.find((c) => c.type === tool)?.name} · clicca per inserire · R ruota · Esc termina`
+                          : tool === 'pan'
+                            ? 'Trascina per spostare la vista'
+                            : null;
   return (
     <main className="editor" aria-label="Editor circuito">
       <DrawingToolbar onExport={onExport} sidebarVisible={sidebarVisible} />
@@ -275,7 +278,9 @@ export function Canvas({
               </>
             )}
             {overlay.arrow &&
-              (overlay.arrow.kind === 'electrical' ? (
+              (overlay.arrow.kind === 'brace' ? (
+                <BraceView object={overlay.arrow} zoom={v.zoom} />
+              ) : overlay.arrow.kind === 'electrical' ? (
                 <ElectricalView object={overlay.arrow} doc={doc} zoom={v.zoom} />
               ) : overlay.arrow.kind === 'loop-arrow' ? (
                 <LoopArrowView object={overlay.arrow} zoom={v.zoom} />

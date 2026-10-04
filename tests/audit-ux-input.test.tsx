@@ -533,9 +533,12 @@ describe('audit UX/input evidence', () => {
     ]) {
       const added = addWindow.mock.calls.filter(([t]) => t === type);
       const removed = removeWindow.mock.calls.filter(([t]) => t === type);
-      expect(added).toHaveLength(8);
-      expect(removed).toHaveLength(8);
-      expect(added.map((call) => call[1])).toEqual(removed.map((call) => call[1]));
+      const listenersPerMount = ['keydown', 'keyup', 'blur'].includes(type) ? 2 : 1;
+      expect(added).toHaveLength(8 * listenersPerMount);
+      expect(removed).toHaveLength(8 * listenersPerMount);
+      expect(added.map((call) => [call[1], call[2]])).toEqual(
+        removed.map((call) => [call[1], call[2]]),
+      );
     }
     const addedWheel = addElement.mock.calls.filter(
       ([type, , options]) =>

@@ -1,3 +1,4 @@
+import { braceGeometry } from '../annotations/brace';
 import { bridgeGeometry, wireCrossings } from '../utils/crossings';
 import { electricalGeometry } from '../annotations/electrical';
 import { chevron } from './arrowheads';
@@ -7,7 +8,7 @@ import type { CircuitDocument, Label, Point, Rotation } from '../model/types';
 import { add, distance, localToWorld, midpoint, wirePoints } from '../utils/geometry';
 import { loopGeometry, wrapPosition } from '../utils/loops';
 import { componentRegistry } from '../model/catalog';
-import { geometryTikz } from './symbolGeometry';
+import { geometryTikz, svgPathToTikz } from './symbolGeometry';
 import { finitePoint, isExportableObject, normalizeHex } from './validation';
 import { canvasArrowHead } from './arrowheads';
 import { canvasTextLayout, canvasTextTikz, CANVAS_TEXT_PREAMBLE } from './canvasText';
@@ -248,6 +249,13 @@ function generateTikz(source: CircuitDocument, canvas: boolean): string {
     } else if (o.kind === 'junction') {
       lines.push(`\\fill[${col(o.color)}] ${tikzCoordinate(o)} circle (${pixelsToPt(4.5)}pt);`);
       labels.push(() => label(o));
+    } else if (o.kind === 'brace') {
+      const g = braceGeometry(o);
+      lines.push(
+        `% Annotation: ${o.type}`,
+        `\\draw[draw=${col(o.color)}, line width=${pixelsToPt(o.width)}pt] ${svgPathToTikz(g.d, tikzCoordinate)};`,
+      );
+      node(o.label.text, g.labelPoint, o.label.color, o.label.fontSize, o.label.rotation);
     } else if (o.kind === 'electrical') {
       const g = electricalGeometry(o, doc);
       lines.push(`% Electrical annotation: ${o.mode}`);

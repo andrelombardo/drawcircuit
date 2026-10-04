@@ -89,6 +89,13 @@ export function instantiatePersonalBlock(
           endEndpoint: ep(o.endEndpoint),
           vertices: o.vertices.map(rp),
         };
+      if (o.kind === 'brace')
+        return {
+          ...o,
+          start: rp(o.start),
+          end: rp(o.end),
+          label: { ...o.label, offset: rp(o.label.offset) },
+        };
       if (o.kind === 'arrow')
         return {
           ...o,

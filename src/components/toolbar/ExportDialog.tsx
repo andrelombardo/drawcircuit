@@ -1,3 +1,4 @@
+import { copyPNG, exportPNG } from '../../png/exporter';
 import { exportSVG } from '../../svg/exporter';
 import { useMemo, useRef, useState } from 'react';
 import { Check, Copy, Download, X } from 'lucide-react';
@@ -10,22 +11,48 @@ export function ExportDialog({ onClose }: { onClose: () => void }) {
   const doc = useEditorStore((s) => s.document),
     selection = useEditorStore((s) => s.selection),
     [scope, setScope] = useState<'all' | 'selection'>('all'),
-    [tab, setTab] = useState<'snippet' | 'obsidian' | 'standalone' | 'svg'>('snippet'),
-    [copied, setCopied] = useState<'snippet' | 'obsidian' | 'svg' | null>(null),
+    [tab, setTab] = useState<'snippet' | 'obsidian' | 'standalone' | 'svg' | 'png'>('snippet'),
+    [copied, setCopied] = useState<'snippet' | 'obsidian' | 'svg' | 'png' | null>(null),
     [copyError, setCopyError] = useState(false);
+  const [pngBusy, setPngBusy] = useState(false);
+  const [pngError, setPngError] = useState('');
+  const pngAction = async (action: 'copy' | 'download') => {
+    setPngBusy(true);
+    setPngError('');
+    setCopied(null);
+    try {
+      if (action === 'copy') {
+        await copyPNG(exportDoc);
+        setCopied('png');
+      } else download(await exportPNG(exportDoc), `${fileName(doc.title)}.png`, 'image/png');
+    } catch (error) {
+      const message =
+        action === 'copy'
+          ? 'Questo browser non consente la copia immagine. Usa Scarica PNG.'
+          : error instanceof Error
+            ? error.message
+            : 'Impossibile esportare il PNG.';
+      setPngError(message);
+      useEditorStore.getState().notify(message);
+    } finally {
+      setPngBusy(false);
+    }
+  };
   const textarea = useRef<HTMLTextAreaElement>(null);
   const dialog = useRef<HTMLElement>(null);
   useDialogFocus(dialog, onClose);
   const subset = useMemo(() => getExportSelection(doc, selection), [doc, selection]);
   const exportDoc = scope === 'selection' ? subset : doc;
   const code =
-    tab === 'svg'
-      ? exportSVG(exportDoc)
-      : tab === 'snippet'
-        ? exportTikz(exportDoc)
-        : tab === 'obsidian'
-          ? exportObsidian(exportDoc)
-          : exportStandalone(exportDoc);
+    tab === 'png'
+      ? ''
+      : tab === 'svg'
+        ? exportSVG(exportDoc)
+        : tab === 'snippet'
+          ? exportTikz(exportDoc)
+          : tab === 'obsidian'
+            ? exportObsidian(exportDoc)
+            : exportStandalone(exportDoc);
   const copy = async (format: 'snippet' | 'obsidian' | 'svg') => {
     setTab(format);
     setCopied(null);
@@ -50,6 +77,7 @@ export function ExportDialog({ onClose }: { onClose: () => void }) {
     setTab(format);
     setCopied(null);
     setCopyError(false);
+    setPngError('');
   };
   return (
     <div
@@ -74,7 +102,7 @@ export function ExportDialog({ onClose }: { onClose: () => void }) {
           <X size={20} />
         </button>
         <h2 id="export-heading">Esporta circuito</h2>
-        <p>Scegli il formato per LaTeX, Obsidian o un’immagine vettoriale SVG.</p>
+        <p>Scegli il formato per LaTeX, Obsidian o un’immagine SVG / PNG.</p>
         <div className="export-scope" role="group" aria-label="Ambito export">
           <span>Esporta</span>
           <button
@@ -126,31 +154,69 @@ export function ExportDialog({ onClose }: { onClose: () => void }) {
           <button className={tab === 'svg' ? 'selected' : ''} onClick={() => selectTab('svg')}>
             SVG
           </button>
+          <button className={tab === 'png' ? 'selected' : ''} onClick={() => selectTab('png')}>
+            PNG
+          </button>
           <span>
             {exportDoc.objects.length}{' '}
             {exportDoc.objects.length === 1 ? 'oggetto vettoriale' : 'oggetti vettoriali'}
           </span>
         </div>
-        <textarea
-          ref={textarea}
-          className="code-preview"
-          aria-label={tab === 'svg' ? 'Codice SVG generato' : 'Codice TikZ generato'}
-          value={code}
-          readOnly
-          spellCheck={false}
-        />
+        {tab === 'png' ? (
+          <div className="png-export-panel">
+            <b>PNG · 2×</b>
+            <p>Immagine nitida su sfondo bianco, pronta per documenti, appunti e chat.</p>
+            <p>
+              {scope === 'selection' ? 'Solo la selezione' : 'Tutto il circuito'} · ritaglio sul
+              contenuto
+            </p>
+          </div>
+        ) : (
+          <textarea
+            ref={textarea}
+            className="code-preview"
+            aria-label={tab === 'svg' ? 'Codice SVG generato' : 'Codice TikZ generato'}
+            value={code}
+            readOnly
+            spellCheck={false}
+          />
+        )}
+        {pngError && (
+          <p className="copy-error" role="alert">
+            {pngError}
+          </p>
+        )}
         {copyError && (
           <p className="copy-error">Codice selezionato: premi ⌘/Ctrl C per copiarlo.</p>
         )}
         <div className="export-dialog-footer">
           <span>
-            {tab === 'svg'
-              ? 'SVG vettoriale · copia del codice XML'
-              : tab === 'obsidian'
-                ? 'Scala canvas · font e geometria preservati'
-                : '1 cm = 40 px · orientamento preservato'}
+            {tab === 'png'
+              ? 'PNG · 2× · sfondo bianco'
+              : tab === 'svg'
+                ? 'SVG vettoriale · copia del codice XML'
+                : tab === 'obsidian'
+                  ? 'Scala canvas · font e geometria preservati'
+                  : '1 cm = 40 px · orientamento preservato'}
           </span>
-          {tab === 'svg' ? (
+          {tab === 'png' ? (
+            <>
+              <button
+                className="secondary-button"
+                disabled={pngBusy}
+                onClick={() => pngAction('copy')}
+              >
+                {copied === 'png' ? 'PNG copiato' : 'Copia PNG'}
+              </button>
+              <button
+                className="secondary-button"
+                disabled={pngBusy}
+                onClick={() => pngAction('download')}
+              >
+                {pngBusy ? 'Preparazione…' : 'Scarica PNG'}
+              </button>
+            </>
+          ) : tab === 'svg' ? (
             <>
               <button className="secondary-button" onClick={() => copy('svg')}>
                 {copied === 'svg' ? 'SVG copiato' : 'Copia codice SVG'}

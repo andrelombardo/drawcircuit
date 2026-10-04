@@ -118,6 +118,18 @@ export function deserializeDocument(raw: string): CircuitDocument {
         !positive(o.width, 20)
       )
         fail();
+    } else if (o.kind === 'brace') {
+      if (
+        !['brace', 'bracket'].includes(String(o.type)) ||
+        !point(o.start) ||
+        !point(o.end) ||
+        (o.side !== 1 && o.side !== -1) ||
+        !label(o.label) ||
+        !color(o.color) ||
+        !positive(o.width, 20) ||
+        (record(o.start).x !== record(o.end).x && record(o.start).y !== record(o.end).y)
+      )
+        fail();
     } else if (o.kind === 'electrical') {
       if (
         !['current', 'polarity', 'voltage'].includes(String(o.mode)) ||

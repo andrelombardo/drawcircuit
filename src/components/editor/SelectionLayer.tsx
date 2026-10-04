@@ -1,3 +1,4 @@
+import { braceGeometry } from '../../annotations/brace';
 import type { CircuitDocument, Point } from '../../model/types';
 import { arrowPath, pointsPath, wirePoints } from '../../utils/geometry';
 import { unionBounds, contentBounds } from '../../utils/visualBounds';
@@ -55,13 +56,15 @@ export function SelectionLayer({
         .filter((o) => selection.includes(o.id))
         .map((o) => {
           const path =
-            o.kind === 'wire'
-              ? pointsPath(wirePoints(o, doc))
-              : o.kind === 'arrow'
-                ? arrowPath(o)
-                : o.kind === 'loop-arrow'
-                  ? loopPath(o)
-                  : null;
+            o.kind === 'brace'
+              ? braceGeometry(o).d
+              : o.kind === 'wire'
+                ? pointsPath(wirePoints(o, doc))
+                : o.kind === 'arrow'
+                  ? arrowPath(o)
+                  : o.kind === 'loop-arrow'
+                    ? loopPath(o)
+                    : null;
           return (
             <g key={o.id} data-object={o.id}>
               {path ? (
@@ -85,9 +88,9 @@ export function SelectionLayer({
                   ))}
                 </>
               )}
-              {o.kind === 'arrow' && (
+              {(o.kind === 'arrow' || o.kind === 'brace') && (
                 <>
-                  {o.type === 'curve' && (
+                  {o.kind === 'arrow' && o.type === 'curve' && (
                     <>
                       <path
                         d={`M${o.start.x} ${o.start.y}L${o.controlPoints[0].x} ${o.controlPoints[0].y}M${o.end.x} ${o.end.y}L${o.controlPoints[1].x} ${o.controlPoints[1].y}`}

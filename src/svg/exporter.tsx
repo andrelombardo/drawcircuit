@@ -1,3 +1,4 @@
+import { braceGeometry } from '../annotations/brace';
 import { componentRegistry } from '../model/catalog';
 import { symbolText } from '../model/symbolGeometry';
 import { bridgePaths, wireCrossings } from '../utils/crossings';
@@ -149,6 +150,12 @@ export function exportSVG(source: CircuitDocument): string {
       parts.push(
         path(o.kind === 'arrow' ? arrowPath(o) : loopPath(o), o.color, width),
         path(pointsPath(canvasArrowHead(o)), o.color, width),
+      );
+    } else if (o.kind === 'brace') {
+      const g = braceGeometry(o);
+      parts.push(path(g.d, o.color, o.width));
+      labels.push(
+        text(o.label.text, g.labelPoint, o.label.color, o.label.fontSize, o.label.rotation),
       );
     } else if (o.kind === 'electrical') {
       const g = electricalGeometry(o, doc);

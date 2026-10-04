@@ -176,6 +176,18 @@ export interface ElectricalAnnotation {
   color: string;
   width: number;
 }
+export interface BraceAnnotation {
+  kind: 'brace';
+  id: string;
+  type: 'brace' | 'bracket';
+  start: Point;
+  end: Point;
+  /** Side of the directed baseline, flipped without changing endpoints. */
+  side: 1 | -1;
+  label: Label;
+  color: string;
+  width: number;
+}
 export type CircuitObject =
   | CircuitComponent
   | Junction
@@ -183,7 +195,8 @@ export type CircuitObject =
   | TextAnnotation
   | ArrowAnnotation
   | LoopArrow
-  | ElectricalAnnotation;
+  | ElectricalAnnotation
+  | BraceAnnotation;
 export interface CircuitDocument {
   version: 1;
   title: string;
@@ -199,6 +212,8 @@ export type Tool =
   | 'current'
   | 'polarity'
   | 'voltage'
+  | 'brace'
+  | 'bracket'
   | 'pan'
   | 'preset'
   | ComponentType;

@@ -43,6 +43,8 @@ export function HelpDialog({ onClose }: { onClose: () => void }) {
           {[
             ['Space + trascina', 'Sposta il foglio'],
             ['Rotellina / trackpad', 'Zoom'],
+            ['↑ ↓ ← →', 'Sposta di precisione (1 unità)'],
+            ['Shift + ↑↓←→', 'Spostamento maggiore (10 unità)'],
             ['Shift + clic', 'Selezione multipla'],
             ['Shift + clic con Nodo', 'Inserisci più nodi'],
             ['Trascina sul foglio', 'Selezione a rettangolo'],
@@ -77,9 +79,10 @@ export function HelpDialog({ onClose }: { onClose: () => void }) {
         <p className="help-note">
           L’anteprima Smart Placement indica aggancio e collegamento; Alt/Option li ignora.
           “Inserisci in filo” attiva l’inserimento inline. Il menu I/V aggiunge correnti, polarità e
-          tensioni. Trascina il grip per spostare la toolbar: la posizione viene ricordata. L’icona
-          download apre TikZ, Obsidian, File .tex e SVG, anche per la selezione. Il circuito viene
-          salvato automaticamente in questo browser.
+          tensioni, Brace e Bracket: trascina per raggruppare, poi aggiungi la label e inverti lato
+          dalle proprietà. Trascina il grip per spostare la toolbar: la posizione viene ricordata.
+          L’icona download apre TikZ, Obsidian, File .tex, SVG e PNG (copia immagine o download a
+          2×), anche per la selezione. Il circuito viene salvato automaticamente in questo browser.
         </p>
       </section>
     </div>

@@ -1,10 +1,12 @@
+import { braceGeometry, createBrace, resizeBrace } from '../../annotations/brace';
+import { useKeyboardNudge } from './useKeyboardNudge';
 import {
   createCurrent,
   createElectrical,
   createPolarity,
   electricalGeometry,
 } from '../../annotations/electrical';
-import type { ElectricalAnnotation } from '../../model/types';
+import type { BraceAnnotation, ElectricalAnnotation } from '../../model/types';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { DragEvent, PointerEvent as ReactPointerEvent, RefObject } from 'react';
 import { useEditorStore } from '../../store/editorStore';
@@ -23,17 +25,14 @@ import {
   add,
   distance,
   documentBounds,
-  moveObject,
   nearestWire,
   objectBounds,
   snap,
   snapPoint,
-  wirePoints,
-  midpoint,
   rotatePoint,
 } from '../../utils/geometry';
 import { deserializeDocument, serializeDocument } from '../../model/serialization';
-import { cloneObjects, extractSelection } from '../../utils/operations';
+import { cloneObjects, extractSelection, moveSelection } from '../../utils/operations';
 import { insertJunction, normalizeDocumentWires, wireCandidate } from '../../utils/wires';
 import { loopPositionAt } from '../../utils/loops';
 import { createMoveContext, computeMoveGuides } from '../../utils/smartGuides';
@@ -50,7 +49,7 @@ type Drag =
       moveContext?: MoveContext;
     }
   | { type: 'marquee'; origin: Point; additive: boolean }
-  | { type: 'arrow' | 'loop-arrow' | 'voltage'; origin: Point };
+  | { type: 'arrow' | 'loop-arrow' | 'voltage' | 'brace' | 'bracket'; origin: Point };
 export interface WireDraft {
   start: Endpoint;
   vertices: Point[];
@@ -60,7 +59,7 @@ export interface Overlay {
   target: Point | null;
   box: { x: number; y: number; width: number; height: number } | null;
   guides: { x?: number; y?: number };
-  arrow: ArrowAnnotation | LoopArrow | ElectricalAnnotation | null;
+  arrow: ArrowAnnotation | LoopArrow | ElectricalAnnotation | BraceAnnotation | null;
   distances: DistanceGuide[];
   componentTarget: string | null;
   wireTarget: string | null;
@@ -76,6 +75,7 @@ const blank: Overlay = {
   wireTarget: null,
 };
 export function useCanvasInteractions(svgRef: RefObject<SVGSVGElement | null>) {
+  useKeyboardNudge();
   const [viewport, setViewport] = useState<Viewport>({ x: 600, y: 340, zoom: 1 });
   const [surfaceSize, setSurfaceSize] = useState({ width: 1200, height: 700 });
   const previousSurface = useRef<{ width: number; height: number } | null>(null);
@@ -339,6 +339,9 @@ export function useCanvasInteractions(svgRef: RefObject<SVGSVGElement | null>) {
             text: o.label.text,
             point: electricalGeometry(o, s.document).labelPoint,
           });
+        } else if (o?.kind === 'brace') {
+          e.preventDefault();
+          setEditing({ id: o.id, text: o.label.text, point: braceGeometry(o).labelPoint });
         } else if (o?.kind === 'text') {
           e.preventDefault();
           setEditing({ id: o.id, text: o.text, point: o });
@@ -529,7 +532,12 @@ export function useCanvasInteractions(svgRef: RefObject<SVGSVGElement | null>) {
       }
       return;
     }
-    if (s.tool === 'arrow' || s.tool === 'loop-arrow') {
+    if (
+      s.tool === 'arrow' ||
+      s.tool === 'loop-arrow' ||
+      s.tool === 'brace' ||
+      s.tool === 'bracket'
+    ) {
       svg.setPointerCapture(e.pointerId);
       drag.current = { type: s.tool, origin: snapPoint(p) };
       return;
@@ -611,6 +619,13 @@ export function useCanvasInteractions(svgRef: RefObject<SVGSVGElement | null>) {
       });
       return;
     }
+    if (d?.type === 'brace' || d?.type === 'bracket') {
+      setOverlay({
+        ...blank,
+        arrow: { ...createBrace(d.type, d.origin, snapPoint(p)), id: 'preview' },
+      });
+      return;
+    }
     if (d?.type === 'loop-arrow') {
       const end = snapPoint(p);
       setOverlay({
@@ -671,79 +686,80 @@ export function useCanvasInteractions(svgRef: RefObject<SVGSVGElement | null>) {
               target: null,
             };
       const { delta, alignment: guides, distances, target } = feedback;
-      const objects = d.doc.objects.map((o) => {
-        if (!selected.has(o.id)) return o;
-        if (
-          d.type === 'label' &&
-          (o.kind === 'component' || o.kind === 'junction' || o.kind === 'electrical')
-        )
-          return {
-            ...o,
-            label: {
-              ...o.label,
-              offset: add(o.label.offset, {
-                x: Math.round(p.x - d.origin.x),
-                y: Math.round(p.y - d.origin.y),
-              }),
-            },
-          };
-        if (d.type === 'handle') {
-          if (o.kind === 'loop-arrow') {
-            if (d.handle === 'loopHead') return { ...o, arrowPosition: loopPositionAt(o, p) };
-            const q = snapPoint(p);
-            if (d.handle === 'loopNW')
-              return {
-                ...o,
-                x: Math.min(q.x, o.x + o.width - 20),
-                y: Math.min(q.y, o.y + o.height - 20),
-                width: Math.max(20, o.x + o.width - q.x),
-                height: Math.max(20, o.y + o.height - q.y),
-              };
-            if (d.handle === 'loopSE')
-              return { ...o, width: Math.max(20, q.x - o.x), height: Math.max(20, q.y - o.y) };
-          }
-          if (o.kind === 'arrow') {
-            const q = snapPoint(p),
-              handle = d.handle;
-            if (handle === 'start' || handle === 'end') return { ...o, [handle]: q };
-            if (handle?.startsWith('control:')) {
-              const cps: [Point, Point] = [...o.controlPoints];
-              cps[Number(handle.split(':')[1])] = q;
-              return { ...o, controlPoints: cps };
-            }
-          }
-          if (o.kind === 'wire') {
-            if (d.handle?.startsWith('vertex:'))
-              return {
-                ...o,
-                vertices: o.vertices.map((v, i) =>
-                  i === Number(d.handle!.split(':')[1]) ? snapPoint(p) : v,
-                ),
-              };
-            const target = wireCandidate(p, d.doc, viewport.zoom, new Set([o.id])),
-              endpoint: Endpoint =
-                target.kind === 'wire' ? { kind: 'free', point: target.point } : target.endpoint;
-            if (d.handle === 'wireStart') return { ...o, startEndpoint: endpoint };
-            if (d.handle === 'wireEnd') return { ...o, endEndpoint: endpoint };
-          }
-          return o;
-        }
-        if (o.kind === 'wire' && !o.vertices.length) {
-          const fixed = (ep: Endpoint) =>
-            ep.kind === 'terminal'
-              ? !selected.has(ep.componentId)
-              : ep.kind === 'junction'
-                ? !selected.has(ep.junctionId)
-                : false;
-          if (fixed(o.startEndpoint) || fixed(o.endEndpoint)) {
-            const pts = wirePoints(o, d.doc);
-            const vertices =
-              pts.length > 2 ? pts.slice(1, -1) : [midpoint(pts[0], pts[pts.length - 1])];
-            return moveObject({ ...o, vertices }, delta, selected);
-          }
-        }
-        return moveObject(o, delta, selected);
-      });
+      const objects =
+        d.type === 'move'
+          ? moveSelection(d.doc, d.ids, delta).objects
+          : d.doc.objects.map((o) => {
+              if (!selected.has(o.id)) return o;
+              if (
+                d.type === 'label' &&
+                (o.kind === 'component' ||
+                  o.kind === 'junction' ||
+                  o.kind === 'electrical' ||
+                  o.kind === 'brace')
+              )
+                return {
+                  ...o,
+                  label: {
+                    ...o.label,
+                    offset: add(o.label.offset, {
+                      x: Math.round(p.x - d.origin.x),
+                      y: Math.round(p.y - d.origin.y),
+                    }),
+                  },
+                };
+              if (d.type === 'handle') {
+                if (o.kind === 'loop-arrow') {
+                  if (d.handle === 'loopHead') return { ...o, arrowPosition: loopPositionAt(o, p) };
+                  const q = snapPoint(p);
+                  if (d.handle === 'loopNW')
+                    return {
+                      ...o,
+                      x: Math.min(q.x, o.x + o.width - 20),
+                      y: Math.min(q.y, o.y + o.height - 20),
+                      width: Math.max(20, o.x + o.width - q.x),
+                      height: Math.max(20, o.y + o.height - q.y),
+                    };
+                  if (d.handle === 'loopSE')
+                    return {
+                      ...o,
+                      width: Math.max(20, q.x - o.x),
+                      height: Math.max(20, q.y - o.y),
+                    };
+                }
+                if (o.kind === 'brace' && (d.handle === 'start' || d.handle === 'end')) {
+                  return resizeBrace(o, d.handle, snapPoint(p));
+                }
+                if (o.kind === 'arrow') {
+                  const q = snapPoint(p),
+                    handle = d.handle;
+                  if (handle === 'start' || handle === 'end') return { ...o, [handle]: q };
+                  if (handle?.startsWith('control:')) {
+                    const cps: [Point, Point] = [...o.controlPoints];
+                    cps[Number(handle.split(':')[1])] = q;
+                    return { ...o, controlPoints: cps };
+                  }
+                }
+                if (o.kind === 'wire') {
+                  if (d.handle?.startsWith('vertex:'))
+                    return {
+                      ...o,
+                      vertices: o.vertices.map((v, i) =>
+                        i === Number(d.handle!.split(':')[1]) ? snapPoint(p) : v,
+                      ),
+                    };
+                  const target = wireCandidate(p, d.doc, viewport.zoom, new Set([o.id])),
+                    endpoint: Endpoint =
+                      target.kind === 'wire'
+                        ? { kind: 'free', point: target.point }
+                        : target.endpoint;
+                  if (d.handle === 'wireStart') return { ...o, startEndpoint: endpoint };
+                  if (d.handle === 'wireEnd') return { ...o, endEndpoint: endpoint };
+                }
+                return o;
+              }
+              return o;
+            });
       s.preview({ ...d.doc, objects });
       setOverlay({ ...blank, guides, distances, target });
       return;
@@ -875,7 +891,10 @@ export function useCanvasInteractions(svgRef: RefObject<SVGSVGElement | null>) {
       }
     }
     if (
-      (d?.type === 'arrow' || d?.type === 'loop-arrow') &&
+      (d?.type === 'arrow' ||
+        d?.type === 'loop-arrow' ||
+        d?.type === 'brace' ||
+        d?.type === 'bracket') &&
       overlay.arrow &&
       (overlay.arrow.kind === 'loop-arrow'
         ? distance(d.origin, world(e.clientX, e.clientY)) > 20
@@ -915,6 +934,8 @@ export function useCanvasInteractions(svgRef: RefObject<SVGSVGElement | null>) {
         text: o.label.text,
         point: electricalGeometry(o, s.document).labelPoint,
       });
+    else if (o.kind === 'brace')
+      setEditing({ id: o.id, text: o.label.text, point: braceGeometry(o).labelPoint });
     else if (o.kind === 'text') setEditing({ id: o.id, text: o.text, point: { x: o.x, y: o.y } });
     else if (o.kind === 'wire') {
       const p = world(e.clientX, e.clientY),
@@ -951,7 +972,10 @@ export function useCanvasInteractions(svgRef: RefObject<SVGSVGElement | null>) {
       .update(editing.id, (o) =>
         o.kind === 'text'
           ? { ...o, text: editing.text }
-          : o.kind === 'component' || o.kind === 'junction' || o.kind === 'electrical'
+          : o.kind === 'component' ||
+              o.kind === 'junction' ||
+              o.kind === 'electrical' ||
+              o.kind === 'brace'
             ? { ...o, label: { ...o.label, text: editing.text } }
             : o,
       );

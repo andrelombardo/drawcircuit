@@ -1,3 +1,4 @@
+import { braceGeometry } from '../annotations/brace';
 import { electricalGeometry } from '../annotations/electrical';
 import { componentRegistry } from '../model/catalog';
 import { GRID } from '../model/types';
@@ -186,6 +187,7 @@ export function moveObject(o: CircuitObject, delta: Point, moved: Set<string>): 
       ? { ...o, offset: add(o.offset, delta) }
       : { ...o, start: add(o.start, delta), end: add(o.end, delta) };
   }
+  if (o.kind === 'brace') return { ...o, start: add(o.start, delta), end: add(o.end, delta) };
   if (o.kind === 'arrow')
     return {
       ...o,
@@ -238,7 +240,13 @@ export function objectBounds(
   doc: CircuitDocument,
 ): { x: number; y: number; width: number; height: number } {
   let points: Point[];
-  if (o.kind === 'electrical') {
+  if (o.kind === 'brace') {
+    const g = braceGeometry(o);
+    points = g.points.flatMap((p) => [
+      { x: p.x - o.width / 2, y: p.y - o.width / 2 },
+      { x: p.x + o.width / 2, y: p.y + o.width / 2 },
+    ]);
+  } else if (o.kind === 'electrical') {
     const g = electricalGeometry(o, doc);
     const w = Math.max(24, o.label.text.length * o.label.fontSize * 0.6);
     points = [

@@ -71,7 +71,10 @@ export function SelectionStyle({
 }) {
   const o = objects.length === 1 ? objects[0] : null;
   const labeled = (o: CircuitObject) =>
-    o.kind === 'component' || o.kind === 'junction' || o.kind === 'electrical';
+    o.kind === 'component' ||
+    o.kind === 'junction' ||
+    o.kind === 'electrical' ||
+    o.kind === 'brace';
   const hasLabel = objects.some(labeled);
   const hasText = hasLabel || objects.some((o) => o.kind === 'text');
   const hasStroke = objects.some(
@@ -80,7 +83,8 @@ export function SelectionStyle({
       o.kind === 'wire' ||
       o.kind === 'arrow' ||
       o.kind === 'loop-arrow' ||
-      o.kind === 'electrical',
+      o.kind === 'electrical' ||
+      o.kind === 'brace',
   );
   const size = o?.kind === 'text' ? o.fontSize : o && 'label' in o ? o.label.fontSize : 22;
   const width = o?.kind === 'loop-arrow' ? o.strokeWidth : o && 'width' in o ? o.width : 2;
@@ -119,7 +123,8 @@ export function SelectionStyle({
                       : o.kind === 'component' ||
                           o.kind === 'wire' ||
                           o.kind === 'arrow' ||
-                          o.kind === 'electrical'
+                          o.kind === 'electrical' ||
+                          o.kind === 'brace'
                         ? { ...o, width: Number(e.target.value) }
                         : o,
                   )

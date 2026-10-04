@@ -1,3 +1,4 @@
+import { BraceView } from '../../circuit/annotations/BraceView';
 import { WireBridges } from '../../circuit/wires/WireBridges';
 import { ElectricalView } from '../../circuit/annotations/ElectricalView';
 import { memo, useMemo } from 'react';
@@ -80,7 +81,9 @@ export const CircuitLayer = memo(function CircuitLayer({
       </g>
       <g data-layer="annotations">
         {doc.objects.map((o) =>
-          o.kind === 'electrical' ? (
+          o.kind === 'brace' ? (
+            <BraceView key={o.id} object={o} zoom={zoom} />
+          ) : o.kind === 'electrical' ? (
             <ElectricalView
               key={o.id}
               object={o}

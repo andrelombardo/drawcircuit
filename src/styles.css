@@ -2530,3 +2530,15 @@ summary:focus-visible {
     bottom: 12px;
   }
 }
+
+.png-export-panel {
+  min-height: 220px;
+  padding: 36px 24px;
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 12px;
+  background: #fff;
+  color: #171a20;
+}
+.png-export-panel p {
+  margin-top: 12px;
+}

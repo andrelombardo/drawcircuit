@@ -99,12 +99,12 @@ export function DrawingToolbar({
       </IconButton>
       <div className="electrical-tools-wrap">
         <button
-          className={`icon-button${['current', 'polarity', 'voltage'].includes(tool) ? ' active' : ''}`}
+          className={`icon-button${['current', 'polarity', 'voltage', 'brace', 'bracket'].includes(tool) ? ' active' : ''}`}
           aria-label="Annotazioni elettriche"
-          aria-pressed={['current', 'polarity', 'voltage'].includes(tool)}
+          aria-pressed={['current', 'polarity', 'voltage', 'brace', 'bracket'].includes(tool)}
           aria-expanded={electricalMenu}
-          title="Corrente e tensione"
-          data-tooltip="Corrente e tensione"
+          title="Annotazioni · I/V, Brace e Bracket"
+          data-tooltip="Annotazioni · I/V, Brace e Bracket"
           onClick={() => setElectricalMenu((open) => !open)}
         >
           I/V
@@ -116,7 +116,7 @@ export function DrawingToolbar({
               aria-label="Chiudi annotazioni elettriche"
               onClick={() => setElectricalMenu(false)}
             />
-            <div className="file-menu electrical-tools-menu">
+            <div className="file-menu electrical-tools-menu" role="menu" aria-label="Annotazioni">
               <button
                 onClick={() => {
                   setTool('current');
@@ -140,6 +140,23 @@ export function DrawingToolbar({
                 }}
               >
                 Tensione tra due punti
+              </button>
+              <div className="toolbar-divider" />
+              <button
+                onClick={() => {
+                  setTool('brace');
+                  setElectricalMenu(false);
+                }}
+              >
+                Brace · Graffa
+              </button>
+              <button
+                onClick={() => {
+                  setTool('bracket');
+                  setElectricalMenu(false);
+                }}
+              >
+                Bracket · Staffa
               </button>
             </div>
           </>

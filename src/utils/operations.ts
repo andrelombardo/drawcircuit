@@ -1,7 +1,15 @@
 import { detachElectrical } from '../annotations/electrical';
 import { wrapPosition } from './loops';
 import { makeId } from '../model/catalog';
-import { add, moveObject, objectBounds, resolveEndpoint, rotatePoint, wirePoints } from './geometry';
+import {
+  add,
+  moveObject,
+  objectBounds,
+  resolveEndpoint,
+  rotatePoint,
+  wirePoints,
+  midpoint,
+} from './geometry';
 import type { CircuitDocument, CircuitObject, Endpoint, Point, Rotation } from '../model/types';
 export function extractSelection(doc: CircuitDocument, ids: string[]): CircuitDocument {
   const selected = new Set(ids);
@@ -101,6 +109,31 @@ function detachWireEndpoints(
         : wire.vertices,
   };
 }
+/** Shared geometric move used by pointer dragging and keyboard nudging. */
+export function moveSelection(doc: CircuitDocument, ids: string[], delta: Point): CircuitDocument {
+  const selected = new Set(ids);
+  return {
+    ...doc,
+    objects: doc.objects.map((o) => {
+      if (!selected.has(o.id)) return o;
+      if (o.kind === 'wire' && !o.vertices.length) {
+        const fixed = (ep: Endpoint) =>
+          ep.kind === 'terminal'
+            ? !selected.has(ep.componentId)
+            : ep.kind === 'junction'
+              ? !selected.has(ep.junctionId)
+              : false;
+        if (fixed(o.startEndpoint) || fixed(o.endEndpoint)) {
+          const pts = wirePoints(o, doc);
+          const vertices =
+            pts.length > 2 ? pts.slice(1, -1) : [midpoint(pts[0], pts[pts.length - 1])];
+          return moveObject({ ...o, vertices }, delta, selected);
+        }
+      }
+      return moveObject(o, delta, selected);
+    }),
+  };
+}
 export function rotateObjects(doc: CircuitDocument, ids: string[]): CircuitDocument {
   const selected = new Set(ids),
     objects = doc.objects.filter((o) => selected.has(o.id));
@@ -113,7 +146,9 @@ export function rotateObjects(doc: CircuitDocument, ids: string[]): CircuitDocum
   const center =
     objects.length === 1 && objects[0].kind === 'component'
       ? { x: objects[0].x, y: objects[0].y }
-      : { x: Math.round((minX + maxX) / 40) * 20, y: Math.round((minY + maxY) / 40) * 20 };
+      : objects.length === 1 && objects[0].kind === 'brace'
+        ? midpoint(objects[0].start, objects[0].end)
+        : { x: Math.round((minX + maxX) / 40) * 20, y: Math.round((minY + maxY) / 40) * 20 };
   const rp = (p: Point) => add(rotatePoint({ x: p.x - center.x, y: p.y - center.y }, 90), center);
   const next = (r: Rotation) => ((r + 90) % 360) as Rotation;
   const ep = (e: Endpoint): Endpoint =>
@@ -154,6 +189,13 @@ export function rotateObjects(doc: CircuitDocument, ids: string[]): CircuitDocum
           label: { ...base.label, offset: rotatePoint(base.label.offset, 90) },
         };
       }
+      if (o.kind === 'brace')
+        return {
+          ...o,
+          start: rp(o.start),
+          end: rp(o.end),
+          label: { ...o.label, offset: rotatePoint(o.label.offset, 90) },
+        };
       if (o.kind === 'arrow')
         return {
           ...o,

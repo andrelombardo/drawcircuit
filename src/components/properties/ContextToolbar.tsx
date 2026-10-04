@@ -227,7 +227,11 @@ export function ContextToolbar({
       objects: s.document.objects.map((obj) => (selected.has(obj.id) ? fn(obj) : obj)),
     });
   };
-  const hasLabel = o?.kind === 'component' || o?.kind === 'junction' || o?.kind === 'electrical';
+  const hasLabel =
+    o?.kind === 'component' ||
+    o?.kind === 'junction' ||
+    o?.kind === 'electrical' ||
+    o?.kind === 'brace';
   return (
     <div
       ref={root}
@@ -245,13 +249,16 @@ export function ContextToolbar({
             label={
               o.kind === 'junction'
                 ? 'Nome nodo'
-                : o.kind === 'electrical'
+                : o.kind === 'electrical' || o.kind === 'brace'
                   ? 'Label annotazione'
                   : 'Label componente'
             }
             onChange={(text) =>
               update(o.id, (obj) =>
-                obj.kind === 'component' || obj.kind === 'junction' || obj.kind === 'electrical'
+                obj.kind === 'component' ||
+                obj.kind === 'junction' ||
+                obj.kind === 'electrical' ||
+                obj.kind === 'brace'
                   ? { ...obj, label: { ...obj.label, text } }
                   : obj,
               )
@@ -282,6 +289,18 @@ export function ContextToolbar({
         <SelectionStyle objects={objects} apply={apply} />
       </details>
       <div className="toolbar-divider" />
+      {o?.kind === 'brace' && (
+        <IconButton
+          label="Inverti lato"
+          onClick={() =>
+            update(o.id, (obj) =>
+              obj.kind === 'brace' ? { ...obj, side: obj.side === 1 ? -1 : 1 } : obj,
+            )
+          }
+        >
+          <FlipHorizontal size={17} />
+        </IconButton>
+      )}
       {actions.primary.includes('reverse') && o && (
         <IconButton
           label="Inverti freccia"
