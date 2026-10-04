@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { X } from 'lucide-react';
 import { PwaStatus } from './pwa/PwaStatus';
-import { Toolbar } from './components/toolbar/Toolbar';
 import { ComponentSidebar } from './components/palette/ComponentSidebar';
 import { useSidebarPreferences } from './components/palette/useSidebarPreferences';
 import { Canvas } from './components/editor/Canvas';
@@ -20,10 +19,11 @@ export default function App() {
   return (
     <div className="app-shell">
       <PwaStatus />
-      <Toolbar onExport={() => setDialog('export')} onHelp={() => setDialog('help')} />
       <div className="workspace">
         <ComponentSidebar {...sidebar} />
         <Canvas
+          onExport={() => setDialog('export')}
+          onHelp={() => setDialog('help')}
           sidebarVisible={sidebar.preferences.visible}
           onShowSidebar={() => sidebar.setPreferences((p) => ({ ...p, visible: true }))}
         />

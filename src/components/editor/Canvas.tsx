@@ -3,7 +3,7 @@ import { usePersonalBlocks } from '../../personalBlocks/library';
 import { CIRCUIT_FONT } from '../../model/fonts';
 import { LatexPreview } from '../../circuit/annotations/MathText';
 import { useRef } from 'react';
-import { Check, CircleAlert, Grid2X2, Maximize, Minus, Plus } from 'lucide-react';
+import { Check, CircleAlert, Grid2X2, HelpCircle, Maximize, Minus, Plus } from 'lucide-react';
 import { useEditorStore } from '../../store/editorStore';
 import { catalog, componentRegistry } from '../../model/catalog';
 import { COLORS, componentTypes, GRID } from '../../model/types';
@@ -28,9 +28,13 @@ import { inlineCompatible, needsTerminalChoice } from '../../smartPlacement/find
 export function Canvas({
   sidebarVisible = true,
   onShowSidebar,
+  onExport,
+  onHelp,
 }: {
   sidebarVisible?: boolean;
   onShowSidebar?: () => void;
+  onExport?: () => void;
+  onHelp?: () => void;
 }) {
   const svgRef = useRef<SVGSVGElement>(null),
     doc = useEditorStore((s) => s.document),
@@ -106,12 +110,13 @@ export function Canvas({
                           : null;
   return (
     <main className="editor" aria-label="Editor circuito">
-      <DrawingToolbar />
+      <DrawingToolbar onExport={onExport} sidebarVisible={sidebarVisible} />
       {!sidebarVisible && (
         <button
-          className="icon-button sidebar-toggle sidebar-reopen"
+          className="icon-button sidebar-toggle sidebar-reopen floating-surface"
           aria-label="Mostra componenti"
           title="Mostra componenti"
+          data-tooltip="Mostra componenti"
           aria-expanded={false}
           aria-controls="component-library"
           onClick={onShowSidebar}
@@ -119,14 +124,12 @@ export function Canvas({
           <SidebarIcon />
         </button>
       )}
-      <div className="document-heading">
-        {storageError && (
-          <span className="save-status error" role="status">
-            <CircleAlert size={12} />
-            Salvataggio locale non disponibile · salva JSON
-          </span>
-        )}
-      </div>
+      {storageError && (
+        <div className="persistence-error floating-surface" role="alert">
+          <CircleAlert size={12} />
+          Salvataggio locale non disponibile. Mantieni aperta la pagina ed esporta il circuito.
+        </div>
+      )}
       <ContextToolbar
         key={selection.join(',')}
         viewport={v}
@@ -374,7 +377,7 @@ export function Canvas({
         </div>
       )}
       <div className="editor-bottom">
-        <div className="zoom-controls">
+        <div className="zoom-controls floating-surface">
           <IconButton label="Riduci zoom" onClick={() => interactions.zoomAt(1 / 1.2)}>
             <Minus size={15} />
           </IconButton>
@@ -406,13 +409,10 @@ export function Canvas({
             {isComponent ? (smartHint ?? hint) : hint}
           </div>
         )}
-        {!!selection.length && (
-          <span className="selection-status">
-            {selection.length}{' '}
-            {selection.length === 1 ? 'elemento selezionato' : 'elementi selezionati'}
-          </span>
-        )}
       </div>
+      <IconButton label="Aiuto" className="help-control floating-surface" onClick={onHelp}>
+        <HelpCircle size={18} />
+      </IconButton>
     </main>
   );
 }

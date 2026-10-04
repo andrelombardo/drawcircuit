@@ -161,8 +161,8 @@ describe('audit UX/input evidence', () => {
     expect(
       screen.getByRole('button', { name: 'Inserisci batteria a cella singola' }),
     ).toBeDefined();
-    expect(screen.getByRole('button', { name: /Esporta circuito/ })).toBeDefined();
-    expect(document.body.textContent).toContain('Scegli un componente dalla palette.');
+    expect(screen.getByRole('button', { name: /^Esporta$/ })).toBeDefined();
+    expect(document.body.textContent).not.toContain('Seleziona e disegna liberamente');
   });
   it('attempts the student circuit using the rendered UI before production source inspection', () => {
     render(<App />);
@@ -208,7 +208,7 @@ describe('audit UX/input evidence', () => {
     expect(
       useEditorStore.getState().document.objects.filter((o) => o.kind === 'wire'),
     ).toHaveLength(1);
-    fireEvent.click(screen.getByRole('button', { name: 'Guida e scorciatoie' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Aiuto' }));
     expect(screen.getByRole('dialog').textContent).toContain('Enter');
   });
 
@@ -277,12 +277,7 @@ describe('audit UX/input evidence', () => {
     fireEvent.keyDown(label, { key: 'Escape' });
     fireEvent.blur(label);
     expect(selectedComponent()).toMatchObject({ label: { text: 'r_{AB}' } });
-    const title = screen.getByLabelText('Titolo circuito');
-    fireEvent.focus(title);
-    fireEvent.change(title, { target: { value: 'canceled title' } });
-    fireEvent.keyDown(title, { key: 'Escape' });
-    fireEvent.blur(title);
-    expect(useEditorStore.getState().document.title).toBe('Circuito senza titolo');
+    expect(screen.queryByLabelText('Titolo circuito')).toBeNull();
     const search = screen.getByLabelText('Cerca componenti');
     fireEvent.keyDown(search, { key: 'R' });
     expect(selectedComponent()).toMatchObject({ rotation: 0 });
@@ -344,30 +339,16 @@ describe('audit UX/input evidence', () => {
     expect(useEditorStore.getState().grid).toBe(false);
   });
 
-  it('AUDIT P2: Escape dismisses the replace-circuit confirmation without changing the document', () => {
-    render(<App />);
-    placeResistor();
-    const before = serializeDocument(useEditorStore.getState().document);
-    fireEvent.click(screen.getByRole('button', { name: 'Menu file' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Nuovo circuito' }));
-    fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' });
-    expect(screen.queryByRole('dialog')).toBeNull();
-    expect(serializeDocument(useEditorStore.getState().document)).toBe(before);
-  });
-
-  for (const label of ['Guida e scorciatoie', 'Esporta circuito']) {
+  for (const label of ['Aiuto', 'Esporta']) {
     it(`AUDIT P2: ${label} contains Tab/Shift Tab and restores keyboard focus on close`, () => {
       render(<App />);
-      const trigger = screen.getByRole('button', { name: new RegExp(label) });
+      const trigger = screen.getByRole('button', { name: label });
       trigger.focus();
       fireEvent.click(trigger);
       const first = screen.getByRole('button', {
-        name: label === 'Guida e scorciatoie' ? 'Chiudi guida' : 'Chiudi export',
+        name: label === 'Aiuto' ? 'Chiudi guida' : 'Chiudi export',
       });
-      const last =
-        label === 'Guida e scorciatoie'
-          ? first
-          : screen.getByRole('button', { name: 'Scarica .tex' });
+      const last = label === 'Aiuto' ? first : screen.getByRole('button', { name: 'Scarica .tex' });
       expect(document.activeElement).toBe(first);
       const reverseTab = new KeyboardEvent('keydown', {
         key: 'Tab',
@@ -388,13 +369,13 @@ describe('audit UX/input evidence', () => {
     });
   }
 
-  it('AUDIT P3: Escape closes the File menu', () => {
+  it('Escape closes the electrical menu without clearing the current selection', () => {
     render(<App />);
     placeResistor();
     const selected = useEditorStore.getState().selection;
-    fireEvent.click(screen.getByRole('button', { name: 'Menu file' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Annotazioni elettriche' }));
     key('Escape');
-    expect(screen.queryByRole('button', { name: 'Salva JSON' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Corrente su un filo' })).toBeNull();
     expect(useEditorStore.getState().selection).toEqual(selected);
   });
 
@@ -402,7 +383,7 @@ describe('audit UX/input evidence', () => {
     render(<App />);
     placeResistor();
     const before = serializeDocument(useEditorStore.getState().document);
-    fireEvent.click(screen.getByRole('button', { name: /Esporta circuito/ }));
+    fireEvent.click(screen.getByRole('button', { name: /^Esporta$/ }));
     for (const shortcut of ['R', 'Delete', 'Backspace', 'g', 'n'])
       fireEvent.keyDown(screen.getByRole('dialog'), { key: shortcut });
     expect(serializeDocument(useEditorStore.getState().document)).toBe(before);

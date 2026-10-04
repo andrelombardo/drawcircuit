@@ -264,7 +264,7 @@ describe('new feature UI integrates with the existing editor', () => {
       selection: [c.id],
     });
     render(<App />);
-    fireEvent.click(screen.getByRole('button', { name: /Esporta circuito$/ }));
+    fireEvent.click(screen.getByRole('button', { name: /^Esporta$/ }));
     fireEvent.click(screen.getByRole('button', { name: 'SVG' }));
     const full = (screen.getByLabelText('Codice SVG generato') as HTMLTextAreaElement).value;
     const parsed = new DOMParser().parseFromString(full, 'image/svg+xml');

@@ -4,10 +4,10 @@ Un editor di circuiti elettrici per appunti e materiale didattico. React, TypeSc
 
 ## Avvio
 
-Richiede Node.js 22.12+ o 24+ e npm.
+Richiede Node.js 26.5.0, come indicato in `.nvmrc`, e npm.
 
 ```sh
-npm install
+npm ci
 npm run dev
 ```
 
@@ -38,7 +38,8 @@ npm run format:check
 - **R** ruota di 90°. **Delete/Backspace** elimina. **Cmd/Ctrl D** duplica. **Cmd/Ctrl C/V** copia/incolla. **Cmd/Ctrl A** seleziona tutto.
 - **Cmd/Ctrl Z** annulla; **Cmd/Ctrl Shift Z** oppure **Ctrl Y** ripete. Uno spostamento completo occupa una sola voce di cronologia.
 - **Space + trascina** o **H** sposta la vista. Rotellina/trackpad e i pulsanti +/− controllano lo zoom. **1** adatta alla vista. **G** nasconde la griglia.
-- **File** contiene Nuovo, Apri JSON, Salva JSON e il circuito di esempio. Il circuito viene salvato automaticamente in localStorage dopo 400 ms di inattività. La cronologia conserva le ultime 100 operazioni durante la sessione.
+- Il workspace parte dal bordo superiore, senza header, branding o gestione File. Il circuito viene salvato automaticamente in localStorage dopo 400 ms di inattività e prima di chiusura/reload. La cronologia conserva le ultime 100 operazioni durante la sessione.
+- Trascina il grip della toolbar per spostarla: la posizione viene conservata separatamente dal circuito e adattata a resize e sidebar. L’icona download apre l’export TikZ, Obsidian e SVG. Il pulsante **Aiuto** è in basso a destra; zoom e griglia restano in basso a sinistra.
 
 La sidebar si nasconde e riapre dal bordo, si ridimensiona tra 200 e 480 px e si ripristina con doppio clic sul separatore. Visibilità e larghezza sono preferenze locali separate dal JSON; pan e zoom si conservano durante il resize.
 
@@ -91,7 +92,7 @@ Per rigenerare gli esempi e i file di verifica:
 npm run fixtures
 ```
 
-Il fixture di carico viene scritto in `/private/tmp/drawcircuit-stress.json` e può essere aperto tramite File → Apri JSON. I test DOM verificano correttezza e rendering; non costituiscono una garanzia di frame rate su qualsiasi hardware.
+Il fixture di carico viene scritto in `/private/tmp/drawcircuit-stress.json` ed è usato dalle verifiche interne di serializzazione e rendering. I test DOM verificano correttezza e rendering; non costituiscono una garanzia di frame rate su qualsiasi hardware.
 
 ## Limiti intenzionali
 
@@ -100,7 +101,7 @@ Il fixture di carico viene scritto in `/private/tmp/drawcircuit-stress.json` e p
 - Il testo matematico usa KaTeX: pedici, apici, frazioni, radici e i comandi supportati dall’engine. Il source rimane nel JSON; il LaTeX non valido appare letterale e resta modificabile. `\ohm` è l’unico alias dell’editor e diventa `\Omega` durante rendering ed export. Il testo normale usa `"Comic Sans MS", "Comic Sans", cursive`, anche i caratteri delle formule e della preview usano Comic Sans; la UI mantiene Inter.
 - I simboli nativi CircuitikZ possono differire leggermente nelle proporzioni rispetto agli SVG; terminali, orientamento, colori e posizioni delle annotazioni rimangono coerenti.
 - Clipboard e download dipendono dai permessi del browser. Copia/incolla ha un fallback interno durante la sessione; il dialogo TikZ seleziona il codice se la copia negli appunti non è disponibile. Il browser integrato può limitare i test automatici di clipboard e download; questi percorsi sono verificati anche tramite test DOM.
-- Il salvataggio locale appartiene a quel browser e a quell'origine. Per archiviare o trasferire lo schema usa JSON. Nessun backend, account, simulazione o servizio cloud.
+- Il salvataggio locale appartiene a quel browser e a quell'origine. Per utilizzare il disegno in altri strumenti esporta TikZ, Obsidian o SVG dalla toolbar. Nessun backend, account, simulazione o servizio cloud.
 
 ### Secondo passaggio: interazioni
 

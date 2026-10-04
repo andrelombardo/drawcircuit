@@ -27,6 +27,7 @@ export function Palette({ onHide }: { onHide: () => void }) {
           className="icon-button sidebar-toggle"
           aria-label="Nascondi componenti"
           title="Nascondi componenti"
+          data-tooltip="Nascondi componenti"
           aria-expanded={true}
           aria-controls="component-library"
           onClick={onHide}

@@ -1,12 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { saveDocumentNow, useEditorStore } from '../store/editorStore';
-interface InstallEvent extends Event {
-  prompt: () => Promise<void>;
-  userChoice: Promise<{ outcome: string }>;
-}
 export function PwaStatus() {
-  const [refresh, setRefresh] = useState(false),
-    [install, setInstall] = useState<InstallEvent | null>(null);
+  const [refresh, setRefresh] = useState(false);
   const update = useRef<((reload?: boolean) => Promise<void>) | null>(null);
   useEffect(() => {
     if (!import.meta.env.PROD || !('serviceWorker' in navigator)) return;
@@ -15,13 +10,6 @@ export function PwaStatus() {
     const check = () => {
       if (navigator.onLine) void registration?.update().catch(() => {});
     };
-    const offerInstall = (event: Event) => {
-      event.preventDefault();
-      setInstall(event as InstallEvent);
-    };
-    const installed = () => setInstall(null);
-    window.addEventListener('beforeinstallprompt', offerInstall);
-    window.addEventListener('appinstalled', installed);
     window.addEventListener('focus', check);
     const timer = window.setInterval(check, 60 * 60 * 1000);
     void import('virtual:pwa-register')
@@ -30,10 +18,6 @@ export function PwaStatus() {
         update.current = registerSW({
           onNeedRefresh: () => {
             if (!disposed) setRefresh(true);
-          },
-          onOfflineReady: () => {
-            if (!disposed)
-              useEditorStore.getState().notify('DrawCircuit è disponibile anche offline.');
           },
           onRegisteredSW: (_url, reg) => {
             registration = reg;
@@ -52,8 +36,6 @@ export function PwaStatus() {
       });
     return () => {
       disposed = true;
-      window.removeEventListener('beforeinstallprompt', offerInstall);
-      window.removeEventListener('appinstalled', installed);
       window.removeEventListener('focus', check);
       window.clearInterval(timer);
     };
@@ -66,9 +48,7 @@ export function PwaStatus() {
     if (!saveDocumentNow()) {
       useEditorStore
         .getState()
-        .notify(
-          'Salva il circuito come JSON prima di aggiornare: il salvataggio locale non è disponibile.',
-        );
+        .notify('Salvataggio locale non disponibile. Esporta il circuito prima di aggiornare.');
       return;
     }
     try {
@@ -79,34 +59,12 @@ export function PwaStatus() {
         .notify('Aggiornamento non riuscito. Il circuito è salvato; riprova quando sei online.');
     }
   };
-  if (!refresh && !install) return null;
+  if (!refresh) return null;
   return (
     <aside className="pwa-notice" role="status">
-      {refresh ? (
-        <>
-          <span>È disponibile una nuova versione.</span>
-          <button onClick={() => void applyUpdate()}>Salva e aggiorna</button>
-          <button onClick={() => setRefresh(false)}>Più tardi</button>
-        </>
-      ) : (
-        <>
-          <span>DrawCircuit può essere installato.</span>
-          <button
-            onClick={() => {
-              void install
-                ?.prompt()
-                .then(() => install.userChoice)
-                .then(() => setInstall(null))
-                .catch(() =>
-                  useEditorStore.getState().notify('Installazione non riuscita. Puoi riprovare.'),
-                );
-            }}
-          >
-            Installa app
-          </button>
-          <button onClick={() => setInstall(null)}>Chiudi</button>
-        </>
-      )}
+      <span>È disponibile una nuova versione.</span>
+      <button onClick={() => void applyUpdate()}>Aggiorna</button>
+      <button onClick={() => setRefresh(false)}>Più tardi</button>
     </aside>
   );
 }

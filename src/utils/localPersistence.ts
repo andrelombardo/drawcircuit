@@ -19,8 +19,8 @@ export function localPersistence<T>(
           value: fallback(),
           error:
             raw === null
-              ? 'Salvataggio locale non disponibile: salva una copia JSON.'
-              : 'Salvataggio locale non leggibile. I dati originali saranno conservati prima di salvare nuove modifiche. Salva una copia JSON.',
+              ? 'Salvataggio locale non disponibile: esporta una copia del circuito.'
+              : 'Salvataggio locale non leggibile. I dati originali saranno conservati prima di salvare nuove modifiche. Esporta una copia del circuito.',
         };
       }
     },

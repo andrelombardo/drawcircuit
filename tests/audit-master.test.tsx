@@ -43,16 +43,6 @@ afterEach(() => {
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
 });
-function pendingFile(title: string) {
-  let complete!: (raw: string) => void;
-  const text = new Promise<string>((resolve) => {
-    complete = resolve;
-  });
-  const file = new File([], `${title}.json`, { type: 'application/json' });
-  Object.defineProperty(file, 'text', { value: () => text });
-  const doc = { ...emptyDocument(), title };
-  return { file, finish: () => complete(serializeDocument(doc)) };
-}
 describe('master audit: asynchronous user operations', () => {
   it('stops a cancelled drag after Ctrl Y instead of restoring the preview', () => {
     useEditorStore.setState({
@@ -81,32 +71,11 @@ describe('master audit: asynchronous user operations', () => {
     fireEvent.pointerUp(canvas, point(40));
     expect(useEditorStore.getState().document).toEqual(cancelled);
   });
-  it('keeps the last requested file when reads complete out of order', async () => {
+  it('exposes no file import or replacement controls in the workspace', () => {
     render(<App />);
-    const first = pendingFile('First'),
-      second = pendingFile('Second');
-    const input = screen.getByLabelText('Apri file JSON');
-    fireEvent.change(input, { target: { files: [first.file] } });
-    fireEvent.change(input, { target: { files: [second.file] } });
-    await act(async () => {
-      second.finish();
-    });
-    expect(useEditorStore.getState().document.title).toBe('Second');
-    await act(async () => {
-      first.finish();
-    });
-    expect(useEditorStore.getState().document.title).toBe('Second');
-  });
-  it('does not replace a new circuit with a stale pending file', async () => {
-    render(<App />);
-    const first = pendingFile('Old pending import');
-    fireEvent.change(screen.getByLabelText('Apri file JSON'), { target: { files: [first.file] } });
-    fireEvent.click(screen.getByRole('button', { name: 'Menu file' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Nuovo circuito' }));
-    await act(async () => {
-      first.finish();
-    });
-    expect(useEditorStore.getState().document.title).toBe(emptyDocument().title);
+    expect(screen.queryByLabelText('Apri file JSON')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Menu file' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Nuovo circuito' })).toBeNull();
   });
   it('renumbers rapid repeated pastes using the latest document', async () => {
     const pending: ((raw: string) => void)[] = [];

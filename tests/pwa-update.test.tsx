@@ -44,14 +44,14 @@ it('registers the production worker and waits for explicit approval instead of r
   expect(screen.getByText('È disponibile una nuova versione.')).toBeTruthy();
   expect(mocks.update).not.toHaveBeenCalled();
   fireEvent.click(screen.getByRole('button', { name: 'Più tardi' }));
-  expect(screen.queryByRole('button', { name: 'Salva e aggiorna' })).toBeNull();
+  expect(screen.queryByRole('button', { name: 'Aggiorna' })).toBeNull();
   expect(mocks.update).not.toHaveBeenCalled();
 });
 it('saves the exact document before activating the waiting worker', async () => {
   const saved = vi.fn();
   vi.stubGlobal('localStorage', { getItem: () => null, setItem: saved });
   await offer();
-  await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Salva e aggiorna' })));
+  await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Aggiorna' })));
   expect(deserializeDocument(saved.mock.calls[0][1])).toEqual(useEditorStore.getState().document);
   expect(mocks.update).toHaveBeenCalledWith(true);
   expect(saved.mock.invocationCallOrder[0]).toBeLessThan(mocks.update.mock.invocationCallOrder[0]);
@@ -59,17 +59,17 @@ it('saves the exact document before activating the waiting worker', async () => 
 it('refuses updates during gestures or inline editing', async () => {
   await offer();
   act(() => useEditorStore.getState().beginGesture());
-  fireEvent.click(screen.getByRole('button', { name: 'Salva e aggiorna' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Aggiorna' }));
   expect(mocks.update).not.toHaveBeenCalled();
   act(() => useEditorStore.getState().cancelGesture());
   const editor = document.createElement('form');
   editor.className = 'inline-editor';
   document.body.append(editor);
-  fireEvent.click(screen.getByRole('button', { name: 'Salva e aggiorna' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Aggiorna' }));
   expect(mocks.update).not.toHaveBeenCalled();
   editor.remove();
 });
-it('keeps the app open and asks for JSON when local saving fails', async () => {
+it('keeps the app open and reports the persistence error when local saving fails', async () => {
   vi.stubGlobal('localStorage', {
     getItem: () => null,
     setItem: () => {
@@ -77,34 +77,33 @@ it('keeps the app open and asks for JSON when local saving fails', async () => {
     },
   });
   await offer();
-  fireEvent.click(screen.getByRole('button', { name: 'Salva e aggiorna' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Aggiorna' }));
   expect(mocks.update).not.toHaveBeenCalled();
-  expect(useEditorStore.getState().notice).toContain('JSON');
+  expect(useEditorStore.getState().notice).toContain('Esporta');
 });
 it('reports a rejected worker activation and keeps the saved circuit and retry button', async () => {
   const savedDocument = useEditorStore.getState().document;
   mocks.update.mockRejectedValueOnce(new Error('Worker unavailable'));
   await offer();
-  fireEvent.click(screen.getByRole('button', { name: 'Salva e aggiorna' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Aggiorna' }));
   await waitFor(() =>
     expect(useEditorStore.getState().notice).toContain('Aggiornamento non riuscito'),
   );
   expect(useEditorStore.getState().document).toEqual(savedDocument);
-  expect(screen.getByRole('button', { name: 'Salva e aggiorna' })).toBeTruthy();
+  expect(screen.getByRole('button', { name: 'Aggiorna' })).toBeTruthy();
   expect(localStorage.setItem).toHaveBeenCalled();
 });
-it('handles a rejected install prompt without an unhandled rejection and allows retry', async () => {
+it('leaves installation to the browser without an unsolicited workspace notice', async () => {
   render(<PwaStatus />);
   await waitFor(() => expect(mocks.register).toHaveBeenCalled());
-  const event = new Event('beforeinstallprompt');
-  Object.assign(event, {
-    prompt: vi.fn().mockRejectedValue(new Error('Prompt unavailable')),
-    userChoice: Promise.resolve({ outcome: 'dismissed' }),
-  });
+  const event = new Event('beforeinstallprompt', { cancelable: true });
   act(() => window.dispatchEvent(event));
-  fireEvent.click(screen.getByRole('button', { name: 'Installa app' }));
-  await waitFor(() =>
-    expect(useEditorStore.getState().notice).toContain('Installazione non riuscita'),
-  );
-  expect(screen.getByRole('button', { name: 'Installa app' })).toBeTruthy();
+  expect(event.defaultPrevented).toBe(false);
+  expect(screen.queryByRole('status')).toBeNull();
+});
+it('does not announce successful offline setup', async () => {
+  render(<PwaStatus />);
+  await waitFor(() => expect(mocks.register).toHaveBeenCalled());
+  expect(mocks.register.mock.calls[0][0].onOfflineReady).toBeUndefined();
+  expect(useEditorStore.getState().notice).toBe('');
 });

@@ -1,10 +1,10 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import App from '../src/App';
 import { createComponent } from '../src/model/catalog';
 import { emptyDocument } from '../src/model/demo';
-import { serializeDocument } from '../src/model/serialization';
+import { deserializeDocument, serializeDocument } from '../src/model/serialization';
 import type { CircuitComponent, Wire } from '../src/model/types';
 import { useEditorStore } from '../src/store/editorStore';
 import { resolveEndpoint } from '../src/utils/geometry';
@@ -394,11 +394,9 @@ describe('Smart Placement through palette and canvas', () => {
     key('Escape');
     const saved = serializeDocument(useEditorStore.getState().document);
     act(() => useEditorStore.getState().replace(emptyDocument()));
-    const file = new File([saved], 'smart.json', { type: 'application/json' });
-    Object.defineProperty(file, 'text', { value: async () => saved });
-    fireEvent.change(screen.getByLabelText('Apri file JSON'), { target: { files: [file] } });
-    await waitFor(() => expect(serializeDocument(useEditorStore.getState().document)).toBe(saved));
-    fireEvent.click(screen.getByRole('button', { name: /Esporta circuito/ }));
+    act(() => useEditorStore.getState().replace(deserializeDocument(saved)));
+    expect(serializeDocument(useEditorStore.getState().document)).toBe(saved);
+    fireEvent.click(screen.getByRole('button', { name: /^Esporta$/ }));
     expect(
       (screen.getByLabelText('Codice TikZ generato') as HTMLTextAreaElement).value,
     ).not.toMatch(/NaN|undefined/);

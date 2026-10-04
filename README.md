@@ -6,14 +6,14 @@ Editor web per creare rapidamente circuiti elettrici didattici ed esportarli in 
 
 [Open DrawCircuit](https://andrelombardo.github.io/drawcircuit/)
 
-Il sito funziona nel browser: non serve avviare un server locale. Gli schemi sono salvati nel browser utilizzato; per trasferirli usa File → Salva JSON / Apri JSON.
+Il sito funziona nel browser: non serve avviare un server locale. Il circuito viene conservato automaticamente nel browser utilizzato. L’icona download nella toolbar apre gli export TikZ, Obsidian e SVG; il pulsante Aiuto è in basso a destra. La toolbar si trascina dal grip e ricorda la posizione.
 
 ## Development
 
 Node.js **26.5.0**, come indicato in `.nvmrc` e usato in CI.
 
 ```sh
-npm install
+npm ci
 npm run dev
 ```
 

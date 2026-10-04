@@ -124,7 +124,7 @@ describe('persistent resizable component sidebar', () => {
     expect(
       screen.getByRole('toolbar', { name: 'Strumenti di disegno' }).closest('.editor'),
     ).toBeTruthy();
-    expect(screen.getByLabelText('Titolo circuito').closest('.topbar')).toBeTruthy();
+    expect(screen.queryByLabelText('Titolo circuito')).toBeNull();
     const separator = screen.getByRole('separator', { name: 'Ridimensiona barra componenti' });
     fireEvent.keyDown(separator, { key: 'End' });
     expect(separator.getAttribute('aria-valuenow')).toBe('480');

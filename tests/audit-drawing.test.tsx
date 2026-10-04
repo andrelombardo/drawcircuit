@@ -182,19 +182,16 @@ async function fixture(name: string) {
   fs.writeFileSync(`/private/tmp/drawcircuit-audit-${name}.json`, serializeDocument(doc));
   fs.writeFileSync(`/private/tmp/drawcircuit-audit-${name}.tex`, tex);
 }
-async function importJson(raw: string) {
-  const file = new File([raw], 'audit.json', { type: 'application/json' });
-  Object.defineProperty(file, 'text', { value: async () => raw });
-  fireEvent.change(screen.getByLabelText('Apri file JSON'), { target: { files: [file] } });
-  await waitFor(() => expect(serializeDocument(current())).toBe(raw));
+function restoreSerialized(raw: string) {
+  act(() => useEditorStore.getState().replace(deserializeDocument(raw)));
+  expect(serializeDocument(current())).toBe(raw);
 }
 
 describe('audit: actual rendered drawing workflows (jsdom, not manual browser)', () => {
-  it('completes the 25-step golden network and preserves save/new/load/autosave exactly', async () => {
+  it('completes the 25-step golden network and preserves serialization, replacement and autosave exactly', async () => {
     const error = vi.spyOn(console, 'error');
     render(<App />);
-    fireEvent.click(screen.getByRole('button', { name: 'Menu file' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Nuovo circuito' }));
+    act(() => useEditorStore.getState().replace(emptyDocument()));
     const rs = [
       place('resistor', -120, 0),
       place('resistor', 120, 0),
@@ -273,15 +270,10 @@ describe('audit: actual rendered drawing workflows (jsdom, not manual browser)',
     key('z', { metaKey: true, shiftKey: true });
     expect(current()).toEqual(afterBranch);
     const saved = serializeDocument(current());
-    fireEvent.click(screen.getByRole('button', { name: 'Menu file' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Salva JSON' }));
-    expect(URL.createObjectURL).toHaveBeenCalledOnce();
-    fireEvent.click(screen.getByRole('button', { name: 'Menu file' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Nuovo circuito' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Crea nuovo' }));
+    act(() => useEditorStore.getState().replace(emptyDocument()));
     expect(current().objects).toHaveLength(0);
-    await importJson(saved);
-    fireEvent.click(screen.getByRole('button', { name: /Esporta circuito/ }));
+    restoreSerialized(saved);
+    fireEvent.click(screen.getByRole('button', { name: /^Esporta$/ }));
     fireEvent.click(screen.getByRole('button', { name: 'File .tex' }));
     expect((screen.getByLabelText('Codice TikZ generato') as HTMLTextAreaElement).value).toContain(
       'arc[',
@@ -559,18 +551,15 @@ describe('audit: snapping, cancellation, topology and history edges', () => {
       JSON.stringify({ ...before, objects: [{ ...r, id: '' }] }),
       JSON.stringify({ ...before, objects: [{ ...r, rotation: 45 }] }),
     ]) {
-      const file = new File([raw], 'invalid.json', { type: 'application/json' });
-      Object.defineProperty(file, 'text', { value: async () => raw });
-      fireEvent.change(screen.getByLabelText('Apri file JSON'), { target: { files: [file] } });
-      await waitFor(() => expect(useEditorStore.getState().notice).not.toBe(''));
-      expect(current()).toBe(before);
+      expect(() => deserializeDocument(raw)).toThrow();
+      expect(current()).toEqual(before);
     }
     const legacy = {
       ...r,
       label: { ...r.label, fontFamily: undefined },
       terminals: r.terminals.map(({ id, localX, localY }) => ({ id, localX, localY })),
     };
-    await importJson(serializeDocument({ ...emptyDocument(), objects: [legacy] }));
+    restoreSerialized(serializeDocument({ ...emptyDocument(), objects: [legacy] }));
     expect(
       svg().querySelector(`[data-object="${r.id}"] [data-source]`)?.getAttribute('data-source'),
     ).toBe(r.label.text);
@@ -606,9 +595,7 @@ describe('audit: snapping, cancellation, topology and history edges', () => {
     key('w');
     click(0, 0);
     expect(current().objects.filter((o) => o.kind === 'junction')).toHaveLength(1);
-    fireEvent.click(screen.getByRole('button', { name: 'Menu file' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Nuovo circuito' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Crea nuovo' }));
+    act(() => useEditorStore.getState().replace(emptyDocument()));
     key('z', { metaKey: true });
     expect(current()).toEqual(committed);
   });

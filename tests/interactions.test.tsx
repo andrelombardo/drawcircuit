@@ -323,28 +323,26 @@ describe('complete editor workflows', () => {
       deserializeDocument(serializeDocument(useEditorStore.getState().document)),
     ).not.toThrow();
   });
-  it('imports a JSON file through the file input', async () => {
+  it('retains internal serialized replacement without exposing document controls', () => {
     render(<App />);
-    const doc = emptyDocument();
-    doc.title = 'Importato';
-    const file = new File([serializeDocument(doc)], 'test.json', { type: 'application/json' });
-    Object.defineProperty(file, 'text', { value: async () => serializeDocument(doc) });
-    fireEvent.change(screen.getByLabelText('Apri file JSON'), { target: { files: [file] } });
-    await waitFor(() => expect(useEditorStore.getState().document.title).toBe('Importato'));
-    expect(useEditorStore.getState().document.objects).toHaveLength(0);
+    const doc = { ...emptyDocument(), title: 'Importato' };
+    act(() => useEditorStore.getState().replace(deserializeDocument(serializeDocument(doc))));
+    expect(useEditorStore.getState().document).toEqual(doc);
+    expect(screen.queryByLabelText('Apri file JSON')).toBeNull();
+    expect(screen.queryByLabelText('Titolo circuito')).toBeNull();
   });
   it('generates copyable TikZ and a .tex download from the dialog', async () => {
     const createUrl = vi.fn(() => 'blob:test');
     Object.defineProperty(URL, 'createObjectURL', { configurable: true, value: createUrl });
     Object.defineProperty(URL, 'revokeObjectURL', { configurable: true, value: vi.fn() });
-    const anchorClick = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
     render(<App />);
-    fireEvent.click(screen.getByRole('button', { name: /Esporta circuito/ }));
+    fireEvent.click(screen.getByRole('button', { name: /^Esporta$/ }));
     fireEvent.click(screen.getByRole('button', { name: 'Copia TikZ' }));
     await waitFor(() => expect(clipboardText).toContain('\\begin{circuitikz}'));
     fireEvent.click(screen.getByRole('button', { name: 'Scarica .tex' }));
     expect(createUrl).toHaveBeenCalledOnce();
-    expect(anchorClick).toHaveBeenCalledOnce();
+    expect(HTMLAnchorElement.prototype.click).toHaveBeenCalledOnce();
   });
   it('renders 100 components, 200 wires and 100 annotations and keeps drag connections valid', () => {
     const components = Array.from({ length: 100 }, (_, i) => ({
@@ -595,7 +593,7 @@ describe('fast drawing interactions', () => {
     const complete = useEditorStore.getState().document;
     expect(complete.objects.filter((o) => o.kind === 'junction')).toHaveLength(5);
     expect(deserializeDocument(serializeDocument(complete))).toEqual(complete);
-    fireEvent.click(screen.getByRole('button', { name: /Esporta circuito/ }));
+    fireEvent.click(screen.getByRole('button', { name: /^Esporta$/ }));
     fireEvent.click(screen.getByRole('button', { name: 'File .tex' }));
     const code = (screen.getByLabelText('Codice TikZ generato') as HTMLTextAreaElement).value;
     expect(code).toBe(exportStandalone(complete));
@@ -879,10 +877,8 @@ describe('expanded library and annotation fonts in the rendered interface', () =
       expect(canvas().querySelector(`[data-object="${object.id}"] [data-source]`)).not.toBeNull();
     }
     const saved = serializeDocument(useEditorStore.getState().document);
-    const file = new File([saved], 'font-labels.json', { type: 'application/json' });
-    Object.defineProperty(file, 'text', { value: async () => saved });
-    fireEvent.change(screen.getByLabelText('Apri file JSON'), { target: { files: [file] } });
-    await waitFor(() => expect(serializeDocument(useEditorStore.getState().document)).toBe(saved));
+    act(() => useEditorStore.getState().replace(deserializeDocument(saved)));
+    expect(serializeDocument(useEditorStore.getState().document)).toBe(saved);
     const fs = await vi.importActual<{ writeFileSync: (path: string, data: string) => void }>(
       'node:fs',
     );
@@ -891,7 +887,7 @@ describe('expanded library and annotation fonts in the rendered interface', () =
       '/private/tmp/drawcircuit-font-labels.tex',
       exportStandalone(useEditorStore.getState().document),
     );
-    fireEvent.click(screen.getByRole('button', { name: /Esporta circuito/ }));
+    fireEvent.click(screen.getByRole('button', { name: /^Esporta$/ }));
     fireEvent.click(screen.getByRole('button', { name: 'File .tex' }));
     expect((screen.getByLabelText('Codice TikZ generato') as HTMLTextAreaElement).value).toContain(
       '\\ifPDFTeX',
@@ -902,7 +898,7 @@ describe('expanded library and annotation fonts in the rendered interface', () =
     const createUrl = vi.fn(() => 'blob:mixed');
     Object.defineProperty(URL, 'createObjectURL', { configurable: true, value: createUrl });
     Object.defineProperty(URL, 'revokeObjectURL', { configurable: true, value: vi.fn() });
-    const anchorClick = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
     const consoleError = vi.spyOn(console, 'error');
     useEditorStore.setState({ document: emptyDocument() });
     render(<App />);
@@ -1018,21 +1014,15 @@ describe('expanded library and annotation fonts in the rendered interface', () =
       }
     }
     const saved = serializeDocument(useEditorStore.getState().document);
-    fireEvent.click(screen.getByRole('button', { name: 'Menu file' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Salva JSON' }));
-    expect(createUrl).toHaveBeenCalledOnce();
-    expect(anchorClick).toHaveBeenCalledOnce();
-    const file = new File([saved], 'schema-misto.json', { type: 'application/json' });
-    Object.defineProperty(file, 'text', { value: async () => saved });
-    fireEvent.change(screen.getByLabelText('Apri file JSON'), { target: { files: [file] } });
-    await waitFor(() => expect(serializeDocument(useEditorStore.getState().document)).toBe(saved));
-    fireEvent.click(screen.getByRole('button', { name: /Esporta circuito/ }));
+    act(() => useEditorStore.getState().replace(deserializeDocument(saved)));
+    expect(serializeDocument(useEditorStore.getState().document)).toBe(saved);
+    fireEvent.click(screen.getByRole('button', { name: /^Esporta$/ }));
     fireEvent.click(screen.getByRole('button', { name: 'File .tex' }));
     const code = (screen.getByLabelText('Codice TikZ generato') as HTMLTextAreaElement).value;
     expect(code).not.toMatch(/undefined|NaN/);
     for (const type of types) expect(code).toContain(`% Component: ${type}`);
     fireEvent.click(screen.getByRole('button', { name: 'Scarica .tex' }));
-    expect(createUrl).toHaveBeenCalledTimes(2);
+    expect(createUrl).toHaveBeenCalledOnce();
     const fs = await vi.importActual<{ writeFileSync: (path: string, data: string) => void }>(
       'node:fs',
     );
