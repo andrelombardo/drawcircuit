@@ -17,11 +17,20 @@ for (const size of [16, 20, 24, 32, 48, 64, 128, 180, 192, 512]) {
     'stroke-width="4"',
     `stroke-width="${size <= 24 ? 6 : size === 32 ? 5 : 4}"`,
   );
-  const file = size === 180 ? 'apple-touch-icon.png' : `icon-${size}.png`;
+  // A new manifest URL makes the branding change explicit to already installed apps.
+  const file =
+    size === 180
+      ? 'apple-touch-icon.png'
+      : size === 192 || size === 512
+        ? `xnor-${size}.png`
+        : `icon-${size}.png`;
   await writeFile(new URL(`../public/icons/${file}`, import.meta.url), render(svg, size));
 }
 // The complete vector stays inside the central safe circle, including inputs and output.
 // Keep alpha here too: a platform may supply its own app-icon background.
 const inner = master.replace(/^[\s\S]*?<svg[^>]*>/, '').replace(/<\/svg>\s*$/, '');
 const mask = `<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512"><svg x="46.08" y="46.08" width="419.84" height="419.84" viewBox="0 0 192 192" fill="none">${inner}</svg></svg>`;
-await writeFile(new URL('../public/icons/maskable-512.png', import.meta.url), render(mask, 512));
+await writeFile(
+  new URL('../public/icons/maskable-xnor-512.png', import.meta.url),
+  render(mask, 512),
+);

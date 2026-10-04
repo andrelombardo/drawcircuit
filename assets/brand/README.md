@@ -7,3 +7,5 @@ The 192×192 viewBox centres the symmetry axis at x=96. The visible geometry spa
 Run `node scripts/create-pwa-icons.mjs` to regenerate the 1024×1024 transparent `drawcircuit-logo.png`, `public/logo.png`, the vector favicon, PNG icons at 16, 20, 24, 32, 48, 64, 128, 192 and 512 px, the 180 px Apple touch icon and the 512 px maskable icon. At 16–24 px the stroke is 6 master units, at 32 px it is 5, and all larger sizes retain 4. The shape is identical at every size. The transparent maskable asset fits the entire symbol inside the standard central safe circle; the installation platform may supply its own background.
 
 The README uses the master SVG. The browser title and manifest names remain `DrawCircuit`. The editor has no branding header, logo or app name.
+
+The manifest uses `xnor-192.png`, `xnor-512.png` and `maskable-xnor-512.png`. Distinct URLs expose the branding change to existing installations as well as new ones; the old generic PWA icon files are removed. A browser or operating system may still defer refreshing an already installed desktop icon.

@@ -15,9 +15,14 @@ export const pwaOptions: Partial<VitePWAOptions> = {
     background_color: '#ffffff',
     lang: 'it',
     icons: [
-      { src: 'icons/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
-      { src: 'icons/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
-      { src: 'icons/maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+      { src: 'icons/xnor-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
+      { src: 'icons/xnor-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
+      {
+        src: 'icons/maskable-xnor-512.png',
+        sizes: '512x512',
+        type: 'image/png',
+        purpose: 'maskable',
+      },
     ],
   },
   workbox: {
