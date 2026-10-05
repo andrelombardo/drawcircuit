@@ -1,7 +1,6 @@
 import { braceGeometry } from '../annotations/brace';
 import { bridgeGeometry, wireCrossings } from '../utils/crossings';
-import { electricalGeometry } from '../annotations/electrical';
-import { chevron } from './arrowheads';
+import { electricalDrawingGeometry } from '../annotations/electrical';
 import { mathContent, normalizeLatex, renderLatex } from '../math/latex';
 import { symbolText } from '../model/symbolGeometry';
 import type { CircuitDocument, Label, Point, Rotation } from '../model/types';
@@ -258,23 +257,19 @@ function generateTikz(source: CircuitDocument, canvas: boolean): string {
       );
       node(o.label.text, g.labelPoint, o.label.color, o.label.fontSize, o.label.rotation);
     } else if (o.kind === 'electrical') {
-      const g = electricalGeometry(o, doc);
+      const g = electricalDrawingGeometry(o, doc);
       lines.push(`% Electrical annotation: ${o.mode}`);
       if (o.mode === 'polarity') {
         node(o.reversed ? '-' : '+', g.start, o.color, 22, 0, 'middle', false, true);
         node(o.reversed ? '+' : '-', g.end, o.color, 22, 0, 'middle', false, true);
       } else {
-        if (!g.inline)
+        if (g.mask)
           lines.push(
-            `\\draw[draw=${col(o.color)},line width=${pixelsToPt(o.width)}pt] ${tikzCoordinate(g.start)} -- ${tikzCoordinate(g.end)};`,
+            `\\draw[draw=white,line width=${pixelsToPt(g.mask.width)}pt,line cap=butt] ${tikzCoordinate(g.mask.start)} -- ${tikzCoordinate(g.mask.end)};`,
           );
-        const head = chevron(g.arrowEnd, {
-          x: g.arrowEnd.x - g.arrowStart.x,
-          y: g.arrowEnd.y - g.arrowStart.y,
-        });
-        lines.push(
-          `\\draw[draw=${col(o.color)},line width=${pixelsToPt(o.width)}pt] ${head.map(tikzCoordinate).join(' -- ')};`,
-        );
+        const style = `draw=${col(o.color)},line width=${pixelsToPt(g.strokeWidth)}pt${g.inline ? ',line cap=round,line join=round' : ''}`;
+        lines.push(`\\draw[${style}] ${tikzCoordinate(g.start)} -- ${tikzCoordinate(g.end)};`);
+        lines.push(`\\draw[${style}] ${g.head.map(tikzCoordinate).join(' -- ')};`);
       }
       node(o.label.text, g.labelPoint, o.label.color, o.label.fontSize, o.label.rotation);
     } else if (o.kind === 'text') node(o.text, o, o.color, o.fontSize, o.rotation, o.align);

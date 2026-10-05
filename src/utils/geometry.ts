@@ -1,5 +1,5 @@
 import { braceGeometry } from '../annotations/brace';
-import { electricalGeometry } from '../annotations/electrical';
+import { electricalDrawingGeometry, electricalGeometry } from '../annotations/electrical';
 import { componentRegistry } from '../model/catalog';
 import { GRID } from '../model/types';
 import { getMeasurementBounds } from './measurementGeometry';
@@ -446,7 +446,8 @@ export function objectBounds(
       { x: p.x + o.width / 2, y: p.y + o.width / 2 },
     ]);
   } else if (o.kind === 'electrical') {
-    const g = electricalGeometry(o, doc);
+    const drawing = o.currentPlacement === 'inline' ? electricalDrawingGeometry(o, doc) : null;
+    const g = drawing ?? electricalGeometry(o, doc);
     const w = Math.max(24, o.label.text.length * o.label.fontSize * 0.6);
     points = [
       g.start,
@@ -454,6 +455,7 @@ export function objectBounds(
       { x: g.labelPoint.x - w / 2, y: g.labelPoint.y - o.label.fontSize },
       { x: g.labelPoint.x + w / 2, y: g.labelPoint.y + o.label.fontSize },
     ];
+    if (drawing) points.push(...drawing.head);
   } else if (o.kind === 'wire') points = wirePoints(o, doc);
   else if (o.kind === 'loop-arrow') return { x: o.x, y: o.y, width: o.width, height: o.height };
   else if (o.kind === 'arrow') {

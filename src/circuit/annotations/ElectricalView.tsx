@@ -1,7 +1,6 @@
 import type { CircuitDocument, ElectricalAnnotation } from '../../model/types';
-import { electricalGeometry } from '../../annotations/electrical';
+import { electricalDrawingGeometry } from '../../annotations/electrical';
 import { pointsPath } from '../../utils/geometry';
-import { chevron } from '../../tikz/arrowheads';
 import { MathText } from './MathText';
 import { CIRCUIT_FONT } from '../../model/fonts';
 export function ElectricalView({
@@ -19,11 +18,7 @@ export function ElectricalView({
   hideLabel?: boolean;
   zoom?: number;
 }) {
-  const g = electricalGeometry(o, doc);
-  const head = chevron(g.arrowEnd, {
-    x: g.arrowEnd.x - g.arrowStart.x,
-    y: g.arrowEnd.y - g.arrowStart.y,
-  });
+  const g = electricalDrawingGeometry(o, doc, zoom);
   // A fixed screen hit corridor covers nearby objects when zoomed out.
   // Cap it in world space while preserving the normal screen hit allowance.
   const hitWidth = Math.min(20, 20 * zoom);
@@ -32,8 +27,20 @@ export function ElectricalView({
       data-object={o.id}
       data-electrical={o.mode}
       data-current-placement={o.mode === 'current' ? (o.currentPlacement ?? 'external') : undefined}
+      data-current-fallback={g.fallback || undefined}
       className={`circuit-object${selected ? ' selected-symbol' : ''}`}
     >
+      {g.mask && (
+        <path
+          data-current-mask="true"
+          d={pointsPath([g.mask.start, g.mask.end])}
+          stroke="white"
+          strokeWidth={g.mask.width}
+          strokeLinecap="butt"
+          fill="none"
+          pointerEvents="none"
+        />
+      )}
       <path
         d={pointsPath([g.start, g.end])}
         stroke="transparent"
@@ -62,12 +69,12 @@ export function ElectricalView({
         <g
           fill="none"
           stroke={o.color}
-          strokeWidth={o.width}
+          strokeWidth={g.strokeWidth}
           strokeLinecap="round"
           strokeLinejoin="round"
         >
-          {!g.inline && <path d={pointsPath([g.start, g.end])} />}
-          <path d={pointsPath(head)} />
+          <path d={pointsPath([g.start, g.end])} />
+          <path d={pointsPath(g.head)} />
         </g>
       )}
       {!hideLabel && (

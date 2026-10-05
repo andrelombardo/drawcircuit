@@ -27,6 +27,11 @@ describe('semantic math primes without changes to other typography', () => {
     ['A^{’}', 'A^{\\prime}'],
     ['A^{‘}', 'A^{\\prime}'],
     ['A^{′}', 'A^{\\prime}'],
+    ['A^`', 'A^{\\prime}'],
+    ['A^{`}', 'A^{\\prime}'],
+    ['A^{``}', 'A^{\\prime\\prime}'],
+    ['A^{```}', 'A^{\\prime\\prime\\prime}'],
+    ['A^``', 'A^{\\prime\\prime}'],
     ['A’', 'A^{\\prime}'],
     ['A‘', 'A^{\\prime}'],
     ['A′', 'A^{\\prime}'],
@@ -50,39 +55,61 @@ describe('semantic math primes without changes to other typography', () => {
     },
   );
 
-  it.each(['A_1', 'A^2', 'A^{10}', 'x^{10}', 'V_{AB}', 'r_{AC}', '\\Delta V', '50\\,\\Omega'])(
-    '%s keeps byte-identical KaTeX layout to the previous renderer',
-    (source) => {
-      expect(normalizeLatex(source)).toBe(source);
-      expect(renderLatex(source).html).toBe(
-        katex.renderToString(source, {
-          output: 'htmlAndMathml',
-          throwOnError: true,
-          trust: false,
-          strict: 'ignore',
-          maxExpand: 1000,
-          maxSize: 20,
-        }),
-      );
-    },
-  );
+  it.each([
+    'A_1',
+    'A^2',
+    'A^{10}',
+    'A^n',
+    'A^{AB}',
+    'x^{10}',
+    'V_{AB}',
+    'r_{AC}',
+    '\\Delta V',
+    '50\\,\\Omega',
+  ])('%s keeps byte-identical KaTeX layout to the previous renderer', (source) => {
+    expect(normalizeLatex(source)).toBe(source);
+    expect(renderLatex(source).html).toBe(
+      katex.renderToString(source, {
+        output: 'htmlAndMathml',
+        throwOnError: true,
+        trust: false,
+        strict: 'ignore',
+        maxExpand: 1000,
+        maxSize: 20,
+      }),
+    );
+  });
 
-  it.each(['A', "l'amico", 'l’amico', "Don't alter A' in prose", 'L’unità', '‘A’'])(
-    '%s remains plain text with its original apostrophes',
-    (source) => {
-      expect(isMathSource(source)).toBe(false);
-      expect(normalizeLatex(source)).toBe(source);
-      expect(renderLatex(source)).toEqual({ kind: 'plain', source });
-    },
-  );
+  it.each([
+    'A',
+    'usa `questo`',
+    'A`',
+    "l'amico",
+    'l’amico',
+    "Don't alter A' in prose",
+    'L’unità',
+    '‘A’',
+  ])('%s remains plain text with its original apostrophes', (source) => {
+    expect(isMathSource(source)).toBe(false);
+    expect(normalizeLatex(source)).toBe(source);
+    expect(renderLatex(source)).toEqual({ kind: 'plain', source });
+  });
 
   it.each([
     "\\text{l’amico e A^{'}} + x^2",
     "\\textbf{{Don't} say ‘A’}_1",
     '\\operatorname{d’Alembert}_1',
     "\\verb|A^{'}|",
+    '\\text{usa `questo` e A^{`}} + x^2',
+    '\\verb|A^{`}|',
   ])('preserves text-command and literal arguments: %s', (source) => {
     expect(normalizeLatex(source)).toBe(source);
+  });
+
+  it('limits grave normalization to prime-only superscripts, including mixed prime variants', () => {
+    expect(normalizeLatex('A^{`’\\prime}')).toBe('A^{\\prime\\prime\\prime}');
+    for (const source of ['A_{`}', 'A^{2`}', 'A + `', 'A^{\\`}', 'A^{`'])
+      expect(normalizeLatex(source)).toBe(source);
   });
 
   it('retains native shorthand parsing when a prime is combined with other scripts', () => {
@@ -99,7 +126,7 @@ describe('semantic math primes without changes to other typography', () => {
 
   it('uses the same semantic primes in TikZ/Obsidian and preserves stored document text', () => {
     const component = createComponent('resistor', { x: 0, y: 0 });
-    component.label.text = 'A^{’}';
+    component.label.text = 'A^{`}';
     const doc = { version: 1 as const, title: 'Prime', objects: [component] };
     const stored = serializeDocument(doc);
     expect(texText(component.label.text)).toBe('$A^{\\prime}$');
@@ -107,6 +134,6 @@ describe('semantic math primes without changes to other typography', () => {
     expect(exportObsidian(doc)).toContain('$A^{\\prime}$');
     expect(texText('AB’', true)).toBe("$AB'$");
     expect(serializeDocument(doc)).toBe(stored);
-    expect(deserializeDocument(stored).objects[0]).toMatchObject({ label: { text: 'A^{’}' } });
+    expect(deserializeDocument(stored).objects[0]).toMatchObject({ label: { text: 'A^{`}' } });
   });
 });

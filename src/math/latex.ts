@@ -1,6 +1,7 @@
 import katex from 'katex';
 
 const primeCharacter = /['‘’′]/u;
+const superscriptPrimeCharacter = /['‘’′`]/u;
 const barePrimeSource = /^[A-Za-z\u0370-\u03ff]['‘’′]+$/u;
 export const isMathSource = (source: string): boolean =>
   /[_^\\$\u0370-\u03ff]/u.test(source) || barePrimeSource.test(source.trim());
@@ -60,6 +61,8 @@ function normalizePrimes(source: string): string {
       }
     }
     if (source[i] === '^' || source[i] === '_') {
+      const superscript = source[i] === '^';
+      const characters = superscript ? superscriptPrimeCharacter : primeCharacter;
       let start = i + 1;
       while (/\s/u.test(source[start] ?? '') && start < source.length) start++;
       let end = start;
@@ -67,14 +70,16 @@ function normalizePrimes(source: string): string {
       if (source[start] === '{') {
         end = groupEnd(source, start);
         const argument = source.slice(start + 1, end - 1);
-        if (source[end - 1] === '}' && /^(?:['‘’′]|\\prime(?![a-zA-Z])|\s)+$/u.test(argument))
-          primes = argument;
+        const primeOnly = superscript
+          ? /^(?:['‘’′`]|\\prime(?![a-zA-Z])|\s)+$/u
+          : /^(?:['‘’′]|\\prime(?![a-zA-Z])|\s)+$/u;
+        if (source[end - 1] === '}' && primeOnly.test(argument)) primes = argument;
       } else {
-        while (primeCharacter.test(source[end] ?? '') && end < source.length) end++;
+        while (characters.test(source[end] ?? '') && end < source.length) end++;
         primes = source.slice(start, end);
       }
-      if (primeCharacter.test(primes)) {
-        const normalized = primes.replace(/['‘’′]/gu, '\\prime');
+      if (characters.test(primes)) {
+        const normalized = primes.replace(superscript ? /['‘’′`]/gu : /['‘’′]/gu, '\\prime');
         result += `${source.slice(i, start)}{${normalized}}`;
         i = end;
         continue;
@@ -91,7 +96,7 @@ function normalizePrimes(source: string): string {
 /** Rendering/export normalization never changes the stored user source. */
 export const normalizeLatex = (source: string, forceMath = false): string => {
   const aliases = source.replace(/\\ohm(?![a-zA-Z])/g, '\\Omega');
-  return primeCharacter.test(aliases) && (forceMath || isMathSource(source))
+  return superscriptPrimeCharacter.test(aliases) && (forceMath || isMathSource(source))
     ? normalizePrimes(aliases)
     : aliases;
 };

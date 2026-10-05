@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { Resvg } from '@resvg/resvg-js';
-import { createCurrent, electricalGeometry } from '../src/annotations/electrical';
+import {
+  createCurrent,
+  electricalGeometry,
+  electricalDrawingGeometry,
+} from '../src/annotations/electrical';
 import { ElectricalView } from '../src/circuit/annotations/ElectricalView';
 import { emptyDocument } from '../src/model/demo';
 import { createComponent } from '../src/model/catalog';
@@ -16,7 +20,6 @@ import { useEditorStore } from '../src/store/editorStore';
 import { exportSVG } from '../src/svg/exporter';
 import { exportTikz, exportObsidian } from '../src/tikz/exporter';
 import { getExportSelection } from '../src/tikz/selection';
-import { chevron } from '../src/tikz/arrowheads';
 import { add, moveObject, pointsPath, rotatePoint, wirePoints } from '../src/utils/geometry';
 import {
   cloneObjects,
@@ -61,10 +64,7 @@ describe('external and integrated current use one wire-associated annotation', (
     const reverse = electricalGeometry({ ...annotation, reversed: true }, doc);
     expect(reverse.arrowEnd).toEqual(geometry.arrowEnd);
     expect(reverse.arrowStart).toEqual(geometry.end);
-    const head = chevron(geometry.arrowEnd, {
-      x: geometry.arrowEnd.x - geometry.arrowStart.x,
-      y: geometry.arrowEnd.y - geometry.arrowStart.y,
-    });
+    const head = electricalDrawingGeometry(annotation, doc).head;
     expect(exportSVG(doc)).toContain(`d="${pointsPath(head)}"`);
     expect(serializeDocument(doc)).toBe(before);
     expect(wirePoints(wire, doc)).toEqual(route);
@@ -404,14 +404,14 @@ describe('external and integrated current use one wire-associated annotation', (
     expect(electricalGeometry(current, moved).arrowEnd).toEqual({ x: 240, y: 60 });
   });
 
-  it('uses the same centered head with no extra shaft in canvas, SVG, PNG, TikZ and Obsidian', () => {
+  it('uses the same masked shaft and head in canvas, SVG, PNG, TikZ and Obsidian', () => {
     const { annotation, doc } = fixture();
     annotation.label.text = '';
     const markup = renderToStaticMarkup(<ElectricalView object={annotation} doc={doc} hideLabel />);
     expect(markup).toContain('data-current-placement="inline"');
-    expect(markup.match(/<path /g)).toHaveLength(2); // hit corridor + visible arrowhead
+    expect(markup.match(/<path /g)).toHaveLength(4); // mask + hit corridor + shaft + head
     const svg = exportSVG(doc);
-    expect(svg.match(/<path /g)).toHaveLength(2); // unchanged wire + visible arrowhead
+    expect(svg.match(/<path /g)).toHaveLength(4); // unchanged wire + mask + shaft + head
     expect(svg).not.toContain('transparent');
     const png = new Resvg(svg).render();
     expect([...png.asPng().slice(0, 8)]).toEqual([137, 80, 78, 71, 13, 10, 26, 10]);
@@ -428,7 +428,7 @@ describe('external and integrated current use one wire-associated annotation', (
       const electrical = output
         .split('% Electrical annotation: current')[1]
         .split('\\end{circuitikz}')[0];
-      expect(electrical.match(/\\draw\[/g)).toHaveLength(1);
+      expect(electrical.match(/\\draw\[/g)).toHaveLength(3);
     }
     annotation.currentPlacement = 'external';
     expect(exportSVG(doc).match(/<path /g)).toHaveLength(3);

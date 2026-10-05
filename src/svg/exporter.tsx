@@ -5,12 +5,12 @@ import { bridgePaths, wireCrossings } from '../utils/crossings';
 import type { CircuitDocument, Point, Rotation } from '../model/types';
 import { canvasTextLayout, xmlText } from '../tikz/canvasText';
 import { isExportableObject } from '../tikz/validation';
-import { canvasArrowHead, chevron } from '../tikz/arrowheads';
+import { canvasArrowHead } from '../tikz/arrowheads';
 import { arrowPath, pointsPath, wirePoints } from '../utils/geometry';
 import { loopPath } from '../utils/loops';
 import { visualBounds, unionBounds } from '../utils/visualBounds';
 import type { Bounds } from '../utils/visualBounds';
-import { electricalGeometry } from '../annotations/electrical';
+import { electricalDrawingGeometry } from '../annotations/electrical';
 import { CIRCUIT_FONT } from '../model/fonts';
 import { formatNumber as f } from '../tikz/units';
 const attr = (s: string) =>
@@ -75,8 +75,8 @@ export function exportSVG(source: CircuitDocument): string {
       })
       .join('');
   };
-  const path = (d: string, color: string, width: number) =>
-    `<path d="${attr(d)}" fill="none" stroke="${color}" stroke-width="${f(width)}" stroke-linecap="round" stroke-linejoin="round"/>`;
+  const path = (d: string, color: string, width: number, cap = 'round') =>
+    `<path d="${attr(d)}" fill="none" stroke="${color}" stroke-width="${f(width)}" stroke-linecap="${cap}" stroke-linejoin="round"/>`;
   for (const o of doc.objects.filter((o) => o.kind === 'wire')) {
     try {
       parts.push(path(pointsPath(wirePoints(o, doc)), o.color, o.width));
@@ -158,7 +158,7 @@ export function exportSVG(source: CircuitDocument): string {
         text(o.label.text, g.labelPoint, o.label.color, o.label.fontSize, o.label.rotation),
       );
     } else if (o.kind === 'electrical') {
-      const g = electricalGeometry(o, doc);
+      const g = electricalDrawingGeometry(o, doc);
       boxes.push({
         x: Math.min(g.start.x, g.end.x) - o.width / 2,
         y: Math.min(g.start.y, g.end.y) - o.width / 2,
@@ -171,22 +171,32 @@ export function exportSVG(source: CircuitDocument): string {
           text(o.reversed ? '+' : '−', g.end, o.color, 22),
         );
       else {
-        const head = chevron(g.arrowEnd, {
-          x: g.arrowEnd.x - g.arrowStart.x,
-          y: g.arrowEnd.y - g.arrowStart.y,
-        });
+        const head = g.head;
         boxes.push(
           unionBounds(
             head.map((p) => ({
-              x: p.x - o.width / 2,
-              y: p.y - o.width / 2,
-              width: o.width,
-              height: o.width,
+              x: p.x - g.strokeWidth / 2,
+              y: p.y - g.strokeWidth / 2,
+              width: g.strokeWidth,
+              height: g.strokeWidth,
             })),
           ),
         );
-        if (!g.inline) parts.push(path(pointsPath([g.start, g.end]), o.color, o.width));
-        parts.push(path(pointsPath(head), o.color, o.width));
+        if (g.mask) {
+          parts.push(path(pointsPath([g.mask.start, g.mask.end]), 'white', g.mask.width, 'butt'));
+          boxes.push(
+            unionBounds(
+              [g.mask.start, g.mask.end].map((p) => ({
+                x: p.x - g.mask!.width / 2,
+                y: p.y - g.mask!.width / 2,
+                width: g.mask!.width,
+                height: g.mask!.width,
+              })),
+            ),
+          );
+        }
+        parts.push(path(pointsPath([g.start, g.end]), o.color, g.strokeWidth));
+        parts.push(path(pointsPath(head), o.color, g.strokeWidth));
       }
       labels.push(
         text(o.label.text, g.labelPoint, o.label.color, o.label.fontSize, o.label.rotation),

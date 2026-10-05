@@ -15,6 +15,26 @@ import {
   projectOnSegment,
   wirePoints,
 } from '../utils/geometry';
+import { chevron } from '../tikz/arrowheads';
+
+function currentBranch(o: ElectricalAnnotation, doc: CircuitDocument) {
+  const wire = o.wireId ? doc.objects.find((item) => item.id === o.wireId) : undefined;
+  if (wire?.kind !== 'wire') return null;
+  const points = wirePoints(wire, doc);
+  const lengths = points.slice(1).map((p, i) => distance(points[i], p));
+  let remaining = o.ratio * lengths.reduce((a, b) => a + b, 0),
+    segment = 0;
+  while (segment < lengths.length - 1 && remaining > lengths[segment])
+    remaining -= lengths[segment++];
+  if (o.wireSegment) {
+    segment = Math.min(o.wireSegment.index, Math.max(0, lengths.length - 1));
+    remaining = o.wireSegment.ratio * (lengths[segment] || 0);
+  }
+  const a = points[segment] ?? o.start,
+    b = points[segment + 1] ?? o.end,
+    length = lengths[segment] || 1;
+  return { a, b, length, remaining, width: wire.width };
+}
 
 export function electricalGeometry(o: ElectricalAnnotation, doc: CircuitDocument) {
   let start = o.start,
@@ -22,22 +42,9 @@ export function electricalGeometry(o: ElectricalAnnotation, doc: CircuitDocument
   const inline = o.mode === 'current' && o.currentPlacement === 'inline';
   let constrainedOffset = false;
   if (o.wireId) {
-    const wire = doc.objects.find((o2) => o2.id === o.wireId);
-    if (wire?.kind === 'wire') {
-      const points = wirePoints(wire, doc);
-      const lengths = points.slice(1).map((p, i) => distance(points[i], p));
-      const total = lengths.reduce((a, b) => a + b, 0);
-      let remaining = o.ratio * total,
-        segment = 0;
-      while (segment < lengths.length - 1 && remaining > lengths[segment])
-        remaining -= lengths[segment++];
-      if (o.wireSegment) {
-        segment = Math.min(o.wireSegment.index, Math.max(0, lengths.length - 1));
-        remaining = o.wireSegment.ratio * (lengths[segment] || 0);
-      }
-      const a = points[segment] ?? start,
-        b = points[segment + 1] ?? end;
-      const length = lengths[segment] || 1;
+    const branch = currentBranch(o, doc);
+    if (branch) {
+      const { a, b, length, remaining } = branch;
       const tangent = { x: (b.x - a.x) / length, y: (b.y - a.y) / length };
       const half = Math.min(30, length / 2);
       // An integrated annotation can slide along its branch but cannot leave it.
@@ -87,6 +94,77 @@ export function electricalGeometry(o: ElectricalAnnotation, doc: CircuitDocument
     arrowStart: o.reversed ? end : start,
     arrowEnd: inline ? middle : o.reversed ? start : end,
   };
+}
+
+export const INLINE_CURRENT_LENGTH_PX = 36;
+export const INLINE_CURRENT_MIN_LENGTH_PX = 28;
+export const INLINE_CURRENT_GAP_PX = 4;
+const INLINE_CURRENT_ENDPOINT_CLEARANCE_PX = 6;
+
+/** Visual geometry only. The wire, stored branch anchor and label offsets stay intact.
+ * Canvas dimensions use screen pixels; exports use the same geometry at zoom 1. */
+export function electricalDrawingGeometry(o: ElectricalAnnotation, doc: CircuitDocument, zoom = 1) {
+  const g = electricalGeometry(o, doc);
+  const z = Number.isFinite(zoom) && zoom > 0 ? zoom : 1;
+  const originalHead = chevron(g.arrowEnd, {
+    x: g.arrowEnd.x - g.arrowStart.x,
+    y: g.arrowEnd.y - g.arrowStart.y,
+  });
+  if (!g.inline)
+    return { ...g, head: originalHead, strokeWidth: o.width, mask: null, fallback: false };
+  const branch = currentBranch(o, doc);
+  const length = distance(g.start, g.end);
+  const tangent = length
+    ? { x: (g.end.x - g.start.x) / length, y: (g.end.y - g.start.y) / length }
+    : { x: 1, y: 0 };
+  const normal = { x: tangent.y, y: -tangent.x };
+  const gap = INLINE_CURRENT_GAP_PX / z;
+  const clearance = INLINE_CURRENT_ENDPOINT_CLEARANCE_PX / z;
+  const available = branch ? distance(branch.a, branch.b) : length;
+  const fallback =
+    available * z <
+    INLINE_CURRENT_MIN_LENGTH_PX +
+      2 * INLINE_CURRENT_GAP_PX +
+      (branch ? 2 * INLINE_CURRENT_ENDPOINT_CLEARANCE_PX : 0);
+  const visualLength = fallback
+    ? INLINE_CURRENT_LENGTH_PX / z
+    : Math.min(INLINE_CURRENT_LENGTH_PX / z, available - 2 * gap - (branch ? 2 * clearance : 0));
+  let center = midpoint(g.start, g.end);
+  if (fallback) center = add(center, { x: (normal.x * 16) / z, y: (normal.y * 16) / z });
+  else if (branch) {
+    const margin = visualLength / 2 + gap + clearance;
+    const along = Math.max(
+      margin,
+      Math.min(
+        available - margin,
+        branch.remaining + o.offset.x * tangent.x + o.offset.y * tangent.y,
+      ),
+    );
+    center = add(branch.a, { x: tangent.x * along, y: tangent.y * along });
+  }
+  const at = (along: number) => add(center, { x: tangent.x * along, y: tangent.y * along });
+  const start = at(-visualLength / 2),
+    end = at(visualLength / 2);
+  const arrowStart = o.reversed ? end : start,
+    arrowEnd = o.reversed ? start : end;
+  const sign = o.reversed ? -1 : 1;
+  const head = [-1, 0, 1].map((side) =>
+    side === 0
+      ? arrowEnd
+      : {
+          x: arrowEnd.x - (sign * tangent.x * 10) / z + (normal.x * side * 4.5) / z,
+          y: arrowEnd.y - (sign * tangent.y * 10) / z + (normal.y * side * 4.5) / z,
+        },
+  );
+  const strokeWidth = Math.max(o.width, 2.2 / z);
+  const mask = fallback
+    ? null
+    : {
+        start: at(-visualLength / 2 - gap),
+        end: at(visualLength / 2 + gap),
+        width: Math.max(branch?.width ?? 0, strokeWidth) + 4 / z,
+      };
+  return { ...g, start, end, arrowStart, arrowEnd, head, strokeWidth, mask, fallback };
 }
 
 /** The selected branch position, before the external display separation or drag offset. */
