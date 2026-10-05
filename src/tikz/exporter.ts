@@ -1,6 +1,10 @@
 import { braceGeometry } from '../annotations/brace';
 import { bridgeGeometry, wireCrossings } from '../utils/crossings';
-import { electricalDrawingGeometry } from '../annotations/electrical';
+import {
+  currentWireGaps,
+  electricalDrawingGeometry,
+  wireDrawingPaths,
+} from '../annotations/electrical';
 import { mathContent, normalizeLatex, renderLatex } from '../math/latex';
 import { symbolText } from '../model/symbolGeometry';
 import type { CircuitDocument, Label, Point, Rotation } from '../model/types';
@@ -147,6 +151,7 @@ function generateTikz(source: CircuitDocument, canvas: boolean): string {
   };
   // Wires first: native component bodies then cover their own interiors.
   const wires = new Set<string>();
+  const currentGaps = currentWireGaps(doc);
   for (const o of doc.objects)
     if (o.kind === 'wire') {
       let points: Point[];
@@ -157,11 +162,13 @@ function generateTikz(source: CircuitDocument, canvas: boolean): string {
         continue;
       }
       if (points.length < 2 || !points.every(finitePoint)) continue;
-      const path = points.map(tikzCoordinate).filter((p, i, all) => !i || p !== all[i - 1]);
-      if (path.length < 2) continue;
-      const line = `\\draw[draw=${col(o.color)}, line width=${pixelsToPt(o.width)}pt] ${path.join(' -- ')};`;
-      if (!wires.has(line)) lines.push(line);
-      wires.add(line);
+      for (const subpath of wireDrawingPaths(points, currentGaps.get(o.id))) {
+        const path = subpath.map(tikzCoordinate).filter((p, i, all) => !i || p !== all[i - 1]);
+        if (path.length < 2) continue;
+        const line = `\\draw[draw=${col(o.color)}, line width=${pixelsToPt(o.width)}pt] ${path.join(' -- ')};`;
+        if (!wires.has(line)) lines.push(line);
+        wires.add(line);
+      }
     }
   for (const c of wireCrossings(doc)) {
     const g = bridgeGeometry(c),
@@ -263,15 +270,11 @@ function generateTikz(source: CircuitDocument, canvas: boolean): string {
         node(o.reversed ? '-' : '+', g.start, o.color, 22, 0, 'middle', false, true);
         node(o.reversed ? '+' : '-', g.end, o.color, 22, 0, 'middle', false, true);
       } else {
-        if (g.mask)
-          lines.push(
-            `\\draw[draw=white,line width=${pixelsToPt(g.mask.width)}pt,line cap=butt] ${tikzCoordinate(g.mask.start)} -- ${tikzCoordinate(g.mask.end)};`,
-          );
         const style = `draw=${col(o.color)},line width=${pixelsToPt(g.strokeWidth)}pt${g.inline ? ',line cap=round,line join=round' : ''}`;
         lines.push(`\\draw[${style}] ${tikzCoordinate(g.start)} -- ${tikzCoordinate(g.end)};`);
         lines.push(`\\draw[${style}] ${g.head.map(tikzCoordinate).join(' -- ')};`);
       }
-      node(o.label.text, g.labelPoint, o.label.color, o.label.fontSize, o.label.rotation);
+      node(o.label.text, g.labelPoint, o.label.color, g.labelFontSize, o.label.rotation);
     } else if (o.kind === 'text') node(o.text, o, o.color, o.fontSize, o.rotation, o.align);
     else if (o.kind === 'loop-arrow') {
       const g = loopGeometry({ ...o, arrowPosition: wrapPosition(o.arrowPosition) });

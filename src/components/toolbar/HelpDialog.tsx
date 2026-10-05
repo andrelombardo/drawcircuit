@@ -83,12 +83,15 @@ export function HelpDialog({ onClose }: { onClose: () => void }) {
         </p>
         <p className="help-note">
           L’anteprima Smart Placement indica aggancio e collegamento; Alt/Option li ignora.
-          “Inserisci in filo” è nel feedback in basso. Il menu I/V aggiunge correnti, polarità e
-          tensioni. “Graffe e staffe” apre Graffa e Staffa: trascina per raggruppare, poi aggiungi
-          l’etichetta; R ruota di 90° e “Inverti lato” cambia lato. Trascina il grip per spostare la
-          toolbar: la posizione viene ricordata. Export offre TikZ, Obsidian, File .tex, SVG e le
-          azioni dirette “Copia PNG” e “Scarica PNG”, anche per la selezione. Il circuito e il
-          livello di zoom vengono salvati automaticamente in questo browser.
+          “Inserisci in filo” è nel feedback in basso. La matita “Disegno e annotazioni” raccoglie
+          fili, nodi, frecce, maglie e annotazioni elettriche. “Corrente sul filo” apre Integrata ed
+          Esterna; dalla toolbar di un filo selezionato la corrente si applica subito. “Polarità + /
+          −” si applica direttamente anche dalla toolbar dei componenti compatibili. “Graffa /
+          Staffa” apre Graffa e Staffa: trascina per raggruppare, poi aggiungi l’etichetta; R ruota
+          di 90° e “Inverti lato” cambia lato. Trascina il grip per spostare la toolbar: la
+          posizione viene ricordata. Export offre TikZ, Obsidian, File .tex, SVG e le azioni dirette
+          “Copia PNG” e “Scarica PNG”, anche per la selezione. Il circuito e il livello di zoom
+          vengono salvati automaticamente in questo browser.
         </p>
       </section>
     </div>

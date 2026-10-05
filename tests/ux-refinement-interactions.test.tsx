@@ -378,7 +378,7 @@ describe('compact Style and replacement controls', () => {
         .getAllByRole('button')
         .filter((b) => !b.closest('.context-popover'))
         .map((b) => b.getAttribute('aria-label')),
-    ).toEqual(['Stile', 'Ruota 45° (R)', 'Duplica (⌘/Ctrl D)', 'Altre proprietà']);
+    ).toEqual(['Stile', 'Polarità + / -', 'Ruota 45° (R)', 'Duplica (⌘/Ctrl D)', 'Altre proprietà']);
     expect(toolbar.querySelector('.context-more')?.hasAttribute('open')).toBe(false);
     fireEvent.click(screen.getByRole('button', { name: 'Stile' }));
     fireEvent.click(screen.getByRole('button', { name: 'Simbolo: Rosso' }));

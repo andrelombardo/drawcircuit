@@ -143,7 +143,7 @@ describe('selection PNG shortcut', () => {
       useEditorStore.setState({ document: doc, selection });
       render(<Canvas />);
       fireEvent.click(screen.getByRole('button', { name: 'Altre proprietà' }));
-      fireEvent.click(screen.getByRole('button', { name: 'Copia PNG' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Copia come immagine' }));
       await waitFor(() => expect(useEditorStore.getState().notice).toBe('PNG copiato'));
       expect(copyPNG).toHaveBeenCalledExactlyOnceWith(getExportSelection(doc, selection));
       expect(screen.queryByRole('dialog')).toBeNull();
@@ -159,8 +159,9 @@ describe('current mode controls', () => {
     const doc: CircuitDocument = { version: 1, title: 'Modes', objects: [wire] };
     useEditorStore.setState({ document: doc });
     render(<Canvas />);
-    fireEvent.click(screen.getByRole('button', { name: 'Annotazioni elettriche' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Integrata' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Disegno e annotazioni' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Corrente sul filo' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Integrata' }));
     fireEvent.pointerDown(canvas(), client(120, 0));
     const created = useEditorStore
       .getState()
@@ -184,5 +185,89 @@ describe('current mode controls', () => {
     // Geometry shares exactly the same object and wire association for both modes.
     const inline = createCurrent(wire, { x: 120, y: 0 }, doc, 'inline');
     expect(electricalGeometry(inline, doc).arrowEnd.y).toBe(0);
+  });
+});
+
+describe('direct contextual annotations and canvas focus', () => {
+  it.each(['inline', 'external'] as const)(
+    'adds %s current to the selected wire without another canvas click',
+    (placement) => {
+      const wire = createWire(
+        { kind: 'free', point: { x: 0, y: 0 } },
+        { kind: 'free', point: { x: 400, y: 100 } },
+        [{ x: 400, y: 0 }],
+      );
+      const doc: CircuitDocument = { version: 1, title: 'Direct current', objects: [wire] };
+      useEditorStore.setState({ document: doc, selection: [wire.id] });
+      render(<Canvas />);
+      fireEvent.click(screen.getByRole('button', { name: 'Corrente sul filo' }));
+      fireEvent.click(
+        screen.getByRole('menuitem', { name: placement === 'inline' ? 'Integrata' : 'Esterna' }),
+      );
+      const state = useEditorStore.getState();
+      expect(state.tool).toBe('select');
+      expect(state.document.objects).toHaveLength(2);
+      expect(state.document.objects[0]).toBe(wire);
+      const current = state.document.objects[1];
+      expect(current).toMatchObject({
+        kind: 'electrical',
+        wireId: wire.id,
+        currentPlacement: placement,
+        wireSegment: { index: 0, ratio: 0.5 },
+      });
+      expect(state.selection).toEqual([current.id]);
+      act(() => state.undo());
+      expect(useEditorStore.getState().document).toEqual(doc);
+      act(() => state.redo());
+      expect(useEditorStore.getState().document.objects[1]).toEqual(current);
+    },
+  );
+  it.each(['resistor', 'capacitor', 'voltageSource', 'diode', 'motor'] as const)(
+    'directly associates polarity with compatible %s',
+    (type) => {
+      const component = createComponent(type, { x: 0, y: 0 });
+      const doc: CircuitDocument = { version: 1, title: 'Direct polarity', objects: [component] };
+      useEditorStore.setState({ document: doc, selection: [component.id] });
+      render(<Canvas />);
+      fireEvent.click(screen.getByRole('button', { name: 'Polarità + / -' }));
+      const state = useEditorStore.getState();
+      expect(state.tool).toBe('select');
+      expect(state.document.objects[1]).toMatchObject({
+        kind: 'electrical',
+        mode: 'polarity',
+        componentId: component.id,
+      });
+      expect(state.past).toHaveLength(1);
+    },
+  );
+  it.each(['notGate', 'connector2', 'npn', 'ground', 'transformer'] as const)(
+    'excludes semantically incompatible %s even when it has two pins',
+    (type) => {
+      const component = createComponent(type, { x: 0, y: 0 });
+      useEditorStore.setState({
+        document: { version: 1, title: 'Unsupported', objects: [component] },
+        selection: [component.id],
+      });
+      render(<Canvas />);
+      expect(screen.queryByRole('button', { name: 'Polarità + / -' })).toBeNull();
+      expect(screen.queryByRole('button', { name: 'Corrente sul filo' })).toBeNull();
+    },
+  );
+  it('preserves focus for shortcuts and distinguishes keyboard navigation from pointer gestures', () => {
+    render(<Canvas />);
+    fireEvent.keyDown(document, { key: 'Tab' });
+    expect(canvas().getAttribute('data-focus-modality')).toBe('keyboard');
+    canvas().focus();
+    expect(document.activeElement).toBe(canvas());
+    fireEvent.pointerDown(canvas(), client(0, 0));
+    expect(canvas().getAttribute('data-focus-modality')).toBe('pointer');
+    expect(document.activeElement).toBe(canvas());
+    fireEvent.pointerUp(canvas(), client(0, 0));
+    fireEvent.keyDown(canvas(), { key: 'w' });
+    expect(useEditorStore.getState().tool).toBe('wire');
+    fireEvent.keyDown(canvas(), { key: 'Escape' });
+    expect(useEditorStore.getState().tool).toBe('select');
+    fireEvent.keyDown(document, { key: 'Tab' });
+    expect(canvas().getAttribute('data-focus-modality')).toBe('keyboard');
   });
 });

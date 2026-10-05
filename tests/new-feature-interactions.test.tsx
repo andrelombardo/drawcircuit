@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { chooseDrawingTool } from './helpers/drawingMenu';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import App from '../src/App';
@@ -84,9 +85,9 @@ function click(x: number, y: number) {
 const key = (key: string, options = {}) => fireEvent.keyDown(canvas(), { key, ...options });
 const doc = () => useEditorStore.getState().document;
 function chooseElectrical(name: string) {
-  fireEvent.click(screen.getByRole('button', { name: 'Annotazioni elettriche' }));
-  fireEvent.click(
-    screen.getByRole('button', { name: name === 'Corrente su un filo' ? 'Esterna' : name }),
+  chooseDrawingTool(
+    name === 'Corrente su un filo' ? 'Corrente sul filo' : name.replace('−', '-'),
+    name === 'Corrente su un filo' ? 'Esterna' : undefined,
   );
 }
 const line = (x1: number, y1: number, x2: number, y2: number) =>
@@ -228,7 +229,7 @@ describe('new feature UI integrates with the existing editor', () => {
     });
     render(<App />);
     expect(canvas().querySelectorAll('[data-wire-crossing]')).toHaveLength(1);
-    fireEvent.click(screen.getByRole('button', { name: 'Nodo (N)' }));
+    chooseDrawingTool('Nodo');
     click(0, 0);
     expect(canvas().querySelectorAll('[data-wire-crossing]')).toHaveLength(0);
     key('Delete');
@@ -247,7 +248,7 @@ describe('new feature UI integrates with the existing editor', () => {
     useEditorStore.setState({ document: original });
     render(<App />);
     expect(canvas().querySelectorAll('[data-wire-crossing]')).toHaveLength(1);
-    fireEvent.click(screen.getByRole('button', { name: 'Nodo (N)' }));
+    chooseDrawingTool('Nodo');
     click(0, 0);
     expect(canvas().querySelectorAll('[data-wire-crossing]')).toHaveLength(0);
     expect(doc().objects.filter((o) => o.kind === 'junction')).toHaveLength(1);
@@ -307,9 +308,9 @@ describe('new feature UI integrates with the existing editor', () => {
   });
   it('closes the new electrical menu with Escape without changing existing shortcuts', () => {
     render(<App />);
-    fireEvent.click(screen.getByRole('button', { name: 'Annotazioni elettriche' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Disegno e annotazioni' }));
     key('Escape');
-    expect(screen.queryByRole('button', { name: 'Corrente su un filo' })).toBeNull();
+    expect(screen.queryByRole('menuitem', { name: 'Corrente sul filo' })).toBeNull();
     key('a');
     expect(useEditorStore.getState().tool).toBe('arrow');
     key('l');
@@ -395,7 +396,7 @@ describe('contextual tool feedback and cancellation', () => {
     render(<App />);
     chooseElectrical('Polarità + / −');
     expect(
-      screen.getByRole('button', { name: 'Annotazioni elettriche' }).getAttribute('aria-pressed'),
+      screen.getByRole('button', { name: 'Disegno e annotazioni' }).getAttribute('aria-pressed'),
     ).toBe('true');
     const body = canvas().querySelector(
       `[data-layer="components"] [data-object="${r.id}"] .object-hit`,

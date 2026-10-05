@@ -2,12 +2,21 @@ import { memo } from 'react';
 import type { Point, Wire } from '../../model/types';
 import { pointsPath } from '../../utils/geometry';
 export const WireView = memo(
-  function WireView({ object: o, points }: { object: Wire; points: Point[] }) {
-    const d = pointsPath(points);
+  function WireView({
+    object: o,
+    points,
+    paths,
+  }: {
+    object: Wire;
+    points: Point[];
+    paths?: Point[][];
+  }) {
+    const hitPath = pointsPath(points);
+    const d = (paths ?? [points]).map(pointsPath).join(' ');
     return (
       <g data-object={o.id} className="circuit-object">
         <path
-          d={d}
+          d={hitPath}
           fill="none"
           stroke="transparent"
           strokeWidth={16}
@@ -31,7 +40,17 @@ export const WireView = memo(
       previous.points.length === next.points.length &&
       previous.points.every(
         (point, index) => point.x === next.points[index].x && point.y === next.points[index].y,
-      )
+      ) &&
+      (previous.paths === next.paths ||
+        (previous.paths?.length === next.paths?.length &&
+          (previous.paths ?? []).every(
+            (path, index) =>
+              path.length === next.paths![index].length &&
+              path.every(
+                (point, i) =>
+                  point.x === next.paths![index][i].x && point.y === next.paths![index][i].y,
+              ),
+          )))
     );
   },
 );

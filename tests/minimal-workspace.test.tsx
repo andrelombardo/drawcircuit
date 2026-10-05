@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { chooseDrawingTool } from './helpers/drawingMenu';
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import App from '../src/App';
@@ -98,9 +99,9 @@ it('removes header, branding, file management and status text; places export ins
   expect(document.body.textContent).not.toMatch(
     /DrawCircuit|Salvataggio locale automatico|Solo sul tuo dispositivo/,
   );
-  expect(
-    screen.getByRole('button', { name: 'Esporta' }).closest('[role="toolbar"]'),
-  ).toBe(toolbar());
+  expect(screen.getByRole('button', { name: 'Esporta' }).closest('[role="toolbar"]')).toBe(
+    toolbar(),
+  );
   expect(screen.getByRole('button', { name: 'Aiuto' }).classList.contains('floating-surface')).toBe(
     true,
   );
@@ -112,7 +113,7 @@ it('removes header, branding, file management and status text; places export ins
 });
 it('drags only from the grip, preserves drawing state and restores normalized position after reload and resize', () => {
   render(<App />);
-  fireEvent.click(screen.getByRole('button', { name: 'Filo (W)' }));
+  chooseDrawingTool('Filo');
   const doc = serializeDocument(useEditorStore.getState().document);
   dragTo(700, 350);
   expect(parseFloat(toolbar().style.left)).toBe(468);

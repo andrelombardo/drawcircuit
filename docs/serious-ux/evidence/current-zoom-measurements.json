@@ -1,0 +1,23 @@
+[
+  {
+    "headHeight": 9,
+    "headWidth": 10,
+    "screenStroke": 2,
+    "shaftWidth": 36,
+    "zoom": 0.5
+  },
+  {
+    "headHeight": 9,
+    "headWidth": 10,
+    "screenStroke": 2,
+    "shaftWidth": 36,
+    "zoom": 1
+  },
+  {
+    "headHeight": 9,
+    "headWidth": 10,
+    "screenStroke": 2,
+    "shaftWidth": 36,
+    "zoom": 2
+  }
+]

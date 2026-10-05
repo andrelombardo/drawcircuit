@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { chooseDrawingTool } from './helpers/drawingMenu';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { Profiler } from 'react';
@@ -175,7 +176,7 @@ describe('audit UX/input evidence', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Selezione (V)' }));
     fireEvent.click(screen.getByRole('button', { name: 'Ruota 45° (R)' }));
     expect(useEditorStore.getState().document.objects.at(-1)).toMatchObject({ rotation: 45 });
-    fireEvent.click(screen.getByRole('button', { name: 'Nodo (N)' }));
+    chooseDrawingTool('Nodo');
     click(-100, -100);
     expect(useEditorStore.getState().tool).toBe('select');
     for (const [x, y] of [
@@ -183,13 +184,13 @@ describe('audit UX/input evidence', () => {
       [100, 100],
       [-100, 100],
     ]) {
-      fireEvent.click(screen.getByRole('button', { name: 'Nodo (N)' }));
+      chooseDrawingTool('Nodo');
       click(x, y);
     }
     const name = screen.getByLabelText('Nome nodo');
     fireEvent.change(name, { target: { value: 'D' } });
     fireEvent.blur(name);
-    fireEvent.click(screen.getByRole('button', { name: 'Maglia (L)' }));
+    chooseDrawingTool('Maglia');
     fireEvent.pointerDown(canvas(), client(-80, -80));
     fireEvent.pointerMove(canvas(), client(80, 80));
     fireEvent.pointerUp(canvas(), client(80, 80));
@@ -202,7 +203,7 @@ describe('audit UX/input evidence', () => {
     expect(
       useEditorStore.getState().document.objects.filter((o) => o.kind === 'loop-arrow'),
     ).toHaveLength(1);
-    fireEvent.click(screen.getByRole('button', { name: 'Filo (W)' }));
+    chooseDrawingTool('Filo');
     click(-100, -100);
     click(-100, 100);
     expect(
@@ -373,9 +374,9 @@ describe('audit UX/input evidence', () => {
     render(<App />);
     placeResistor();
     const selected = useEditorStore.getState().selection;
-    fireEvent.click(screen.getByRole('button', { name: 'Annotazioni elettriche' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Disegno e annotazioni' }));
     key('Escape');
-    expect(screen.queryByRole('button', { name: 'Corrente su un filo' })).toBeNull();
+    expect(screen.queryByRole('menuitem', { name: 'Corrente sul filo' })).toBeNull();
     expect(useEditorStore.getState().selection).toEqual(selected);
   });
 

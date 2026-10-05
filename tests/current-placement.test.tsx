@@ -404,14 +404,15 @@ describe('external and integrated current use one wire-associated annotation', (
     expect(electricalGeometry(current, moved).arrowEnd).toEqual({ x: 240, y: 60 });
   });
 
-  it('uses the same masked shaft and head in canvas, SVG, PNG, TikZ and Obsidian', () => {
+  it('uses the same wire replacement shaft and head in canvas, SVG, PNG, TikZ and Obsidian', () => {
     const { annotation, doc } = fixture();
     annotation.label.text = '';
     const markup = renderToStaticMarkup(<ElectricalView object={annotation} doc={doc} hideLabel />);
     expect(markup).toContain('data-current-placement="inline"');
-    expect(markup.match(/<path /g)).toHaveLength(4); // mask + hit corridor + shaft + head
+    expect(markup.match(/<path /g)).toHaveLength(3); // hit corridor + shaft + head
     const svg = exportSVG(doc);
-    expect(svg.match(/<path /g)).toHaveLength(4); // unchanged wire + mask + shaft + head
+    expect(svg.match(/<path /g)).toHaveLength(3); // split visual wire + shaft + head
+    expect(svg).not.toContain('stroke="white"');
     expect(svg).not.toContain('transparent');
     const png = new Resvg(svg).render();
     expect([...png.asPng().slice(0, 8)]).toEqual([137, 80, 78, 71, 13, 10, 26, 10]);
@@ -428,7 +429,7 @@ describe('external and integrated current use one wire-associated annotation', (
       const electrical = output
         .split('% Electrical annotation: current')[1]
         .split('\\end{circuitikz}')[0];
-      expect(electrical.match(/\\draw\[/g)).toHaveLength(3);
+      expect(electrical.match(/\\draw\[/g)).toHaveLength(2);
     }
     annotation.currentPlacement = 'external';
     expect(exportSVG(doc).match(/<path /g)).toHaveLength(3);
@@ -437,12 +438,12 @@ describe('external and integrated current use one wire-associated annotation', (
   it('preserves an integrated arrow when only the annotation is exported', () => {
     const { annotation, doc } = fixture();
     annotation.offset = { x: 20, y: 40 };
-    const geometry = electricalGeometry(annotation, doc);
+    const geometry = electricalDrawingGeometry(annotation, doc);
     const subset = getExportSelection(doc, [annotation.id]);
     const detached = subset.objects[0] as ElectricalAnnotation;
     expect(detached.wireId).toBeUndefined();
     expect(detached.wireSegment).toBeUndefined();
-    const actual = electricalGeometry(detached, subset);
+    const actual = electricalDrawingGeometry(detached, subset);
     expect(actual.inline).toBe(true);
     expect(actual.end.x - actual.start.x).toBe(geometry.end.x - geometry.start.x);
     expect(actual.arrowEnd.x - actual.arrowStart.x).toBe(

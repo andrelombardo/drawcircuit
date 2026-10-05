@@ -1,8 +1,34 @@
 import { braceGeometry } from '../../annotations/brace';
-import type { CircuitDocument, Point } from '../../model/types';
-import { arrowPath, pointsPath, wirePoints } from '../../utils/geometry';
+import { electricalDrawingGeometry } from '../../annotations/electrical';
+import type { CircuitDocument, CircuitObject, Point } from '../../model/types';
+import { arrowPath, pointsPath, rotatePoint, wirePoints } from '../../utils/geometry';
 import { unionBounds, contentBounds } from '../../utils/visualBounds';
 import { loopGeometry, loopPath } from '../../utils/loops';
+function selectionBounds(object: CircuitObject, doc: CircuitDocument, zoom: number) {
+  if (object.kind !== 'electrical' || object.mode !== 'current') return contentBounds(object, doc);
+  const g = electricalDrawingGeometry(object, doc, zoom);
+  const boxes = [g.start, g.end, ...g.head].map((point) => ({
+    x: point.x - g.strokeWidth / 2,
+    y: point.y - g.strokeWidth / 2,
+    width: g.strokeWidth,
+    height: g.strokeWidth,
+  }));
+  if (object.label.text) {
+    const width = Math.max(g.labelFontSize, object.label.text.length * g.labelFontSize * 0.65);
+    const height = g.labelFontSize * Math.max(1.6, object.label.text.split('\n').length * 1.4);
+    for (const x of [-width / 2, width / 2])
+      for (const y of [-height / 2, height / 2]) {
+        const point = rotatePoint({ x, y }, object.label.rotation);
+        boxes.push({
+          x: g.labelPoint.x + point.x,
+          y: g.labelPoint.y + point.y,
+          width: 0,
+          height: 0,
+        });
+      }
+  }
+  return unionBounds(boxes);
+}
 function Handle({
   p,
   name,
@@ -45,7 +71,9 @@ export function SelectionLayer({
       {selection.length > 1 && (
         <rect
           {...unionBounds(
-            doc.objects.filter((o) => selection.includes(o.id)).map((o) => contentBounds(o, doc)),
+            doc.objects
+              .filter((o) => selection.includes(o.id))
+              .map((o) => selectionBounds(o, doc, zoom)),
           )}
           className="selection-box"
           data-selection="group"

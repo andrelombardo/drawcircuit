@@ -2585,3 +2585,111 @@ summary:focus-visible {
     font-size: 10px;
   }
 }
+
+/* SVG gesture focus remains technical after pointer interaction. Only actual
+   keyboard navigation receives a quiet, inset focus indicator on the sheet. */
+.drawing-surface:focus:not(:focus-visible),
+.drawing-surface[data-focus-modality='pointer']:focus-visible {
+  outline: none;
+}
+.drawing-surface[data-focus-modality='keyboard']:focus-visible {
+  outline: 1px solid var(--ui-border-strong);
+  outline-offset: -2px;
+}
+
+/* Mathematical prime needs the glyph whose metrics KaTeX uses for its script
+   position. Comic Sans and script sizing remain unchanged for every other glyph. */
+.math-label-content .katex-html .math-prime,
+.latex-preview .katex-html .math-prime {
+  font-family: KaTeX_Main !important;
+  font-style: normal;
+}
+
+/* The pencil and contextual actions share a compact, viewport-aware menu tree. */
+.action-menu-root {
+  position: relative;
+  flex-shrink: 0;
+}
+.action-menu-root[data-open] > [data-tooltip]::after {
+  display: none;
+}
+.action-menu-panel {
+  position: fixed;
+  z-index: var(--layer-menu);
+  width: 244px;
+  max-width: calc(100vw - 16px);
+  max-height: calc(100vh - 16px);
+  overflow-y: auto;
+  padding: 4px;
+  border: 1px solid var(--floating-surface-border);
+  border-radius: 9px;
+  background: var(--ui-surface);
+  box-shadow: var(--ui-shadow-floating);
+  color: var(--ui-text);
+}
+.action-menu-panel[data-nested] {
+  width: 158px;
+}
+.action-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  min-height: 32px;
+  padding: 6px 8px;
+  border-radius: 5px;
+  color: inherit;
+  font-size: 12px;
+  text-align: left;
+  white-space: nowrap;
+}
+.action-menu-item:hover,
+.action-menu-item[aria-expanded='true'] {
+  background: var(--ui-hover);
+}
+.action-menu-item:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.action-menu-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  flex-shrink: 0;
+  color: var(--ui-text-secondary);
+}
+.action-menu-label {
+  flex: 1;
+}
+.action-menu-chevron {
+  flex-shrink: 0;
+  color: var(--ui-text-secondary);
+}
+.action-menu-panel[data-side='left'] .action-menu-chevron {
+  transform: rotate(180deg);
+}
+.action-menu-separator {
+  height: 1px;
+  margin: 5px 6px;
+  background: var(--ui-border);
+}
+.action-menu-trigger-label {
+  width: auto;
+  display: flex;
+  gap: 6px;
+  padding: 0 7px;
+}
+.context-toolbar:has(.action-menu-root) {
+  /* A filter would make fixed menus relative to the selection toolbar. */
+  backdrop-filter: none;
+}
+.context-toolbar:has(.action-menu-root[data-open]),
+.main-tools:has(.action-menu-root[data-open]) {
+  z-index: var(--layer-menu);
+}
+.action-menu-item:focus-visible,
+.action-menu-trigger:focus-visible {
+  outline: 2px solid var(--ui-focus);
+  outline-offset: -2px;
+}

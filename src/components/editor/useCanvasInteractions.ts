@@ -1,5 +1,6 @@
 import { createBrace, resizeBrace } from '../../annotations/brace';
 import { createCurrent, createElectrical, createPolarity } from '../../annotations/electrical';
+import { supportsPolarity } from '../../model/capabilities';
 import type { BraceAnnotation, ElectricalAnnotation } from '../../model/types';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { DragEvent, PointerEvent as ReactPointerEvent, RefObject } from 'react';
@@ -108,7 +109,7 @@ export function useCanvasInteractions(
   const polarityTarget = (target: EventTarget) => {
     const id = (target as Element).closest('[data-object]')?.getAttribute('data-object');
     const c = id ? objectMap.get(id) : null;
-    return c?.kind === 'component' && c.terminals.length === 2 ? c : null;
+    return c && supportsPolarity(c) ? c : null;
   };
   const [draft, setDraft] = useState<WireDraft | null>(null);
   const [space, setSpace] = useState(false);
@@ -290,6 +291,7 @@ export function useCanvasInteractions(
         document.querySelector('[role="dialog"]')
       )
         return;
+      if (document.querySelector('[role="menu"]')) return;
       if (e.key === 'Escape' && document.querySelector('.context-more[open]')) return;
       modifierKey(e);
       const s = useEditorStore.getState(),
@@ -374,7 +376,7 @@ export function useCanvasInteractions(
         finishWire(wireCandidate(mouseRef.current, s.document, viewport.zoom));
       } else if (e.key === 'Enter' && s.selection.length === 1) {
         const o = s.document.objects.find((o) => o.id === s.selection[0]);
-        const target = inlineTextTarget(o, s.document);
+        const target = inlineTextTarget(o, s.document, viewport.zoom);
         if (target) {
           e.preventDefault();
           setActiveLabel(o?.kind === 'text' ? null : target.id);
@@ -499,7 +501,7 @@ export function useCanvasInteractions(
     const focused = document.activeElement;
     if (focused instanceof HTMLElement) focused.blur();
     const svg = svgRef.current!;
-    svg.focus();
+    svg.focus({ preventScroll: true });
     const p = world(e.clientX, e.clientY),
       s = useEditorStore.getState();
     mouseRef.current = p;
@@ -1011,7 +1013,7 @@ export function useCanvasInteractions(
     const id = (e.target as Element).closest('[data-object]')?.getAttribute('data-object'),
       o = s.document.objects.find((o) => o.id === id);
     if (!o) return;
-    const target = inlineTextTarget(o, s.document);
+    const target = inlineTextTarget(o, s.document, viewport.zoom);
     if (target) {
       s.select([target.id]);
       setActiveLabel(o.kind === 'text' ? null : target.id);

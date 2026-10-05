@@ -136,10 +136,10 @@ describe('sidebar shortcut received by the app', () => {
     key('t', {}, editable);
     unchanged();
     editable.remove();
-    fireEvent.click(screen.getByRole('button', { name: 'Graffe e staffe' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Disegno e annotazioni' }));
     key('t', {});
     unchanged();
-    fireEvent.click(screen.getByRole('button', { name: 'Chiudi graffe e staffe' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Disegno e annotazioni' }));
     fireEvent.click(screen.getByRole('button', { name: 'Esporta' }));
     key('t', {}, screen.getByRole('textbox', { name: 'Codice TikZ generato' }));
     unchanged();
@@ -271,16 +271,18 @@ describe('annotation and placement cleanup', () => {
     expect(screen.queryByText('Collega terminale:')).toBeNull();
     expect(screen.queryByText('Nessuno')).toBeNull();
   });
-  it('separates Graffa/Staffa from I/V, uses Italian text and keeps only one menu open', () => {
+  it('groups all drawing tools under the pencil and opens one nested menu at a time', () => {
     render(<App />);
-    fireEvent.click(screen.getByRole('button', { name: 'Graffe e staffe' }));
-    expect(screen.getByRole('button', { name: 'Graffa' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Staffa' })).toBeTruthy();
-    fireEvent.click(screen.getByRole('button', { name: 'Annotazioni elettriche' }));
-    expect(screen.queryByRole('button', { name: 'Graffa' })).toBeNull();
-    expect(screen.getByText('Corrente su un filo')).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Esterna' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Integrata' })).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Disegno e annotazioni' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Graffa / Staffa' }));
+    expect(screen.getByRole('menuitem', { name: 'Graffa' })).toBeTruthy();
+    expect(screen.getByRole('menuitem', { name: 'Staffa' })).toBeTruthy();
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Corrente sul filo' }));
+    expect(screen.queryByRole('menuitem', { name: 'Graffa' })).toBeNull();
+    expect(screen.getByRole('menuitem', { name: 'Esterna' })).toBeTruthy();
+    expect(screen.getByRole('menuitem', { name: 'Integrata' })).toBeTruthy();
+    key('Escape');
+    expect(screen.queryByRole('menuitem', { name: 'Integrata' })).toBeNull();
     key('Escape');
     expect(screen.queryByRole('menu')).toBeNull();
   });

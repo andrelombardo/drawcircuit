@@ -2,7 +2,7 @@ import katex from 'katex';
 
 const primeCharacter = /['‘’′]/u;
 const superscriptPrimeCharacter = /['‘’′`]/u;
-const barePrimeSource = /^[A-Za-z\u0370-\u03ff]['‘’′]+$/u;
+const barePrimeSource = /^[A-Za-z\u0370-\u03ff]['‘’′`]+$/u;
 export const isMathSource = (source: string): boolean =>
   /[_^\\$\u0370-\u03ff]/u.test(source) || barePrimeSource.test(source.trim());
 
@@ -85,8 +85,19 @@ function normalizePrimes(source: string): string {
         continue;
       }
     }
-    // Outside a prime-only script, keep native TeX shorthand so combined scripts
-    // such as A'_1 and A'^{2} retain KaTeX's own parsing and positioning.
+    // Bare mathematical primes must enter the same pipeline as explicit scripts.
+    // Keep TeX shorthand beside another script so KaTeX can merge it (A'^{2}).
+    if (superscriptPrimeCharacter.test(source[i]) && /[\p{L}\]}]/u.test(source[i - 1] ?? '')) {
+      let end = i;
+      while (superscriptPrimeCharacter.test(source[end] ?? '') && end < source.length) end++;
+      const primes = source.slice(i, end);
+      const followedByScript = /^\s*[_^]/u.test(source.slice(end));
+      result += followedByScript
+        ? "'".repeat(primes.length)
+        : `^{${'\\prime'.repeat(primes.length)}}`;
+      i = end;
+      continue;
+    }
     result += /[‘’′]/u.test(source[i]) ? "'" : source[i];
     i++;
   }
@@ -108,6 +119,29 @@ export type LatexResult =
   | { kind: 'plain' | 'invalid'; source: string; html?: undefined }
   | { kind: 'math'; source: string; html: string };
 const cache = new Map<string, LatexResult>();
+
+/** The Comic Sans override cannot use KaTeX's prime metrics. Restore only the
+ * mathematical prime glyph; text-command contents and every other glyph remain
+ * untouched. The same HTML is measured by editor and vector export. */
+function markMathPrimes(html: string): string {
+  const spans: string[][] = [];
+  return html.replace(/<span\b[^>]*>|<\/span>/gu, (tag, index: number) => {
+    if (tag === '</span>') {
+      spans.pop();
+      return tag;
+    }
+    const classes = /\bclass="([^"]*)"/u.exec(tag)?.[1].split(/\s/u) ?? [];
+    const math = spans.some((parent) => parent.includes('katex-html'));
+    const text = spans.some(
+      (parent) => parent.includes('text') || parent.includes('mtext') || parent.includes('mop'),
+    );
+    spans.push(classes);
+    return math && !text && /^′+<\/span>/u.test(html.slice(index + tag.length))
+      ? tag.replace(/\bclass="([^"]*)"/u, 'class="$1 math-prime"')
+      : tag;
+  });
+}
+
 /** KaTeX is the single math engine for canvas, live preview and export validation. */
 export function renderLatex(source: string, forceMath = false): LatexResult {
   if (!forceMath && !isMathSource(source)) return { kind: 'plain', source };
@@ -119,14 +153,16 @@ export function renderLatex(source: string, forceMath = false): LatexResult {
     result = {
       kind: 'math',
       source,
-      html: katex.renderToString(mathContent(normalizeLatex(source, forceMath)), {
-        output: 'htmlAndMathml',
-        throwOnError: true,
-        trust: false,
-        strict: 'ignore',
-        maxExpand: 1000,
-        maxSize: 20,
-      }),
+      html: markMathPrimes(
+        katex.renderToString(mathContent(normalizeLatex(source, forceMath)), {
+          output: 'htmlAndMathml',
+          throwOnError: true,
+          trust: false,
+          strict: 'ignore',
+          maxExpand: 1000,
+          maxSize: 20,
+        }),
+      ),
     };
   } catch {
     result = { kind: 'invalid', source };

@@ -1,4 +1,5 @@
 import { makeId } from '../model/catalog';
+import { supportsPolarity } from '../model/capabilities';
 import { COLORS } from '../model/types';
 import type {
   CircuitComponent,
@@ -33,7 +34,7 @@ function currentBranch(o: ElectricalAnnotation, doc: CircuitDocument) {
   const a = points[segment] ?? o.start,
     b = points[segment + 1] ?? o.end,
     length = lengths[segment] || 1;
-  return { a, b, length, remaining, width: wire.width };
+  return { a, b, length, remaining, segment, wireId: wire.id };
 }
 
 export function electricalGeometry(o: ElectricalAnnotation, doc: CircuitDocument) {
@@ -66,7 +67,7 @@ export function electricalGeometry(o: ElectricalAnnotation, doc: CircuitDocument
     }
   } else if (o.componentId) {
     const c = doc.objects.find((o2) => o2.id === o.componentId);
-    if (c?.kind === 'component' && c.terminals.length === 2) {
+    if (c && supportsPolarity(c)) {
       const [a, b] = c.terminals.map((t) => localToWorld(c, { x: t.localX, y: t.localY }));
       const length = distance(a, b) || 1;
       const shift = { x: ((b.y - a.y) / length) * 20, y: (-(b.x - a.x) / length) * 20 };
@@ -97,9 +98,14 @@ export function electricalGeometry(o: ElectricalAnnotation, doc: CircuitDocument
 }
 
 export const INLINE_CURRENT_LENGTH_PX = 36;
-export const INLINE_CURRENT_MIN_LENGTH_PX = 28;
-export const INLINE_CURRENT_GAP_PX = 4;
-const INLINE_CURRENT_ENDPOINT_CLEARANCE_PX = 6;
+export const INLINE_CURRENT_MIN_LENGTH_PX = 18;
+const INLINE_CURRENT_ENDPOINT_CLEARANCE_PX = 4;
+
+export interface CurrentWireGap {
+  segment: number;
+  start: Point;
+  end: Point;
+}
 
 /** Visual geometry only. The wire, stored branch anchor and label offsets stay intact.
  * Canvas dimensions use screen pixels; exports use the same geometry at zoom 1. */
@@ -110,37 +116,48 @@ export function electricalDrawingGeometry(o: ElectricalAnnotation, doc: CircuitD
     x: g.arrowEnd.x - g.arrowStart.x,
     y: g.arrowEnd.y - g.arrowStart.y,
   });
-  if (!g.inline)
-    return { ...g, head: originalHead, strokeWidth: o.width, mask: null, fallback: false };
+  if (o.mode !== 'current')
+    return {
+      ...g,
+      head: originalHead,
+      strokeWidth: o.width,
+      labelFontSize: o.label.fontSize,
+      wireGap: null,
+      fallback: false,
+    };
   const branch = currentBranch(o, doc);
-  const length = distance(g.start, g.end);
+  const length = branch ? distance(branch.a, branch.b) : distance(g.start, g.end);
   const tangent = length
-    ? { x: (g.end.x - g.start.x) / length, y: (g.end.y - g.start.y) / length }
+    ? branch
+      ? { x: (branch.b.x - branch.a.x) / length, y: (branch.b.y - branch.a.y) / length }
+      : { x: (g.end.x - g.start.x) / length, y: (g.end.y - g.start.y) / length }
     : { x: 1, y: 0 };
   const normal = { x: tangent.y, y: -tangent.x };
-  const gap = INLINE_CURRENT_GAP_PX / z;
   const clearance = INLINE_CURRENT_ENDPOINT_CLEARANCE_PX / z;
-  const available = branch ? distance(branch.a, branch.b) : length;
-  const fallback =
-    available * z <
-    INLINE_CURRENT_MIN_LENGTH_PX +
-      2 * INLINE_CURRENT_GAP_PX +
-      (branch ? 2 * INLINE_CURRENT_ENDPOINT_CLEARANCE_PX : 0);
-  const visualLength = fallback
-    ? INLINE_CURRENT_LENGTH_PX / z
-    : Math.min(INLINE_CURRENT_LENGTH_PX / z, available - 2 * gap - (branch ? 2 * clearance : 0));
+  const available = branch ? Math.max(0, length - 2 * clearance) : Infinity;
+  const fallback = g.inline && available * z < INLINE_CURRENT_MIN_LENGTH_PX;
+  // A detached current keeps the canonical shortened replacement it was
+  // exported/copied with; its screen size still follows the same zoom contract.
+  const desiredLength =
+    (g.inline ? Math.min(INLINE_CURRENT_LENGTH_PX, branch ? Infinity : length) : 60) / z;
+  const visualLength = g.inline && !fallback ? Math.min(desiredLength, available) : desiredLength;
   let center = midpoint(g.start, g.end);
-  if (fallback) center = add(center, { x: (normal.x * 16) / z, y: (normal.y * 16) / z });
-  else if (branch) {
-    const margin = visualLength / 2 + gap + clearance;
+  if (branch) {
+    // The attachment is a ratio of one semantic branch. Only its visible
+    // replacement needs clearance, so endpoint edits and zoom never mutate it.
+    const margin = g.inline && !fallback ? visualLength / 2 + clearance : 0;
     const along = Math.max(
       margin,
       Math.min(
-        available - margin,
-        branch.remaining + o.offset.x * tangent.x + o.offset.y * tangent.y,
+        length - margin,
+        branch.remaining + (g.inline ? o.offset.x * tangent.x + o.offset.y * tangent.y : 0),
       ),
     );
     center = add(branch.a, { x: tangent.x * along, y: tangent.y * along });
+    if (!g.inline) center = add(center, o.offset);
+  }
+  if ((!g.inline && branch) || fallback) {
+    center = add(center, { x: (normal.x * 16) / z, y: (normal.y * 16) / z });
   }
   const at = (along: number) => add(center, { x: tangent.x * along, y: tangent.y * along });
   const start = at(-visualLength / 2),
@@ -148,23 +165,104 @@ export function electricalDrawingGeometry(o: ElectricalAnnotation, doc: CircuitD
   const arrowStart = o.reversed ? end : start,
     arrowEnd = o.reversed ? start : end;
   const sign = o.reversed ? -1 : 1;
+  // Short inline segments shrink proportionally, with a readable minimum; a
+  // branch below that minimum uses the existing external visual convention.
+  const headScale = g.inline ? Math.min(1, (visualLength * z) / INLINE_CURRENT_LENGTH_PX) : 1;
+  const headLength = ((g.inline ? 10 : 8) * headScale) / z;
+  const headHalfHeight = ((g.inline ? 4.5 : 3.5) * headScale) / z;
   const head = [-1, 0, 1].map((side) =>
     side === 0
       ? arrowEnd
       : {
-          x: arrowEnd.x - (sign * tangent.x * 10) / z + (normal.x * side * 4.5) / z,
-          y: arrowEnd.y - (sign * tangent.y * 10) / z + (normal.y * side * 4.5) / z,
+          x: arrowEnd.x - sign * tangent.x * headLength + normal.x * side * headHalfHeight,
+          y: arrowEnd.y - sign * tangent.y * headLength + normal.y * side * headHalfHeight,
         },
   );
-  const strokeWidth = Math.max(o.width, 2.2 / z);
-  const mask = fallback
-    ? null
-    : {
-        start: at(-visualLength / 2 - gap),
-        end: at(visualLength / 2 + gap),
-        width: Math.max(branch?.width ?? 0, strokeWidth) + 4 / z,
-      };
-  return { ...g, start, end, arrowStart, arrowEnd, head, strokeWidth, mask, fallback };
+  const labelDistance = (g.inline && !fallback ? -24 : 24) / z;
+  const labelPoint = add(
+    center,
+    add({ x: normal.x * labelDistance, y: normal.y * labelDistance }, o.label.offset),
+  );
+  const wireGap =
+    g.inline && !fallback && branch
+      ? { wireId: branch.wireId, segment: branch.segment, start, end }
+      : null;
+  return {
+    ...g,
+    start,
+    end,
+    arrowStart,
+    arrowEnd,
+    labelPoint,
+    head,
+    strokeWidth: o.width / z,
+    labelFontSize: o.label.fontSize / z,
+    wireGap,
+    fallback,
+  };
+}
+
+/** Visual replacements only: no wire endpoints, junctions or topology are edited.
+ * Computing these once per layer also keeps the wire and annotation in sync. */
+export function currentWireGaps(doc: CircuitDocument, zoom = 1) {
+  const gaps = new Map<string, CurrentWireGap[]>();
+  for (const o of doc.objects) {
+    if (o.kind !== 'electrical' || o.mode !== 'current' || o.currentPlacement !== 'inline')
+      continue;
+    const gap = electricalDrawingGeometry(o, doc, zoom).wireGap;
+    if (!gap) continue;
+    const wireGaps = gaps.get(gap.wireId) ?? [];
+    wireGaps.push(gap);
+    gaps.set(gap.wireId, wireGaps);
+  }
+  return gaps;
+}
+
+/** Draw an entire routed wire as subpaths, omitting precisely the intervals
+ * replaced by integrated currents. Its uninterrupted hit path remains intact. */
+export function wireDrawingPaths(points: Point[], gaps: CurrentWireGap[] = []): Point[][] {
+  if (!gaps.length) return [points];
+  const paths: Point[][] = [];
+  let path: Point[] = points.length ? [points[0]] : [];
+  const flush = () => {
+    if (path.length > 1) paths.push(path);
+    path = [];
+  };
+  for (let segment = 0; segment < points.length - 1; segment++) {
+    const a = points[segment],
+      b = points[segment + 1],
+      length = distance(a, b);
+    if (!length) continue;
+    const at = (along: number): Point => ({
+      x: a.x + ((b.x - a.x) * along) / length,
+      y: a.y + ((b.y - a.y) * along) / length,
+    });
+    const along = (p: Point) => ((p.x - a.x) * (b.x - a.x) + (p.y - a.y) * (b.y - a.y)) / length;
+    const intervals = gaps
+      .filter((gap) => gap.segment === segment)
+      .map((gap) => ({
+        start: Math.max(0, along(gap.start)),
+        end: Math.min(length, along(gap.end)),
+      }))
+      .filter((gap) => gap.end > gap.start)
+      .sort((first, second) => first.start - second.start);
+    let cursor = 0;
+    for (const interval of intervals) {
+      if (interval.end <= cursor) continue;
+      if (interval.start > cursor) {
+        if (!path.length) path.push(at(cursor));
+        path.push(at(interval.start));
+      }
+      flush();
+      cursor = Math.max(cursor, interval.end);
+    }
+    if (cursor < length) {
+      if (!path.length) path.push(at(cursor));
+      path.push(b);
+    }
+  }
+  flush();
+  return paths;
 }
 
 /** The selected branch position, before the external display separation or drag offset. */
@@ -355,7 +453,7 @@ export function reconcileCurrentSegments(previous: CircuitDocument, next: Circui
   return changed ? { ...next, objects } : next;
 }
 export function createPolarity(c: CircuitComponent): ElectricalAnnotation | null {
-  if (c.terminals.length !== 2) return null;
+  if (!supportsPolarity(c)) return null;
   const [start, end] = c.terminals.map((t) => localToWorld(c, { x: t.localX, y: t.localY }));
   return { ...createElectrical('polarity', start, end, 'V_R'), componentId: c.id };
 }
@@ -363,8 +461,8 @@ export function detachElectrical(
   o: ElectricalAnnotation,
   doc: CircuitDocument,
 ): ElectricalAnnotation {
-  const g = electricalGeometry(o, doc);
-  return {
+  const g = o.mode === 'current' ? electricalDrawingGeometry(o, doc) : electricalGeometry(o, doc);
+  const detached: ElectricalAnnotation = {
     ...o,
     wireId: undefined,
     wireSegment: undefined,
@@ -373,4 +471,14 @@ export function detachElectrical(
     end: g.end,
     offset: { x: 0, y: 0 },
   };
+  if (o.mode === 'current') {
+    // Selection export, copy and host deletion freeze the canonical drawing,
+    // including endpoint clamping and the label's external fallback side.
+    const target = electricalDrawingGeometry(detached, doc).labelPoint;
+    detached.label = {
+      ...o.label,
+      offset: add(o.label.offset, { x: g.labelPoint.x - target.x, y: g.labelPoint.y - target.y }),
+    };
+  }
+  return detached;
 }

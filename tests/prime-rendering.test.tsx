@@ -7,6 +7,8 @@ import { isMathSource, normalizeLatex, renderLatex } from '../src/math/latex';
 import { createComponent } from '../src/model/catalog';
 import { deserializeDocument, serializeDocument } from '../src/model/serialization';
 import { exportObsidian, exportTikz, texText } from '../src/tikz/exporter';
+import { primeGlyphPaths } from '../src/math/primeGlyph';
+import { Resvg } from '@resvg/resvg-js';
 
 function mathHTML(source: string) {
   const result = renderLatex(source);
@@ -36,6 +38,9 @@ describe('semantic math primes without changes to other typography', () => {
     ['A‘', 'A^{\\prime}'],
     ['A′', 'A^{\\prime}'],
     ['A’’', 'A^{\\prime\\prime}'],
+    ['A`', 'A^{\\prime}'],
+    ['A``', 'A^{\\prime\\prime}'],
+    ['A```', 'A^{\\prime\\prime\\prime}'],
     ['A^{\\prime}', 'A^{\\prime}'],
     ["A^'", 'A^{\\prime}'],
     ["A_{'}", 'A_{\\prime}'],
@@ -49,6 +54,7 @@ describe('semantic math primes without changes to other typography', () => {
       expect(mathHTML(source).innerHTML).toBe(mathHTML(canonical).innerHTML);
       expect(mathHTML(source).querySelectorAll('.katex-sizing')).toHaveLength(1);
       expect(result.html).not.toContain('reset-size3 size1');
+      expect(mathHTML(source).querySelector('.math-prime')?.textContent).toMatch(/^′+$/);
       const markup = document.createElement('div');
       markup.innerHTML = renderToStaticMarkup(<MathText text={source} color="#171a20" />);
       expect(markup.querySelector('[data-source]')?.getAttribute('data-source')).toBe(source);
@@ -80,20 +86,70 @@ describe('semantic math primes without changes to other typography', () => {
     );
   });
 
-  it.each([
-    'A',
-    'usa `questo`',
-    'A`',
-    "l'amico",
-    'l’amico',
-    "Don't alter A' in prose",
-    'L’unità',
-    '‘A’',
-  ])('%s remains plain text with its original apostrophes', (source) => {
-    expect(isMathSource(source)).toBe(false);
-    expect(normalizeLatex(source)).toBe(source);
-    expect(renderLatex(source)).toEqual({ kind: 'plain', source });
+  it.each(['A', 'usa `questo`', "l'amico", 'l’amico', "Don't alter A' in prose", 'L’unità', '‘A’'])(
+    '%s remains plain text with its original apostrophes',
+    (source) => {
+      expect(isMathSource(source)).toBe(false);
+      expect(normalizeLatex(source)).toBe(source);
+      expect(renderLatex(source)).toEqual({ kind: 'plain', source });
+    },
+  );
+
+  it.each(primes.filter(([source]) => !source.includes('_')))(
+    '%s normalizes to canonical mathematical primes',
+    (source, canonical) => {
+      expect(normalizeLatex(source)).toBe(canonical);
+    },
+  );
+
+  it('restores only the prime glyph font, leaving native KaTeX script sizing intact', () => {
+    const scripts = mathHTML("A' + A^2 + A^n").querySelectorAll('.katex-sizing');
+    expect([...scripts].map((script) => script.className)).toEqual([
+      'katex-sizing reset-size6 size3 mtight',
+      'katex-sizing reset-size6 size3 mtight',
+      'katex-sizing reset-size6 size3 mtight',
+    ]);
+    expect(mathHTML("A' + A^2").querySelectorAll('.math-prime')).toHaveLength(1);
   });
+
+  it('does not override literal primes inside TeX text commands', () => {
+    expect(mathHTML('A^2 + \\text{′}').querySelector('.math-prime')).toBeNull();
+    expect(mathHTML('\\operatorname{′}').querySelector('.math-prime')).toBeNull();
+    expect(mathHTML("A' + \\text{′}").querySelectorAll('.math-prime')).toHaveLength(1);
+  });
+
+  it('outlines repeated primes using bundled font advances, without viewer font dependencies', () => {
+    expect(primeGlyphPaths(3)).toContain('translate(275 0)');
+    expect(primeGlyphPaths(3)).toContain('translate(550 0)');
+    expect(primeGlyphPaths(2, true)).toContain('translate(344 0)');
+    expect(primeGlyphPaths(3)).not.toMatch(/<text|font-family/u);
+  });
+
+  it.each([false, true])(
+    'standalone exported outlines match the actual bundled prime font (bold=%s)',
+    (bold) => {
+      const svg = (content: string) =>
+        `<svg xmlns="http://www.w3.org/2000/svg" width="80" height="40">${content}</svg>`;
+      const expected = new Resvg(
+        svg(
+          `<text x="12" y="25" font-family="KaTeX_Main" font-size="15.4" font-weight="${bold ? 700 : 400}">′′′</text>`,
+        ),
+        {
+          font: {
+            loadSystemFonts: false,
+            fontFiles: [
+              `node_modules/katex/dist/fonts/KaTeX_Main-${bold ? 'Bold' : 'Regular'}.ttf`,
+            ],
+          },
+        },
+      ).render().pixels;
+      const actual = new Resvg(
+        svg(`<g transform="translate(12 25) scale(0.0154)">${primeGlyphPaths(3, bold)}</g>`),
+        { font: { loadSystemFonts: false } },
+      ).render().pixels;
+      expect(actual).toEqual(expected);
+    },
+  );
 
   it.each([
     "\\text{l’amico e A^{'}} + x^2",
@@ -132,7 +188,7 @@ describe('semantic math primes without changes to other typography', () => {
     expect(texText(component.label.text)).toBe('$A^{\\prime}$');
     expect(exportTikz(doc)).toContain('$A^{\\prime}$');
     expect(exportObsidian(doc)).toContain('$A^{\\prime}$');
-    expect(texText('AB’', true)).toBe("$AB'$");
+    expect(texText('AB’', true)).toBe('$AB^{\\prime}$');
     expect(serializeDocument(doc)).toBe(stored);
     expect(deserializeDocument(stored).objects[0]).toMatchObject({ label: { text: 'A^{`}' } });
   });

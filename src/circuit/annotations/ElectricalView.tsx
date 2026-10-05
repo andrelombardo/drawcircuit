@@ -30,17 +30,6 @@ export function ElectricalView({
       data-current-fallback={g.fallback || undefined}
       className={`circuit-object${selected ? ' selected-symbol' : ''}`}
     >
-      {g.mask && (
-        <path
-          data-current-mask="true"
-          d={pointsPath([g.mask.start, g.mask.end])}
-          stroke="white"
-          strokeWidth={g.mask.width}
-          strokeLinecap="butt"
-          fill="none"
-          pointerEvents="none"
-        />
-      )}
       <path
         d={pointsPath([g.start, g.end])}
         stroke="transparent"
@@ -83,7 +72,7 @@ export function ElectricalView({
           x={g.labelPoint.x}
           y={g.labelPoint.y}
           color={o.label.color}
-          fontSize={o.label.fontSize}
+          fontSize={g.labelFontSize}
           rotation={o.label.rotation}
           labelId={o.id}
           selected={labelSelected}

@@ -10,7 +10,11 @@ import { arrowPath, pointsPath, wirePoints } from '../utils/geometry';
 import { loopPath } from '../utils/loops';
 import { visualBounds, unionBounds } from '../utils/visualBounds';
 import type { Bounds } from '../utils/visualBounds';
-import { electricalDrawingGeometry } from '../annotations/electrical';
+import {
+  currentWireGaps,
+  electricalDrawingGeometry,
+  wireDrawingPaths,
+} from '../annotations/electrical';
 import { CIRCUIT_FONT } from '../model/fonts';
 import { formatNumber as f } from '../tikz/units';
 const attr = (s: string) =>
@@ -77,9 +81,11 @@ export function exportSVG(source: CircuitDocument): string {
   };
   const path = (d: string, color: string, width: number, cap = 'round') =>
     `<path d="${attr(d)}" fill="none" stroke="${color}" stroke-width="${f(width)}" stroke-linecap="${cap}" stroke-linejoin="round"/>`;
+  const currentGaps = currentWireGaps(doc);
   for (const o of doc.objects.filter((o) => o.kind === 'wire')) {
     try {
-      parts.push(path(pointsPath(wirePoints(o, doc)), o.color, o.width));
+      const paths = wireDrawingPaths(wirePoints(o, doc), currentGaps.get(o.id));
+      parts.push(path(paths.map(pointsPath).join(' '), o.color, o.width));
       boxes.push(visualBounds(o, doc));
     } catch {
       /* Skip a dangling invalid wire like TikZ does. */
@@ -182,24 +188,11 @@ export function exportSVG(source: CircuitDocument): string {
             })),
           ),
         );
-        if (g.mask) {
-          parts.push(path(pointsPath([g.mask.start, g.mask.end]), 'white', g.mask.width, 'butt'));
-          boxes.push(
-            unionBounds(
-              [g.mask.start, g.mask.end].map((p) => ({
-                x: p.x - g.mask!.width / 2,
-                y: p.y - g.mask!.width / 2,
-                width: g.mask!.width,
-                height: g.mask!.width,
-              })),
-            ),
-          );
-        }
         parts.push(path(pointsPath([g.start, g.end]), o.color, g.strokeWidth));
         parts.push(path(pointsPath(head), o.color, g.strokeWidth));
       }
       labels.push(
-        text(o.label.text, g.labelPoint, o.label.color, o.label.fontSize, o.label.rotation),
+        text(o.label.text, g.labelPoint, o.label.color, g.labelFontSize, o.label.rotation),
       );
     }
   }

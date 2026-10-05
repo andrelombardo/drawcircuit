@@ -3,10 +3,14 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { Resvg } from '@resvg/resvg-js';
 import {
   createCurrent,
+  currentWireGaps,
+  detachElectrical,
   electricalDrawingGeometry,
-  electricalGeometry,
+  wireDrawingPaths,
 } from '../src/annotations/electrical';
 import { ElectricalView } from '../src/circuit/annotations/ElectricalView';
+import { WireView } from '../src/circuit/wires/WireView';
+import { CircuitLayer } from '../src/components/editor/CircuitLayer';
 import { createComponent } from '../src/model/catalog';
 import { createWire } from '../src/model/factories';
 import { emptyDocument } from '../src/model/demo';
@@ -15,23 +19,49 @@ import { exportSVG } from '../src/svg/exporter';
 import { exportTikz, exportObsidian } from '../src/tikz/exporter';
 import { getExportSelection } from '../src/tikz/selection';
 import { distance, midpoint, pointsPath, localToWorld, wirePoints } from '../src/utils/geometry';
-import type { Point } from '../src/model/types';
+import type { CircuitDocument, Point } from '../src/model/types';
 
 function fixture(end: Point = { x: 400, y: 0 }) {
   const wire = createWire({ kind: 'free', point: { x: 0, y: 0 } }, { kind: 'free', point: end });
   const source = { ...emptyDocument(), objects: [wire] };
   const current = createCurrent(wire, { x: end.x / 2, y: end.y / 2 }, source, 'inline');
   current.label.text = '';
-  return { wire, current, doc: { ...source, objects: [wire, current] } };
+  const doc: CircuitDocument = { ...source, objects: [wire, current] };
+  return { wire, current, doc };
 }
 
-describe('legible integrated current without topology changes', () => {
+function raster(zoom: number, grid = false) {
+  const { wire, current, doc } = fixture();
+  const points = wirePoints(wire, doc);
+  const markup = renderToStaticMarkup(
+    <svg xmlns="http://www.w3.org/2000/svg" width="1000" height="200">
+      <defs>
+        <pattern id="grid" width="20" height="20" patternUnits="userSpaceOnUse">
+          <circle cx="0" cy="3" r="0.8" fill="#94a3b8" />
+        </pattern>
+      </defs>
+      <rect width="1000" height="200" fill="white" />
+      {grid && <rect width="1000" height="200" fill="url(#grid)" />}
+      <g transform={`translate(500 100) scale(${zoom}) translate(-200 0)`}>
+        <WireView
+          object={wire}
+          points={points}
+          paths={wireDrawingPaths(points, currentWireGaps(doc, zoom).get(wire.id))}
+        />
+        <ElectricalView object={current} doc={doc} zoom={zoom} hideLabel />
+      </g>
+    </svg>,
+  );
+  return new Resvg(markup).render();
+}
+
+describe('integrated current as a screen-space visual wire replacement', () => {
   it.each([
     { x: 400, y: 0 },
     { x: 0, y: 400 },
     { x: -400, y: 0 },
     { x: 0, y: -400 },
-  ])('keeps a 36px shaft and 4px gaps at each zoom on %j', (end) => {
+  ])('keeps shaft, head, stroke and label stable at 50/100/200%% on %j', (end) => {
     const { wire, current, doc } = fixture(end);
     const original = serializeDocument(doc),
       route = wirePoints(wire, doc);
@@ -39,93 +69,230 @@ describe('legible integrated current without topology changes', () => {
       const g = electricalDrawingGeometry(current, doc, zoom);
       expect(g.fallback).toBe(false);
       expect(distance(g.start, g.end) * zoom).toBeCloseTo(36);
-      expect(distance(g.mask!.start, g.mask!.end) * zoom).toBeCloseTo(44);
-      expect(distance(g.mask!.start, g.start) * zoom).toBeCloseTo(4);
+      expect(distance(g.head[0], g.head[2]) * zoom).toBeCloseTo(9);
+      expect(g.strokeWidth * zoom).toBeCloseTo(current.width);
+      expect(g.labelFontSize * zoom).toBeCloseTo(current.label.fontSize);
       expect(midpoint(g.start, g.end)).toEqual(midpoint(route[0], route.at(-1)!));
+      expect(g.wireGap?.start).toEqual(g.start);
+      expect(g.wireGap?.end).toEqual(g.end);
       const reverse = electricalDrawingGeometry({ ...current, reversed: true }, doc, zoom);
       expect(reverse.arrowEnd).toEqual(g.arrowStart);
       expect(reverse.arrowStart).toEqual(g.arrowEnd);
-      expect(reverse.mask).toEqual(g.mask);
+      expect(reverse.start).toEqual(g.start);
+      expect(reverse.end).toEqual(g.end);
+      expect(reverse.wireGap).toEqual(g.wireGap);
+      expect(reverse.labelPoint).toEqual(g.labelPoint);
+      expect(reverse.strokeWidth).toBe(g.strokeWidth);
     }
     expect(serializeDocument(doc)).toBe(original);
     expect(wirePoints(wire, doc)).toEqual(route);
   });
 
-  it('follows an actual diagonal terminal lead and falls back without losing the chosen branch', () => {
-    const component = { ...createComponent('resistor', { x: 0, y: 0 }), rotation: 45 as const };
-    const point = localToWorld(component, { x: 40, y: 0 });
-    const wire = createWire(
-      { kind: 'terminal', componentId: component.id, terminalId: 'b' },
-      { kind: 'free', point: { x: 160, y: 80 } },
-    );
-    const source = { ...emptyDocument(), objects: [component, wire] };
-    const route = wirePoints(wire, source);
-    const current = createCurrent(wire, midpoint(point, route[1]), source, 'inline');
-    const doc = { ...source, objects: [...source.objects, current] };
-    const original = serializeDocument(doc);
-    expect(current.wireSegment?.index).toBe(0);
-    for (const zoom of [0.5, 1, 2, 4]) {
-      const g = electricalDrawingGeometry(current, doc, zoom);
-      expect(g.end.x - g.start.x).toBeCloseTo(g.end.y - g.start.y);
-      expect(distance(g.start, g.end) * zoom).toBeCloseTo(36);
-      expect(g.fallback).toBe(zoom < 4);
-      expect(!!g.mask).toBe(zoom === 4);
+  it('golden raster: visual arrow bounds match at 50/100/200%, while the wire scales', () => {
+    const bounds = [0.5, 1, 2].map((zoom) => {
+      const rendered = raster(zoom),
+        pixels = rendered.pixels;
+      let left = Infinity,
+        top = Infinity,
+        right = -Infinity,
+        bottom = -Infinity,
+        ink = 0;
+      for (let y = 0; y < rendered.height; y++) {
+        for (let x = 0; x < rendered.width; x++) {
+          const p = (y * rendered.width + x) * 4;
+          if (pixels[p] > pixels[p + 1] * 1.5 && pixels[p + 1] < 140) {
+            left = Math.min(left, x);
+            right = Math.max(right, x);
+            top = Math.min(top, y);
+            bottom = Math.max(bottom, y);
+          }
+          if (pixels[p] < 80 && pixels[p + 1] < 80 && pixels[p + 2] < 80) ink++;
+        }
+      }
+      return { left, top, right, bottom, ink };
+    });
+    for (const bound of bounds) {
+      expect(bound.right - bound.left).toBeGreaterThanOrEqual(35);
+      expect(bound.right - bound.left).toBeLessThanOrEqual(38);
+      expect(bound.bottom - bound.top).toBeGreaterThanOrEqual(8);
+      expect(bound.bottom - bound.top).toBeLessThanOrEqual(11);
+      expect({ ...bound, ink: 0 }).toEqual({ ...bounds[1], ink: 0 });
     }
-    expect(serializeDocument(doc)).toBe(original);
+    expect(bounds[0].ink).toBeLessThan(bounds[1].ink);
+    expect(bounds[1].ink).toBeLessThan(bounds[2].ink);
   });
 
-  it('shows white gaps even when the shaft has exactly the wire color', () => {
+  it('preserves dots behind the old mask footprint and contains no background patch', () => {
+    const rendered = raster(1, true);
+    const pixel = (x: number, y: number) => {
+      const offset = (y * rendered.width + x) * 4;
+      return [...rendered.pixels.slice(offset, offset + 3)];
+    };
+    expect(pixel(500, 103)[2]).toBeLessThan(250); // grid dot 3px below shaft survives
+    expect(pixel(500, 100)[0]).toBeGreaterThan(pixel(500, 100)[1] * 1.5); // red shaft
+    for (const zoom of [0.5, 1, 2]) {
+      const { current, doc } = fixture();
+      const markup = renderToStaticMarkup(
+        <ElectricalView object={current} doc={doc} zoom={zoom} hideLabel />,
+      );
+      expect(markup).not.toContain('white');
+      expect(markup).not.toMatch(/mask|<rect|<filter/);
+    }
+  });
+
+  it('draws uninterrupted ink when shaft and wire have the same color', () => {
     const { wire, current, doc } = fixture();
     current.color = wire.color;
-    const svg = exportSVG(doc);
-    const bounds = /viewBox="([^"]+)"/.exec(svg)![1].split(' ').map(Number);
+    const svg = exportSVG(doc),
+      bounds = /viewBox="([^"]+)"/.exec(svg)![1].split(' ').map(Number);
     const rendered = new Resvg(svg, { fitTo: { mode: 'zoom', value: 4 } }).render();
-    const pixel = (x: number, y: number) => {
+    for (let x = 174; x <= 226; x++) {
       const px = Math.round((x - bounds[0]) * 4),
-        py = Math.round((y - bounds[1]) * 4);
+        py = Math.round(-bounds[1] * 4);
       const offset = (py * rendered.width + px) * 4;
-      return [
-        rendered.pixels[offset],
-        rendered.pixels[offset + 1],
-        rendered.pixels[offset + 2],
-      ].map(Number);
-    };
-    expect(pixel(176, 0).every((v) => v < 80)).toBe(true); // original wire
-    expect(pixel(180, 0)).toEqual([255, 255, 255]); // left gap
-    expect(pixel(200, 0).every((v) => v < 80)).toBe(true); // visible shaft
-    expect(pixel(220, 0)).toEqual([255, 255, 255]); // right gap
-    expect(pixel(224, 0).every((v) => v < 80)).toBe(true); // original wire resumes
+      expect([...rendered.pixels.slice(offset, offset + 3)].every((value) => value < 80)).toBe(
+        true,
+      );
+    }
   });
 
-  it('keeps the full current shape and gaps in both export dialects and selection export', () => {
-    const { current, wire, doc } = fixture();
-    const drawing = electricalDrawingGeometry(current, doc);
-    const svg = exportSVG(doc);
-    expect(svg).toContain(`d="${pointsPath([drawing.start, drawing.end])}"`);
-    expect(svg).toContain('stroke="white"');
-    for (const output of [exportTikz(doc), exportObsidian(doc)]) {
+  it('splits only visible wire paths, keeping one semantic and hit-tested Wire', () => {
+    const { wire, current, doc } = fixture(),
+      points = wirePoints(wire, doc);
+    const gaps = currentWireGaps(doc).get(wire.id)!;
+    expect(wireDrawingPaths(points, gaps)).toEqual([
+      [points[0], { x: 182, y: 0 }],
+      [{ x: 218, y: 0 }, points[1]],
+    ]);
+    const markup = renderToStaticMarkup(
+      <CircuitLayer doc={doc} selection={[]} terminals={false} zoom={1} />,
+    );
+    expect(markup).toContain('d="M 0 0 L 400 0" fill="none" stroke="transparent"');
+    expect(markup).toContain('d="M 0 0 L 182 0 M 218 0 L 400 0"');
+    expect(markup).not.toContain('data-current-mask');
+    expect(doc.objects.filter((object) => object.kind === 'wire')).toEqual([wire]);
+    expect(doc.objects.filter((object) => object.kind === 'junction')).toHaveLength(0);
+    const another = { ...current, id: 'another', wireSegment: { index: 0, ratio: 0.52 } };
+    const overlap = currentWireGaps({ ...doc, objects: [wire, current, another] }).get(wire.id)!;
+    expect(wireDrawingPaths(points, overlap)).toEqual([
+      [points[0], { x: 182, y: 0 }],
+      [{ x: 226, y: 0 }, points[1]],
+    ]);
+  });
+
+  it.each([45, 135, 225, 315] as const)(
+    'follows the real %d° terminal lead and uses a bounded fallback',
+    (rotation) => {
+      const component = { ...createComponent('resistor', { x: 0, y: 0 }), rotation };
+      const point = localToWorld(component, { x: 40, y: 0 });
+      const wire = createWire(
+        { kind: 'terminal', componentId: component.id, terminalId: 'b' },
+        { kind: 'free', point: { x: 160, y: 80 } },
+      );
+      const source = { ...emptyDocument(), objects: [component, wire] },
+        route = wirePoints(wire, source);
+      const current = createCurrent(wire, midpoint(point, route[1]), source, 'inline');
+      const doc = { ...source, objects: [...source.objects, current] },
+        original = serializeDocument(doc);
+      expect(current.wireSegment?.index).toBe(0);
+      for (const zoom of [0.5, 1, 2, 4]) {
+        const g = electricalDrawingGeometry(current, doc, zoom);
+        const direction = { x: route[1].x - point.x, y: route[1].y - point.y };
+        expect(
+          (g.end.x - g.start.x) * direction.y - (g.end.y - g.start.y) * direction.x,
+        ).toBeCloseTo(0);
+        const available = Math.max(0, distance(point, route[1]) * zoom - 8);
+        expect(g.fallback).toBe(available < 18);
+        expect(!!g.wireGap).toBe(!g.fallback);
+        expect(distance(g.start, g.end) * zoom).toBeCloseTo(
+          g.fallback ? 36 : Math.min(36, available),
+        );
+      }
+      expect(serializeDocument(doc)).toBe(original);
+    },
+  );
+
+  it('exports canonical zoom-1 split geometry to SVG/PNG/TikZ/Obsidian and selection', () => {
+    const { current, wire, doc } = fixture(),
+      drawing = electricalDrawingGeometry(current, doc);
+    const canonical = [exportSVG(doc), exportTikz(doc), exportObsidian(doc)];
+    for (const zoom of [0.5, 1, 2]) {
+      electricalDrawingGeometry(current, doc, zoom);
+      currentWireGaps(doc, zoom);
+      expect([exportSVG(doc), exportTikz(doc), exportObsidian(doc)]).toEqual(canonical);
+    }
+    expect(canonical[0]).toContain(`d="${pointsPath([drawing.start, drawing.end])}"`);
+    expect(canonical[0]).not.toContain('stroke="white"');
+    const png = new Resvg(canonical[0]).render().asPng();
+    expect([...png.slice(0, 8)]).toEqual([137, 80, 78, 71, 13, 10, 26, 10]);
+    for (const output of canonical.slice(1)) {
       const annotation = output.split('% Electrical annotation: current')[1];
-      expect(annotation).toContain('draw=white');
-      expect(annotation).toContain('line cap=butt');
-      expect(annotation).toContain('line cap=round,line join=round');
-      expect(annotation.match(/\\draw\[/g)).toHaveLength(3);
+      expect(annotation).not.toContain('draw=white');
+      expect(annotation.match(/\\draw\[/g)).toHaveLength(2);
     }
     const subset = getExportSelection(doc, [wire.id]);
     expect(subset.objects).toHaveLength(2);
-    expect(exportSVG(subset).match(/<path /g)).toHaveLength(4);
+    expect(exportSVG(subset).match(/<path /g)).toHaveLength(3);
     const onlyCurrent = getExportSelection(doc, [current.id]);
     expect(onlyCurrent.objects).toHaveLength(1);
-    expect(exportSVG(onlyCurrent).match(/<path /g)).toHaveLength(3);
+    expect(exportSVG(onlyCurrent).match(/<path /g)).toHaveLength(2);
   });
 
-  it('reduces to 28px then uses a readable external fallback on shorter segments', () => {
-    for (const length of [48, 40, 16, 1]) {
+  it.each([
+    { length: 400, ratio: 0 },
+    { length: 400, ratio: 1 },
+    { length: 30, ratio: 0.5 },
+    { length: 20, ratio: 0.5 },
+  ])(
+    'freezes canonical current geometry when its host is excluded from export: %j',
+    ({ length, ratio }) => {
+      const { wire, current, doc } = fixture({ x: length, y: 0 });
+      current.wireSegment = { index: 0, ratio };
+      current.label.text = 'i';
+      current.label.offset = { x: 8, y: -5 };
+      const detached = detachElectrical(current, doc);
+      const standalone = { ...doc, objects: [detached] };
+      const source = electricalDrawingGeometry(current, doc);
+      const exported = electricalDrawingGeometry(detached, standalone);
+      expect(exported.start).toEqual(source.start);
+      expect(exported.end).toEqual(source.end);
+      expect(exported.head).toEqual(source.head);
+      expect(exported.labelPoint).toEqual(source.labelPoint);
+      expect(detached.wireId).toBeUndefined();
+      expect(doc.objects[0]).toBe(wire);
+      const subset = getExportSelection(doc, [current.id]);
+      const normalized = subset.objects[0];
+      if (normalized.kind !== 'electrical') throw new Error('Current missing');
+      const normalizedDrawing = electricalDrawingGeometry(normalized, subset);
+      expect(distance(normalizedDrawing.start, normalizedDrawing.end)).toBeCloseTo(
+        distance(source.start, source.end),
+      );
+      expect({
+        x: normalizedDrawing.labelPoint.x - normalizedDrawing.start.x,
+        y: normalizedDrawing.labelPoint.y - normalizedDrawing.start.y,
+      }).toEqual({
+        x: source.labelPoint.x - source.start.x,
+        y: source.labelPoint.y - source.start.y,
+      });
+      const canonical = exportSVG(subset);
+      for (const zoom of [0.5, 1, 2]) {
+        const drawing = electricalDrawingGeometry(normalized, subset, zoom);
+        expect(distance(drawing.start, drawing.end) * zoom).toBeCloseTo(
+          distance(source.start, source.end),
+        );
+        expect(exportSVG(subset)).toBe(canonical);
+      }
+    },
+  );
+
+  it('shrinks to a readable 18px minimum, then falls back outside a shorter branch', () => {
+    for (const length of [48, 36, 26, 25, 16, 1, 0]) {
       const { current, wire, doc } = fixture({ x: length, y: 0 });
       const stored = serializeDocument(doc),
         g = electricalDrawingGeometry(current, doc);
-      expect(g.fallback).toBe(length < 48);
-      expect(distance(g.start, g.end)).toBeCloseTo(length === 48 ? 28 : 36);
-      expect(midpoint(g.start, g.end).y).toBe(length === 48 ? 0 : -16);
+      expect(g.fallback).toBe(length < 26);
+      expect(distance(g.start, g.end)).toBeCloseTo(length < 26 ? 36 : Math.min(36, length - 8));
+      expect(midpoint(g.start, g.end).y).toBe(length < 26 ? -16 : 0);
       expect(current.currentPlacement).toBe('inline');
       expect(current.wireId).toBe(wire.id);
       expect(serializeDocument(doc)).toBe(stored);
@@ -140,29 +307,56 @@ describe('legible integrated current without topology changes', () => {
         ...wire,
         endEndpoint: { kind: 'free' as const, point: { x: length, y: 0 } },
       };
-      const next = { ...doc, objects: [resized, current] };
-      const g = electricalDrawingGeometry(current, next);
+      const next = { ...doc, objects: [resized, current] },
+        g = electricalDrawingGeometry(current, next);
       expect(midpoint(g.start, g.end).x).toBe(length / 2);
       expect(g.fallback).toBe(length === 20);
       expect(current.wireSegment).toEqual({ index: 0, ratio: 0.5 });
     }
   });
 
-  it('leaves external arrows unchanged and gives only the annotation a selection highlight', () => {
-    const { current, doc } = fixture();
-    const external = { ...current, currentPlacement: 'external' as const };
-    const logical = electricalGeometry(external, doc),
-      drawing = electricalDrawingGeometry(external, doc, 0.5);
-    expect(drawing.start).toEqual(logical.start);
-    expect(drawing.end).toEqual(logical.end);
-    expect(drawing.arrowEnd).toEqual(logical.arrowEnd);
-    expect(drawing.strokeWidth).toBe(external.width);
-    expect(drawing.mask).toBeNull();
+  it('uses the same screen-space rules externally and highlights only the annotation', () => {
+    const { current, doc } = fixture(),
+      external = { ...current, currentPlacement: 'external' as const };
+    for (const zoom of [0.5, 1, 2]) {
+      const drawing = electricalDrawingGeometry(external, doc, zoom);
+      expect(distance(drawing.start, drawing.end) * zoom).toBeCloseTo(60);
+      expect(midpoint(drawing.start, drawing.end).y * zoom).toBeCloseTo(-16);
+      expect(drawing.strokeWidth * zoom).toBe(external.width);
+      expect(drawing.wireGap).toBeNull();
+      expect(drawing.labelPoint.y * zoom).toBeCloseTo(-40);
+    }
     const markup = renderToStaticMarkup(
       <ElectricalView object={current} doc={doc} selected hideLabel />,
     );
     expect(markup).toContain('selected-symbol');
     expect(markup).toContain('stroke="transparent" stroke-width="20"');
     expect(markup).not.toContain('data-handle');
+  });
+
+  it('keeps a low-zoom group outline around the actual current label and head', () => {
+    const { current, wire, doc } = fixture();
+    current.label.text = 'i';
+    for (const zoom of [0.5, 1, 2]) {
+      const g = electricalDrawingGeometry(current, doc, zoom);
+      const markup = renderToStaticMarkup(
+        <CircuitLayer doc={doc} selection={[wire.id, current.id]} terminals={false} zoom={zoom} />,
+      );
+      const group = /<rect ([^>]+)data-selection="group"/.exec(markup)![1];
+      const attribute = (name: string) => Number(new RegExp(`${name}="([^"]+)"`).exec(group)![1]);
+      const x = attribute('x'),
+        y = attribute('y');
+      const right = x + attribute('width'),
+        bottom = y + attribute('height');
+      for (const point of [
+        ...g.head,
+        { x: g.labelPoint.x, y: g.labelPoint.y + g.labelFontSize * 0.8 },
+      ]) {
+        expect(point.x).toBeGreaterThanOrEqual(x);
+        expect(point.x).toBeLessThanOrEqual(right);
+        expect(point.y).toBeGreaterThanOrEqual(y);
+        expect(point.y).toBeLessThanOrEqual(bottom);
+      }
+    }
   });
 });

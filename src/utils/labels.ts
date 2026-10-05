@@ -1,5 +1,5 @@
 import { braceGeometry } from '../annotations/brace';
-import { electricalGeometry } from '../annotations/electrical';
+import { electricalDrawingGeometry } from '../annotations/electrical';
 import type { CircuitDocument, CircuitObject, Label, Point, Rotation } from '../model/types';
 import { add } from './geometry';
 
@@ -22,6 +22,7 @@ export interface InlineTextTarget {
 export function inlineTextTarget(
   object: CircuitObject | null | undefined,
   doc: CircuitDocument,
+  zoom = 1,
 ): InlineTextTarget | null {
   if (!object) return null;
   if (object.kind === 'text') {
@@ -36,9 +37,11 @@ export function inlineTextTarget(
     };
   }
   if (!hasAssociatedLabel(object)) return null;
+  const electrical =
+    object.kind === 'electrical' ? electricalDrawingGeometry(object, doc, zoom) : null;
   const point =
     object.kind === 'electrical'
-      ? electricalGeometry(object, doc).labelPoint
+      ? electrical!.labelPoint
       : object.kind === 'brace'
         ? braceGeometry(object).labelPoint
         : add(object, object.label.offset);
@@ -47,7 +50,7 @@ export function inlineTextTarget(
     text: object.label.text,
     point,
     color: object.label.color,
-    fontSize: object.label.fontSize,
+    fontSize: electrical?.labelFontSize ?? object.label.fontSize,
     rotation: object.label.rotation,
     align: 'middle',
   };

@@ -28,6 +28,11 @@ import { toolbarActions } from './toolbarActions';
 import { replaceInlineText } from '../../utils/labels';
 import { copyPNG } from '../../png/exporter';
 import { getExportSelection } from '../../tikz/selection';
+import { createPolarity } from '../../annotations/electrical';
+import { supportsPolarity } from '../../model/capabilities';
+import { currentOnSelectedWire } from './annotationActions';
+import { ActionMenu } from '../toolbar/ActionMenu';
+import { CurrentInlineIcon, CurrentExternalIcon, PolarityIcon } from '../toolbar/DrawingIcons';
 function PropertyText({
   value,
   label,
@@ -302,6 +307,44 @@ export function ContextToolbar({
         <SelectionStyle objects={objects} apply={apply} />
       </details>
       <div className="toolbar-divider" />
+      {o?.kind === 'wire' && (
+        <ActionMenu
+          key={o.id}
+          label="Corrente sul filo"
+          icon={<CurrentInlineIcon size={18} />}
+          onOpenChange={(open) => {
+            if (open) {
+              if (more.current) more.current.open = false;
+              if (style.current) style.current.open = false;
+            }
+          }}
+          items={(['inline', 'external'] as const).map((placement) => ({
+            id: placement,
+            label: placement === 'inline' ? 'Integrata' : 'Esterna',
+            icon: placement === 'inline' ? <CurrentInlineIcon /> : <CurrentExternalIcon />,
+            onSelect: () => {
+              const state = useEditorStore.getState();
+              const wire = state.document.objects.find((object) => object.id === o.id);
+              if (wire?.kind === 'wire')
+                state.add([currentOnSelectedWire(wire, state.document, placement)]);
+            },
+          }))}
+        />
+      )}
+      {o && supportsPolarity(o) && (
+        <IconButton
+          label="Polarità + / -"
+          onClick={() => {
+            const state = useEditorStore.getState();
+            const component = state.document.objects.find((object) => object.id === o.id);
+            const annotation =
+              component && supportsPolarity(component) ? createPolarity(component) : null;
+            if (annotation) state.add([annotation]);
+          }}
+        >
+          <PolarityIcon size={18} />
+        </IconButton>
+      )}
       {o?.kind === 'brace' && (
         <IconButton
           label="Inverti lato"
@@ -400,7 +443,7 @@ export function ContextToolbar({
               onClick={() => void copySelectionPNG()}
             >
               <Image size={16} />
-              {pngBusy ? 'Copia PNG…' : 'Copia PNG'}
+              {pngBusy ? 'Copia immagine…' : 'Copia come immagine'}
             </button>
             {o?.kind === 'electrical' && (
               <>
@@ -418,7 +461,7 @@ export function ContextToolbar({
                       }}
                     >
                       <option value="external">Esterna</option>
-                      <option value="inline">Sul filo</option>
+                      <option value="inline">Integrata</option>
                     </select>
                   </label>
                 )}

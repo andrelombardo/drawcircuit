@@ -1,6 +1,7 @@
 import { BraceView } from '../../circuit/annotations/BraceView';
 import { WireBridges } from '../../circuit/wires/WireBridges';
 import { ElectricalView } from '../../circuit/annotations/ElectricalView';
+import { currentWireGaps, wireDrawingPaths } from '../../annotations/electrical';
 import { memo, useMemo } from 'react';
 import type { CircuitDocument } from '../../model/types';
 import { wirePoints } from '../../utils/geometry';
@@ -32,6 +33,7 @@ export const CircuitLayer = memo(function CircuitLayer({
 }) {
   const selected = useMemo(() => new Set(selection), [selection]);
   const nearby = useMemo(() => new Set(nearbyComponents), [nearbyComponents]);
+  const currentGaps = useMemo(() => currentWireGaps(doc, zoom), [doc, zoom]);
   const wires = useMemo(
     () =>
       doc.objects.flatMap((o) =>
@@ -43,7 +45,12 @@ export const CircuitLayer = memo(function CircuitLayer({
     <>
       <g data-layer="wires">
         {wires.map(({ object, points }) => (
-          <WireView key={object.id} object={object} points={points} />
+          <WireView
+            key={object.id}
+            object={object}
+            points={points}
+            paths={wireDrawingPaths(points, currentGaps.get(object.id))}
+          />
         ))}
       </g>
       <WireBridges doc={doc} />

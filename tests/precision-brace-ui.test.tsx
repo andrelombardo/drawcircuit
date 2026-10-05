@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { chooseDrawingTool } from './helpers/drawingMenu';
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import App from '../src/App';
@@ -74,8 +75,7 @@ function drag(start: [number, number], end: [number, number], target: Element = 
   fireEvent.pointerUp(canvas(), client(...end));
 }
 function create(type: 'brace' | 'bracket', end: [number, number]) {
-  fireEvent.click(screen.getByRole('button', { name: 'Graffe e staffe' }));
-  fireEvent.click(screen.getByRole('button', { name: type === 'brace' ? 'Graffa' : 'Staffa' }));
+  chooseDrawingTool('Graffa / Staffa', type === 'brace' ? 'Graffa' : 'Staffa');
   drag([0, 0], end);
   return state().document.objects.at(-1) as BraceAnnotation;
 }

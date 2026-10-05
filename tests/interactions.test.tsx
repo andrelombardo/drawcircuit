@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { chooseDrawingTool } from './helpers/drawingMenu';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import App from '../src/App';
@@ -143,7 +144,7 @@ describe('complete editor workflows', () => {
   });
   it('creates a reference-based terminal connection and manual waypoints', () => {
     render(<App />);
-    fireEvent.click(screen.getByRole('button', { name: 'Filo (W)' }));
+    chooseDrawingTool('Filo');
     click(-160, 0);
     click(-160, 180);
     click(-240, 160);
@@ -168,7 +169,7 @@ describe('complete editor workflows', () => {
   });
   it('splits a wire when inserting a named junction and preserves connectivity', () => {
     render(<App />);
-    fireEvent.click(screen.getByRole('button', { name: 'Nodo (N)' }));
+    chooseDrawingTool('Nodo');
     click(-240, -80);
     const doc = useEditorStore.getState().document,
       junction = doc.objects.at(-1)!;
@@ -311,7 +312,7 @@ describe('complete editor workflows', () => {
       kind: 'text',
       text: 'maglia 2',
     });
-    fireEvent.click(screen.getByRole('button', { name: 'Freccia (A)' }));
+    chooseDrawingTool('Freccia');
     act(() => useEditorStore.getState().setArrowType('arc'));
     fireEvent.pointerDown(canvas(), client(20, 100));
     fireEvent.pointerMove(canvas(), client(180, 100));

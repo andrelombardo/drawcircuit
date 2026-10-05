@@ -1,13 +1,11 @@
-import { useEffect, useState } from 'react';
 import {
-  ArrowUpRight,
-  Braces,
-  RefreshCw,
+  ArrowRight,
   CircleDot,
   Download,
   GripVertical,
   Hand,
   MousePointer2,
+  Pencil,
   Redo2,
   Spline,
   Type,
@@ -16,6 +14,17 @@ import {
 import { useEditorStore } from '../../store/editorStore';
 import { IconButton } from './IconButton';
 import { useFloatingToolbar } from './useFloatingToolbar';
+import { ActionMenu } from './ActionMenu';
+import type { MenuAction } from './ActionMenu';
+import {
+  BraceToolIcon,
+  BracketToolIcon,
+  CurrentExternalIcon,
+  CurrentInlineIcon,
+  LoopPathIcon,
+  PolarityIcon,
+  VoltageIcon,
+} from './DrawingIcons';
 
 export function DrawingToolbar({
   onExport,
@@ -38,19 +47,75 @@ export function DrawingToolbar({
     future = useEditorStore((s) => s.future),
     undo = useEditorStore((s) => s.undo),
     redo = useEditorStore((s) => s.redo);
-  const [menu, setMenu] = useState<'group' | 'electrical' | null>(null);
-  useEffect(() => {
-    if (!menu) return;
-    const escape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        event.preventDefault();
-        event.stopPropagation();
-        setMenu(null);
-      }
-    };
-    window.addEventListener('keydown', escape, true);
-    return () => window.removeEventListener('keydown', escape, true);
-  }, [menu]);
+  const drawingTools = [
+    'wire',
+    'junction',
+    'arrow',
+    'loop-arrow',
+    'brace',
+    'bracket',
+    'polarity',
+    'voltage',
+    'current',
+  ];
+  const items: MenuAction[] = [
+    { id: 'wire', label: 'Filo', icon: <Spline size={18} />, onSelect: () => setTool('wire') },
+    {
+      id: 'junction',
+      label: 'Nodo',
+      icon: <CircleDot size={18} />,
+      onSelect: () => setTool('junction'),
+    },
+    {
+      id: 'arrow',
+      label: 'Freccia',
+      icon: <ArrowRight size={18} />,
+      separatorBefore: true,
+      onSelect: () => setTool('arrow'),
+    },
+    { id: 'loop', label: 'Maglia', icon: <LoopPathIcon />, onSelect: () => setTool('loop-arrow') },
+    {
+      id: 'brace',
+      label: 'Graffa / Staffa',
+      icon: <BraceToolIcon />,
+      children: [
+        { id: 'brace', label: 'Graffa', icon: <BraceToolIcon />, onSelect: () => setTool('brace') },
+        {
+          id: 'bracket',
+          label: 'Staffa',
+          icon: <BracketToolIcon />,
+          onSelect: () => setTool('bracket'),
+        },
+      ],
+    },
+    {
+      id: 'polarity',
+      label: 'Polarità + / -',
+      icon: <PolarityIcon />,
+      separatorBefore: true,
+      onSelect: () => setTool('polarity'),
+    },
+    {
+      id: 'voltage',
+      label: 'Tensione tra due punti',
+      icon: <VoltageIcon />,
+      onSelect: () => setTool('voltage'),
+    },
+    {
+      id: 'current',
+      label: 'Corrente sul filo',
+      icon: <CurrentInlineIcon />,
+      children: (['inline', 'external'] as const).map((placement) => ({
+        id: placement,
+        label: placement === 'inline' ? 'Integrata' : 'Esterna',
+        icon: placement === 'inline' ? <CurrentInlineIcon /> : <CurrentExternalIcon />,
+        onSelect: () => {
+          useEditorStore.getState().setCurrentPlacement(placement);
+          setTool('current');
+        },
+      })),
+    },
+  ];
   return (
     <div
       ref={toolbarRef}
@@ -79,97 +144,16 @@ export function DrawingToolbar({
       >
         <MousePointer2 size={18} />
       </IconButton>
-      <IconButton label="Filo (W)" active={tool === 'wire'} onClick={() => setTool('wire')}>
-        <Spline size={19} />
-      </IconButton>
-      <IconButton label="Nodo (N)" active={tool === 'junction'} onClick={() => setTool('junction')}>
-        <CircleDot size={18} />
-      </IconButton>
       <IconButton label="Testo" active={tool === 'text'} onClick={() => setTool('text')}>
         <Type size={19} />
       </IconButton>
-      <IconButton label="Freccia (A)" active={tool === 'arrow'} onClick={() => setTool('arrow')}>
-        <ArrowUpRight size={21} />
-      </IconButton>
-      <IconButton
-        label="Maglia (L)"
-        active={tool === 'loop-arrow'}
-        onClick={() => setTool('loop-arrow')}
-      >
-        <RefreshCw size={19} />
-      </IconButton>
-      {(['group', 'electrical'] as const).map((group) => {
-        const graphic = group === 'group';
-        const label = graphic ? 'Graffe e staffe' : 'Annotazioni elettriche';
-        const tools = graphic ? ['brace', 'bracket'] : ['current', 'polarity', 'voltage'];
-        const options = graphic
-          ? ([
-              ['brace', 'Graffa'],
-              ['bracket', 'Staffa'],
-            ] as const)
-          : ([
-              ['current', 'Corrente su un filo'],
-              ['polarity', 'Polarità + / −'],
-              ['voltage', 'Tensione tra due punti'],
-            ] as const);
-        return (
-          <div className="electrical-tools-wrap" key={group}>
-            <button
-              className={`icon-button${tools.includes(tool) ? ' active' : ''}`}
-              aria-label={label}
-              aria-pressed={tools.includes(tool)}
-              aria-expanded={menu === group}
-              title={label}
-              data-tooltip={label}
-              onClick={() => setMenu((open) => (open === group ? null : group))}
-            >
-              {graphic ? <Braces size={19} /> : 'I/V'}
-            </button>
-            {menu === group && (
-              <>
-                <button
-                  className="menu-backdrop"
-                  aria-label={`Chiudi ${label.toLowerCase()}`}
-                  onClick={() => setMenu(null)}
-                />
-                <div className="file-menu electrical-tools-menu" role="menu" aria-label={label}>
-                  {options.map(([type, name]) =>
-                    type === 'current' ? (
-                      <div className="current-placement-options" key={type}>
-                        <span>{name}</span>
-                        <div>
-                          {(['external', 'inline'] as const).map((placement) => (
-                            <button
-                              key={placement}
-                              onClick={() => {
-                                useEditorStore.getState().setCurrentPlacement(placement);
-                                setTool('current');
-                                setMenu(null);
-                              }}
-                            >
-                              {placement === 'external' ? 'Esterna' : 'Integrata'}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    ) : (
-                      <button
-                        key={type}
-                        onClick={() => {
-                          setTool(type);
-                          setMenu(null);
-                        }}
-                      >
-                        {name}
-                      </button>
-                    ),
-                  )}
-                </div>
-              </>
-            )}
-          </div>
-        );
-      })}
+      <ActionMenu
+        label="Disegno e annotazioni"
+        icon={<Pencil size={18} />}
+        items={items}
+        active={drawingTools.includes(tool)}
+        onEscape={() => setTool('select')}
+      />
       <div className="toolbar-divider" />
       <IconButton
         label="Annulla (⌘/Ctrl Z)"
@@ -189,7 +173,6 @@ export function DrawingToolbar({
       >
         <Hand size={18} />
       </IconButton>
-      <div className="toolbar-divider" />
       <IconButton label="Esporta" onClick={onExport}>
         <Download size={18} />
       </IconButton>

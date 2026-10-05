@@ -1,4 +1,5 @@
 import { renderLatex } from '../math/latex';
+import { primeGlyphPaths } from '../math/primeGlyph';
 import { CIRCUIT_FONT } from '../model/fonts';
 import type { Point, Rotation } from '../model/types';
 import { editorToPt, editorFontSizeToTikz, formatNumber as fmt } from './units';
@@ -97,6 +98,14 @@ export function canvasTextLayout(
       const metrics = context.measureText(value);
       const descent = metrics.fontBoundingBoxDescent;
       if (!Number.isFinite(descent)) return null;
+      if (parent.classList.contains('math-prime')) {
+        const size = parseFloat(css.fontSize);
+        const bold = Number(css.fontWeight) >= 600 || css.fontWeight === 'bold';
+        chunks.push(
+          `<g data-math-prime="${value.length}" transform="translate(${fmt(rect.x - origin.x)} ${fmt(rect.bottom - descent - origin.y)}) scale(${size / 1000})"${colorAttribute(parent)}>${primeGlyphPaths(value.length, bold)}</g>`,
+        );
+        continue;
+      }
       chunks.push(
         `<text x="${fmt(rect.x - origin.x)}" y="${fmt(rect.bottom - descent - origin.y)}" font-family="${attribute(css.fontFamily)}" font-size="${fmt(parseFloat(css.fontSize))}" font-style="${css.fontStyle}" font-weight="${css.fontWeight}"${colorAttribute(parent)}>${xmlText(value)}</text>`,
       );

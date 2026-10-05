@@ -28,6 +28,7 @@ import { PresetPlacementLayer } from '../../presets/PresetPlacementLayer';
 import { presetRegistry } from '../../presets/registry';
 import { inlineCompatible } from '../../smartPlacement/findCandidates';
 import { useTerminalProximity } from './useTerminalProximity';
+import { useCanvasFocus } from './useCanvasFocus';
 export function Canvas({
   sidebarVisible = true,
   onToggleSidebar,
@@ -39,6 +40,7 @@ export function Canvas({
   onExport?: () => void;
   onHelp?: () => void;
 }) {
+  const focusModality = useCanvasFocus();
   const svgRef = useRef<SVGSVGElement>(null),
     doc = useEditorStore((s) => s.document),
     tool = useEditorStore((s) => s.tool),
@@ -53,7 +55,7 @@ export function Canvas({
   const interactions = useCanvasInteractions(svgRef, onToggleSidebar),
     { viewport: v, overlay, draft, editing } = interactions;
   const editedObject = editing ? doc.objects.find((o) => o.id === editing.id) : null;
-  const editTarget = inlineTextTarget(editedObject, doc);
+  const editTarget = inlineTextTarget(editedObject, doc, v.zoom);
   const nudgeDistances = useKeyboardNudge(v.zoom);
   const isComponent = componentTypes.includes(tool as ComponentType),
     gridSize = GRID * v.zoom * (v.zoom < 0.4 ? 2 : 1);
@@ -167,6 +169,7 @@ export function Canvas({
         className={`drawing-surface tool-${isComponent ? 'component' : tool}${interactions.space ? ' space-pan' : ''}${interactions.dragging ? ` dragging-${interactions.dragging}` : ''}${isComponent && smartHint ? (smart.preview?.phase === 'inline-candidate' ? ' smart-inline' : ' smart-connect') : ''}`}
         aria-label="Foglio SVG del circuito"
         data-testid="circuit-canvas"
+        data-focus-modality={focusModality}
         onPointerDown={interactions.pointerDown}
         onPointerMove={(event) => {
           terminalProximity.move(event);
