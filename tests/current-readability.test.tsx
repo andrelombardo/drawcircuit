@@ -19,7 +19,15 @@ import { exportSVG } from '../src/svg/exporter';
 import { exportTikz, exportObsidian } from '../src/tikz/exporter';
 import { getExportSelection } from '../src/tikz/selection';
 import { distance, midpoint, pointsPath, localToWorld, wirePoints } from '../src/utils/geometry';
-import type { CircuitDocument, Point } from '../src/model/types';
+import { currentZoomFixture } from './helpers/currentZoomFixture';
+import type { CircuitDocument, ElectricalAnnotation, Point } from '../src/model/types';
+
+function visibleMarkup(current: ElectricalAnnotation, doc: CircuitDocument, zoom: number) {
+  return renderToStaticMarkup(<ElectricalView object={current} doc={doc} zoom={zoom} />).replace(
+    /<path[^>]+stroke="transparent"[^>]*><\/path>/,
+    '',
+  );
+}
 
 function fixture(end: Point = { x: 400, y: 0 }) {
   const wire = createWire({ kind: 'free', point: { x: 0, y: 0 } }, { kind: 'free', point: end });
@@ -46,7 +54,7 @@ function raster(zoom: number, grid = false) {
         <WireView
           object={wire}
           points={points}
-          paths={wireDrawingPaths(points, currentWireGaps(doc, zoom).get(wire.id))}
+          paths={wireDrawingPaths(points, currentWireGaps(doc).get(wire.id))}
         />
         <ElectricalView object={current} doc={doc} zoom={zoom} hideLabel />
       </g>
@@ -55,27 +63,35 @@ function raster(zoom: number, grid = false) {
   return new Resvg(markup).render();
 }
 
-describe('integrated current as a screen-space visual wire replacement', () => {
+describe('current annotations in document space', () => {
   it.each([
     { x: 400, y: 0 },
     { x: 0, y: 400 },
     { x: -400, y: 0 },
     { x: 0, y: -400 },
-  ])('keeps shaft, head, stroke and label stable at 50/100/200%% on %j', (end) => {
+  ])('keeps shaft, head, stroke and label proportional at 15/50/100/200/400%% on %j', (end) => {
     const { wire, current, doc } = fixture(end);
     const original = serializeDocument(doc),
       route = wirePoints(wire, doc);
-    for (const zoom of [0.5, 1, 2]) {
-      const g = electricalDrawingGeometry(current, doc, zoom);
+    for (const zoom of [0.15, 0.5, 1, 2, 4]) {
+      const g = electricalDrawingGeometry(current, doc);
+      expect(visibleMarkup(current, doc, zoom)).toBe(visibleMarkup(current, doc, 1));
+      const external = { ...current, currentPlacement: 'external' as const };
+      for (const reversed of [false, true]) {
+        for (const annotation of [current, external]) {
+          const directed = { ...annotation, reversed };
+          expect(visibleMarkup(directed, doc, zoom)).toBe(visibleMarkup(directed, doc, 1));
+        }
+      }
       expect(g.fallback).toBe(false);
-      expect(distance(g.start, g.end) * zoom).toBeCloseTo(36);
-      expect(distance(g.head[0], g.head[2]) * zoom).toBeCloseTo(9);
-      expect(g.strokeWidth * zoom).toBeCloseTo(current.width);
-      expect(g.labelFontSize * zoom).toBeCloseTo(current.label.fontSize);
+      expect(distance(g.start, g.end)).toBeCloseTo(36);
+      expect(distance(g.head[0], g.head[2])).toBeCloseTo(9);
+      expect(g.strokeWidth).toBeCloseTo(current.width);
+      expect(g.labelFontSize).toBeCloseTo(current.label.fontSize);
       expect(midpoint(g.start, g.end)).toEqual(midpoint(route[0], route.at(-1)!));
       expect(g.wireGap?.start).toEqual(g.start);
       expect(g.wireGap?.end).toEqual(g.end);
-      const reverse = electricalDrawingGeometry({ ...current, reversed: true }, doc, zoom);
+      const reverse = electricalDrawingGeometry({ ...current, reversed: true }, doc);
       expect(reverse.arrowEnd).toEqual(g.arrowStart);
       expect(reverse.arrowStart).toEqual(g.arrowEnd);
       expect(reverse.start).toEqual(g.start);
@@ -88,39 +104,30 @@ describe('integrated current as a screen-space visual wire replacement', () => {
     expect(wirePoints(wire, doc)).toEqual(route);
   });
 
-  it('golden raster: visual arrow bounds match at 50/100/200%, while the wire scales', () => {
-    const bounds = [0.5, 1, 2].map((zoom) => {
-      const rendered = raster(zoom),
-        pixels = rendered.pixels;
-      let left = Infinity,
-        top = Infinity,
-        right = -Infinity,
-        bottom = -Infinity,
-        ink = 0;
-      for (let y = 0; y < rendered.height; y++) {
-        for (let x = 0; x < rendered.width; x++) {
-          const p = (y * rendered.width + x) * 4;
-          if (pixels[p] > pixels[p + 1] * 1.5 && pixels[p + 1] < 140) {
-            left = Math.min(left, x);
-            right = Math.max(right, x);
-            top = Math.min(top, y);
-            bottom = Math.max(bottom, y);
-          }
-          if (pixels[p] < 80 && pixels[p + 1] < 80 && pixels[p + 2] < 80) ink++;
-        }
-      }
-      return { left, top, right, bottom, ink };
-    });
-    for (const bound of bounds) {
-      expect(bound.right - bound.left).toBeGreaterThanOrEqual(35);
-      expect(bound.right - bound.left).toBeLessThanOrEqual(38);
-      expect(bound.bottom - bound.top).toBeGreaterThanOrEqual(8);
-      expect(bound.bottom - bound.top).toBeLessThanOrEqual(11);
-      expect({ ...bound, ink: 0 }).toEqual({ ...bounds[1], ink: 0 });
-    }
-    expect(bounds[0].ink).toBeLessThan(bounds[1].ink);
-    expect(bounds[1].ink).toBeLessThan(bounds[2].ink);
-  });
+  it.each(['golden', 'circuit'])(
+    'golden raster: %s is identical when normalized to the same scale',
+    (scene) => {
+      const doc = currentZoomFixture(scene);
+      const rasters = [0.15, 0.5, 1, 2, 4].map((zoom) => {
+        // Normalize only the viewport: any inverse zoom inside the visible scene
+        // survives this transform and produces different pixels.
+        const markup = renderToStaticMarkup(
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="1000"
+            height="1000"
+            viewBox={`${-250 * zoom} ${-250 * zoom} ${500 * zoom} ${500 * zoom}`}
+          >
+            <g transform={`scale(${zoom})`}>
+              <CircuitLayer doc={doc} selection={[]} terminals={false} zoom={zoom} />
+            </g>
+          </svg>,
+        );
+        return new Resvg(markup).render().asPng();
+      });
+      for (const raster of rasters) expect(raster.equals(rasters[2])).toBe(true);
+    },
+  );
 
   it('preserves dots behind the old mask footprint and contains no background patch', () => {
     const rendered = raster(1, true);
@@ -130,7 +137,7 @@ describe('integrated current as a screen-space visual wire replacement', () => {
     };
     expect(pixel(500, 103)[2]).toBeLessThan(250); // grid dot 3px below shaft survives
     expect(pixel(500, 100)[0]).toBeGreaterThan(pixel(500, 100)[1] * 1.5); // red shaft
-    for (const zoom of [0.5, 1, 2]) {
+    for (const zoom of [0.15, 0.5, 1, 2, 4]) {
       const { current, doc } = fixture();
       const markup = renderToStaticMarkup(
         <ElectricalView object={current} doc={doc} zoom={zoom} hideLabel />,
@@ -195,18 +202,24 @@ describe('integrated current as a screen-space visual wire replacement', () => {
       const doc = { ...source, objects: [...source.objects, current] },
         original = serializeDocument(doc);
       expect(current.wireSegment?.index).toBe(0);
-      for (const zoom of [0.5, 1, 2, 4]) {
-        const g = electricalDrawingGeometry(current, doc, zoom);
+      for (const zoom of [0.15, 0.5, 1, 2, 4]) {
+        const g = electricalDrawingGeometry(current, doc);
+        expect(visibleMarkup(current, doc, zoom)).toBe(visibleMarkup(current, doc, 1));
+        const external = { ...current, currentPlacement: 'external' as const };
+        for (const reversed of [false, true]) {
+          for (const annotation of [current, external]) {
+            const directed = { ...annotation, reversed };
+            expect(visibleMarkup(directed, doc, zoom)).toBe(visibleMarkup(directed, doc, 1));
+          }
+        }
         const direction = { x: route[1].x - point.x, y: route[1].y - point.y };
         expect(
           (g.end.x - g.start.x) * direction.y - (g.end.y - g.start.y) * direction.x,
         ).toBeCloseTo(0);
-        const available = Math.max(0, distance(point, route[1]) * zoom - 8);
+        const available = Math.max(0, distance(point, route[1]) - 8);
         expect(g.fallback).toBe(available < 18);
         expect(!!g.wireGap).toBe(!g.fallback);
-        expect(distance(g.start, g.end) * zoom).toBeCloseTo(
-          g.fallback ? 36 : Math.min(36, available),
-        );
+        expect(distance(g.start, g.end)).toBeCloseTo(g.fallback ? 36 : Math.min(36, available));
       }
       expect(serializeDocument(doc)).toBe(original);
     },
@@ -216,9 +229,16 @@ describe('integrated current as a screen-space visual wire replacement', () => {
     const { current, wire, doc } = fixture(),
       drawing = electricalDrawingGeometry(current, doc);
     const canonical = [exportSVG(doc), exportTikz(doc), exportObsidian(doc)];
-    for (const zoom of [0.5, 1, 2]) {
-      electricalDrawingGeometry(current, doc, zoom);
-      currentWireGaps(doc, zoom);
+    for (const zoom of [0.15, 0.5, 1, 2, 4]) {
+      expect(visibleMarkup(current, doc, zoom)).toBe(visibleMarkup(current, doc, 1));
+      const external = { ...current, currentPlacement: 'external' as const };
+      for (const reversed of [false, true]) {
+        for (const annotation of [current, external]) {
+          const directed = { ...annotation, reversed };
+          expect(visibleMarkup(directed, doc, zoom)).toBe(visibleMarkup(directed, doc, 1));
+        }
+      }
+      currentWireGaps(doc);
       expect([exportSVG(doc), exportTikz(doc), exportObsidian(doc)]).toEqual(canonical);
     }
     expect(canonical[0]).toContain(`d="${pointsPath([drawing.start, drawing.end])}"`);
@@ -275,9 +295,10 @@ describe('integrated current as a screen-space visual wire replacement', () => {
         y: source.labelPoint.y - source.start.y,
       });
       const canonical = exportSVG(subset);
-      for (const zoom of [0.5, 1, 2]) {
-        const drawing = electricalDrawingGeometry(normalized, subset, zoom);
-        expect(distance(drawing.start, drawing.end) * zoom).toBeCloseTo(
+      for (const zoom of [0.15, 0.5, 1, 2, 4]) {
+        const drawing = electricalDrawingGeometry(normalized, subset);
+        expect(visibleMarkup(normalized, subset, zoom)).toBe(visibleMarkup(normalized, subset, 1));
+        expect(distance(drawing.start, drawing.end)).toBeCloseTo(
           distance(source.start, source.end),
         );
         expect(exportSVG(subset)).toBe(canonical);
@@ -285,7 +306,7 @@ describe('integrated current as a screen-space visual wire replacement', () => {
     },
   );
 
-  it('shrinks to a readable 18px minimum, then falls back outside a shorter branch', () => {
+  it('shrinks to an 18-unit minimum, then falls back outside a shorter branch', () => {
     for (const length of [48, 36, 26, 25, 16, 1, 0]) {
       const { current, wire, doc } = fixture({ x: length, y: 0 });
       const stored = serializeDocument(doc),
@@ -315,16 +336,17 @@ describe('integrated current as a screen-space visual wire replacement', () => {
     }
   });
 
-  it('uses the same screen-space rules externally and highlights only the annotation', () => {
+  it('uses the same document-space rules externally and highlights only the annotation', () => {
     const { current, doc } = fixture(),
       external = { ...current, currentPlacement: 'external' as const };
-    for (const zoom of [0.5, 1, 2]) {
-      const drawing = electricalDrawingGeometry(external, doc, zoom);
-      expect(distance(drawing.start, drawing.end) * zoom).toBeCloseTo(60);
-      expect(midpoint(drawing.start, drawing.end).y * zoom).toBeCloseTo(-16);
-      expect(drawing.strokeWidth * zoom).toBe(external.width);
+    for (const zoom of [0.15, 0.5, 1, 2, 4]) {
+      const drawing = electricalDrawingGeometry(external, doc);
+      expect(visibleMarkup(external, doc, zoom)).toBe(visibleMarkup(external, doc, 1));
+      expect(distance(drawing.start, drawing.end)).toBeCloseTo(60);
+      expect(midpoint(drawing.start, drawing.end).y).toBeCloseTo(-16);
+      expect(drawing.strokeWidth).toBe(external.width);
       expect(drawing.wireGap).toBeNull();
-      expect(drawing.labelPoint.y * zoom).toBeCloseTo(-40);
+      expect(drawing.labelPoint.y).toBeCloseTo(-40);
     }
     const markup = renderToStaticMarkup(
       <ElectricalView object={current} doc={doc} selected hideLabel />,
@@ -337,8 +359,16 @@ describe('integrated current as a screen-space visual wire replacement', () => {
   it('keeps a low-zoom group outline around the actual current label and head', () => {
     const { current, wire, doc } = fixture();
     current.label.text = 'i';
-    for (const zoom of [0.5, 1, 2]) {
-      const g = electricalDrawingGeometry(current, doc, zoom);
+    for (const zoom of [0.15, 0.5, 1, 2, 4]) {
+      const g = electricalDrawingGeometry(current, doc);
+      expect(visibleMarkup(current, doc, zoom)).toBe(visibleMarkup(current, doc, 1));
+      const external = { ...current, currentPlacement: 'external' as const };
+      for (const reversed of [false, true]) {
+        for (const annotation of [current, external]) {
+          const directed = { ...annotation, reversed };
+          expect(visibleMarkup(directed, doc, zoom)).toBe(visibleMarkup(directed, doc, 1));
+        }
+      }
       const markup = renderToStaticMarkup(
         <CircuitLayer doc={doc} selection={[wire.id, current.id]} terminals={false} zoom={zoom} />,
       );

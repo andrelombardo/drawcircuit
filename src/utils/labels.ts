@@ -22,7 +22,6 @@ export interface InlineTextTarget {
 export function inlineTextTarget(
   object: CircuitObject | null | undefined,
   doc: CircuitDocument,
-  zoom = 1,
 ): InlineTextTarget | null {
   if (!object) return null;
   if (object.kind === 'text') {
@@ -37,8 +36,7 @@ export function inlineTextTarget(
     };
   }
   if (!hasAssociatedLabel(object)) return null;
-  const electrical =
-    object.kind === 'electrical' ? electricalDrawingGeometry(object, doc, zoom) : null;
+  const electrical = object.kind === 'electrical' ? electricalDrawingGeometry(object, doc) : null;
   const point =
     object.kind === 'electrical'
       ? electrical!.labelPoint

@@ -97,9 +97,9 @@ export function electricalGeometry(o: ElectricalAnnotation, doc: CircuitDocument
   };
 }
 
-export const INLINE_CURRENT_LENGTH_PX = 36;
-export const INLINE_CURRENT_MIN_LENGTH_PX = 18;
-const INLINE_CURRENT_ENDPOINT_CLEARANCE_PX = 4;
+export const INLINE_CURRENT_LENGTH = 36;
+export const INLINE_CURRENT_MIN_LENGTH = 18;
+const INLINE_CURRENT_ENDPOINT_CLEARANCE = 4;
 
 export interface CurrentWireGap {
   segment: number;
@@ -108,10 +108,10 @@ export interface CurrentWireGap {
 }
 
 /** Visual geometry only. The wire, stored branch anchor and label offsets stay intact.
- * Canvas dimensions use screen pixels; exports use the same geometry at zoom 1. */
-export function electricalDrawingGeometry(o: ElectricalAnnotation, doc: CircuitDocument, zoom = 1) {
+ * All visible dimensions are document units, shared by the canvas and exports.
+ * Camera zoom belongs only to the canvas transform and interaction tolerances. */
+export function electricalDrawingGeometry(o: ElectricalAnnotation, doc: CircuitDocument) {
   const g = electricalGeometry(o, doc);
-  const z = Number.isFinite(zoom) && zoom > 0 ? zoom : 1;
   const originalHead = chevron(g.arrowEnd, {
     x: g.arrowEnd.x - g.arrowStart.x,
     y: g.arrowEnd.y - g.arrowStart.y,
@@ -133,18 +133,17 @@ export function electricalDrawingGeometry(o: ElectricalAnnotation, doc: CircuitD
       : { x: (g.end.x - g.start.x) / length, y: (g.end.y - g.start.y) / length }
     : { x: 1, y: 0 };
   const normal = { x: tangent.y, y: -tangent.x };
-  const clearance = INLINE_CURRENT_ENDPOINT_CLEARANCE_PX / z;
+  const clearance = INLINE_CURRENT_ENDPOINT_CLEARANCE;
   const available = branch ? Math.max(0, length - 2 * clearance) : Infinity;
-  const fallback = g.inline && available * z < INLINE_CURRENT_MIN_LENGTH_PX;
+  const fallback = g.inline && available < INLINE_CURRENT_MIN_LENGTH;
   // A detached current keeps the canonical shortened replacement it was
-  // exported/copied with; its screen size still follows the same zoom contract.
-  const desiredLength =
-    (g.inline ? Math.min(INLINE_CURRENT_LENGTH_PX, branch ? Infinity : length) : 60) / z;
+  // exported/copied with, in the same document units as its wire.
+  const desiredLength = g.inline ? Math.min(INLINE_CURRENT_LENGTH, branch ? Infinity : length) : 60;
   const visualLength = g.inline && !fallback ? Math.min(desiredLength, available) : desiredLength;
   let center = midpoint(g.start, g.end);
   if (branch) {
     // The attachment is a ratio of one semantic branch. Only its visible
-    // replacement needs clearance, so endpoint edits and zoom never mutate it.
+    // replacement needs clearance; the stored attachment remains unchanged.
     const margin = g.inline && !fallback ? visualLength / 2 + clearance : 0;
     const along = Math.max(
       margin,
@@ -157,7 +156,7 @@ export function electricalDrawingGeometry(o: ElectricalAnnotation, doc: CircuitD
     if (!g.inline) center = add(center, o.offset);
   }
   if ((!g.inline && branch) || fallback) {
-    center = add(center, { x: (normal.x * 16) / z, y: (normal.y * 16) / z });
+    center = add(center, { x: normal.x * 16, y: normal.y * 16 });
   }
   const at = (along: number) => add(center, { x: tangent.x * along, y: tangent.y * along });
   const start = at(-visualLength / 2),
@@ -165,11 +164,11 @@ export function electricalDrawingGeometry(o: ElectricalAnnotation, doc: CircuitD
   const arrowStart = o.reversed ? end : start,
     arrowEnd = o.reversed ? start : end;
   const sign = o.reversed ? -1 : 1;
-  // Short inline segments shrink proportionally, with a readable minimum; a
+  // Short inline segments shrink proportionally, with a document-space minimum; a
   // branch below that minimum uses the existing external visual convention.
-  const headScale = g.inline ? Math.min(1, (visualLength * z) / INLINE_CURRENT_LENGTH_PX) : 1;
-  const headLength = ((g.inline ? 10 : 8) * headScale) / z;
-  const headHalfHeight = ((g.inline ? 4.5 : 3.5) * headScale) / z;
+  const headScale = g.inline ? Math.min(1, visualLength / INLINE_CURRENT_LENGTH) : 1;
+  const headLength = (g.inline ? 10 : 8) * headScale;
+  const headHalfHeight = (g.inline ? 4.5 : 3.5) * headScale;
   const head = [-1, 0, 1].map((side) =>
     side === 0
       ? arrowEnd
@@ -178,7 +177,7 @@ export function electricalDrawingGeometry(o: ElectricalAnnotation, doc: CircuitD
           y: arrowEnd.y - sign * tangent.y * headLength + normal.y * side * headHalfHeight,
         },
   );
-  const labelDistance = (g.inline && !fallback ? -24 : 24) / z;
+  const labelDistance = g.inline && !fallback ? -24 : 24;
   const labelPoint = add(
     center,
     add({ x: normal.x * labelDistance, y: normal.y * labelDistance }, o.label.offset),
@@ -195,8 +194,8 @@ export function electricalDrawingGeometry(o: ElectricalAnnotation, doc: CircuitD
     arrowEnd,
     labelPoint,
     head,
-    strokeWidth: o.width / z,
-    labelFontSize: o.label.fontSize / z,
+    strokeWidth: o.width,
+    labelFontSize: o.label.fontSize,
     wireGap,
     fallback,
   };
@@ -204,12 +203,12 @@ export function electricalDrawingGeometry(o: ElectricalAnnotation, doc: CircuitD
 
 /** Visual replacements only: no wire endpoints, junctions or topology are edited.
  * Computing these once per layer also keeps the wire and annotation in sync. */
-export function currentWireGaps(doc: CircuitDocument, zoom = 1) {
+export function currentWireGaps(doc: CircuitDocument) {
   const gaps = new Map<string, CurrentWireGap[]>();
   for (const o of doc.objects) {
     if (o.kind !== 'electrical' || o.mode !== 'current' || o.currentPlacement !== 'inline')
       continue;
-    const gap = electricalDrawingGeometry(o, doc, zoom).wireGap;
+    const gap = electricalDrawingGeometry(o, doc).wireGap;
     if (!gap) continue;
     const wireGaps = gaps.get(gap.wireId) ?? [];
     wireGaps.push(gap);

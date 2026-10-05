@@ -4,9 +4,9 @@ import type { CircuitDocument, CircuitObject, Point } from '../../model/types';
 import { arrowPath, pointsPath, rotatePoint, wirePoints } from '../../utils/geometry';
 import { unionBounds, contentBounds } from '../../utils/visualBounds';
 import { loopGeometry, loopPath } from '../../utils/loops';
-function selectionBounds(object: CircuitObject, doc: CircuitDocument, zoom: number) {
+function selectionBounds(object: CircuitObject, doc: CircuitDocument) {
   if (object.kind !== 'electrical' || object.mode !== 'current') return contentBounds(object, doc);
-  const g = electricalDrawingGeometry(object, doc, zoom);
+  const g = electricalDrawingGeometry(object, doc);
   const boxes = [g.start, g.end, ...g.head].map((point) => ({
     x: point.x - g.strokeWidth / 2,
     y: point.y - g.strokeWidth / 2,
@@ -71,9 +71,7 @@ export function SelectionLayer({
       {selection.length > 1 && (
         <rect
           {...unionBounds(
-            doc.objects
-              .filter((o) => selection.includes(o.id))
-              .map((o) => selectionBounds(o, doc, zoom)),
+            doc.objects.filter((o) => selection.includes(o.id)).map((o) => selectionBounds(o, doc)),
           )}
           className="selection-box"
           data-selection="group"

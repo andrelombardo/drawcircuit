@@ -33,7 +33,7 @@ export const CircuitLayer = memo(function CircuitLayer({
 }) {
   const selected = useMemo(() => new Set(selection), [selection]);
   const nearby = useMemo(() => new Set(nearbyComponents), [nearbyComponents]);
-  const currentGaps = useMemo(() => currentWireGaps(doc, zoom), [doc, zoom]);
+  const currentGaps = useMemo(() => currentWireGaps(doc), [doc]);
   const wires = useMemo(
     () =>
       doc.objects.flatMap((o) =>

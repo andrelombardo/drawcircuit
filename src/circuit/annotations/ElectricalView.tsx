@@ -18,7 +18,7 @@ export function ElectricalView({
   hideLabel?: boolean;
   zoom?: number;
 }) {
-  const g = electricalDrawingGeometry(o, doc, zoom);
+  const g = electricalDrawingGeometry(o, doc);
   // A fixed screen hit corridor covers nearby objects when zoomed out.
   // Cap it in world space while preserving the normal screen hit allowance.
   const hitWidth = Math.min(20, 20 * zoom);

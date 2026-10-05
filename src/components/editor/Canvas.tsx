@@ -55,7 +55,7 @@ export function Canvas({
   const interactions = useCanvasInteractions(svgRef, onToggleSidebar),
     { viewport: v, overlay, draft, editing } = interactions;
   const editedObject = editing ? doc.objects.find((o) => o.id === editing.id) : null;
-  const editTarget = inlineTextTarget(editedObject, doc, v.zoom);
+  const editTarget = inlineTextTarget(editedObject, doc);
   const nudgeDistances = useKeyboardNudge(v.zoom);
   const isComponent = componentTypes.includes(tool as ComponentType),
     gridSize = GRID * v.zoom * (v.zoom < 0.4 ? 2 : 1);
