@@ -31,6 +31,7 @@ export function ElectricalView({
     <g
       data-object={o.id}
       data-electrical={o.mode}
+      data-current-placement={o.mode === 'current' ? (o.currentPlacement ?? 'external') : undefined}
       className={`circuit-object${selected ? ' selected-symbol' : ''}`}
     >
       <path
@@ -65,7 +66,7 @@ export function ElectricalView({
           strokeLinecap="round"
           strokeLinejoin="round"
         >
-          <path d={pointsPath([g.start, g.end])} />
+          {!g.inline && <path d={pointsPath([g.start, g.end])} />}
           <path d={pointsPath(head)} />
         </g>
       )}

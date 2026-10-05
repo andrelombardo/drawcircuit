@@ -139,7 +139,7 @@ describe('user interaction audit of the complete component library', () => {
       expect(wires).toHaveLength(definition.terminals.length);
       key('v');
       click({ x: 80, y: 60 }, canvas().querySelector(`[data-object="${placed.id}"] .object-hit`)!);
-      for (const rotation of [0, 90, 180, 270] as Rotation[]) {
+      for (const rotation of [0, 45, 90, 135, 180, 225, 270, 315] as Rotation[]) {
         const current = component(placed.id);
         expect(current.rotation).toBe(rotation);
         for (const terminal of current.terminals) {

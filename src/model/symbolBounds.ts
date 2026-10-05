@@ -10,7 +10,11 @@ export interface SymbolBounds {
 
 /** Exact extents of the authored path subset. Curves use their extrema, not
  * control-point boxes (which would make coils/gates measure invisible space). */
-function pathPoints(d: string, ranges?: [number, number][]): Point[] {
+function pathPoints(
+  d: string,
+  ranges?: [number, number][],
+  transform: (point: Point) => Point = (point) => point,
+): Point[] {
   const tokens = d.match(/[MLHVCQZ]|[-+]?(?:\d*\.\d+|\d+\.?\d*)(?:e[-+]?\d+)?/gi) ?? [];
   if (d.replace(/[MLHVCQZ]|[-+]?(?:\d*\.\d+|\d+\.?\d*)(?:e[-+]?\d+)?|[\s,]/gi, ''))
     throw new Error('Unsupported measurement path.');
@@ -28,30 +32,41 @@ function pathPoints(d: string, ranges?: [number, number][]): Point[] {
   const point = (): Point => ({ x: number(), y: number() });
   const selected = () => !ranges || ranges.some(([from, to]) => segment >= from && segment <= to);
   const line = (end: Point) => {
-    if (selected()) points.push(current, end);
+    if (selected()) points.push(transform(current), transform(end));
     segment++;
     current = end;
   };
   const cubic = (a: Point, b: Point, end: Point) => {
-    const origin = current;
+    const origin = transform(current),
+      controlA = transform(a),
+      controlB = transform(b),
+      target = transform(end);
     const include = selected();
     segment++;
     if (!include) {
       current = end;
       return;
     }
-    points.push(origin, end);
+    points.push(origin, target);
     const at = (t: number): Point => {
       const u = 1 - t;
       return {
-        x: u ** 3 * origin.x + 3 * u * u * t * a.x + 3 * u * t * t * b.x + t ** 3 * end.x,
-        y: u ** 3 * origin.y + 3 * u * u * t * a.y + 3 * u * t * t * b.y + t ** 3 * end.y,
+        x:
+          u ** 3 * origin.x +
+          3 * u * u * t * controlA.x +
+          3 * u * t * t * controlB.x +
+          t ** 3 * target.x,
+        y:
+          u ** 3 * origin.y +
+          3 * u * u * t * controlA.y +
+          3 * u * t * t * controlB.y +
+          t ** 3 * target.y,
       };
     };
     for (const axis of ['x', 'y'] as const) {
-      const aa = -origin[axis] + 3 * a[axis] - 3 * b[axis] + end[axis];
-      const bb = 2 * (origin[axis] - 2 * a[axis] + b[axis]);
-      const cc = a[axis] - origin[axis];
+      const aa = -origin[axis] + 3 * controlA[axis] - 3 * controlB[axis] + target[axis];
+      const bb = 2 * (origin[axis] - 2 * controlA[axis] + controlB[axis]);
+      const cc = controlA[axis] - origin[axis];
       const roots: number[] = [];
       if (Math.abs(aa) < 1e-10) {
         if (Math.abs(bb) > 1e-10) roots.push(-cc / bb);
@@ -94,16 +109,28 @@ function pathPoints(d: string, ranges?: [number, number][]): Point[] {
 
 /** Body geometry belongs to the rendered symbol definition. Lead/auxiliary
  * shapes are explicitly excluded; no component-type cases in interactions. */
-export function symbolMeasurementBounds(shapes: SymbolShape[]): SymbolBounds {
+export function symbolMeasurementBounds(
+  shapes: SymbolShape[],
+  transform: (point: Point) => Point = (point) => point,
+): SymbolBounds {
   const points = shapes.flatMap((shape): Point[] => {
     if (shape.measurement === false || shape.kind === 'text') return [];
-    if (shape.kind === 'path') return pathPoints(shape.d, shape.measurement?.segments);
-    if (shape.kind === 'circle')
+    if (shape.kind === 'path') return pathPoints(shape.d, shape.measurement?.segments, transform);
+    if (shape.kind === 'circle') {
+      // The transform is rigid: a rotated circle keeps its radius rather than
+      // inheriting the oversized corners of its unrotated bounding rectangle.
+      const center = transform(shape);
       return [
-        { x: shape.x - shape.r, y: shape.y - shape.r },
-        { x: shape.x + shape.r, y: shape.y + shape.r },
+        { x: center.x - shape.r, y: center.y - shape.r },
+        { x: center.x + shape.r, y: center.y + shape.r },
       ];
-    return [shape, { x: shape.x + shape.width, y: shape.y + shape.height }];
+    }
+    return [
+      shape,
+      { x: shape.x + shape.width, y: shape.y },
+      { x: shape.x, y: shape.y + shape.height },
+      { x: shape.x + shape.width, y: shape.y + shape.height },
+    ].map(transform);
   });
   if (!points.length) throw new Error('Every component needs measurement body geometry.');
   const x = Math.min(...points.map((p) => p.x)),

@@ -15,6 +15,7 @@ export const CircuitLayer = memo(function CircuitLayer({
   doc,
   selection,
   terminals,
+  nearbyComponents = [],
   zoom,
   activeLabel = null,
   editingTextId,
@@ -23,12 +24,14 @@ export const CircuitLayer = memo(function CircuitLayer({
   doc: CircuitDocument;
   selection: string[];
   terminals: boolean;
+  nearbyComponents?: string[];
   zoom: number;
   activeLabel?: string | null;
   editingTextId?: string;
   editingLabelId?: string;
 }) {
   const selected = useMemo(() => new Set(selection), [selection]);
+  const nearby = useMemo(() => new Set(nearbyComponents), [nearbyComponents]);
   const wires = useMemo(
     () =>
       doc.objects.flatMap((o) =>
@@ -51,7 +54,7 @@ export const CircuitLayer = memo(function CircuitLayer({
               key={o.id}
               object={o}
               selected={selected.has(o.id) && activeLabel !== o.id}
-              terminals={terminals || selected.has(o.id)}
+              terminals={terminals || selected.has(o.id) || nearby.has(o.id)}
             />
           ) : null,
         )}

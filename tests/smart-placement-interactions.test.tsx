@@ -193,7 +193,7 @@ describe('Smart Placement through palette and canvas', () => {
     click(107, 93);
     click(307, 93);
     expect(components()).toHaveLength(2);
-    expect(components()[0]).toMatchObject({ x: 100, y: 100, rotation: 90 });
+    expect(components()[0]).toMatchObject({ x: 100, y: 100, rotation: 45 });
     expect(wires()).toHaveLength(0);
     expect(useEditorStore.getState().tool).toBe('resistor');
     key('Escape');
@@ -252,10 +252,10 @@ describe('Smart Placement through palette and canvas', () => {
     click(40, 0);
     move(40, 120);
     key('r');
-    // R turns the assisted ghost by 90 degrees, then manual orientation stays locked.
+    // R turns the assisted ghost by 45 degrees, then manual orientation stays locked.
     move(160, 0);
     click(160, 0);
-    expect(components()[1].rotation).toBe(180);
+    expect(components()[1].rotation).toBe(135);
   });
   it('cancels anchor state cleanly with Escape, a tool change, and pointer cancellation', () => {
     first();
@@ -370,6 +370,7 @@ describe('Smart Placement through palette and canvas', () => {
   it('splits a wire with an automatic Junction in one Undo operation', () => {
     const doc = seedWire();
     start();
+    key('r');
     key('r');
     move(0, 40);
     click(0, 40);

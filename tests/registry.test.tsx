@@ -86,13 +86,25 @@ describe('expanded component registry', () => {
         let spun = doc;
         for (let quarter = 0; quarter < 4; quarter++) {
           spun = rotateObjects(spun, [c.id]);
+          spun = rotateObjects(spun, [c.id]);
           expect(spun.objects[0]).toMatchObject({
             x: c.x,
             y: c.y,
             rotation: (rotation + (quarter + 1) * 90) % 360,
           });
         }
-        expect(spun).toEqual(doc);
+        const final = spun.objects[0];
+        if (final.kind !== 'component') throw Error();
+        expect(final.rotation).toBe(c.rotation);
+        expect(final.label.rotation).toBe(c.label.rotation);
+        expect(final.label.offset.x).toBeCloseTo(c.label.offset.x, 9);
+        expect(final.label.offset.y).toBeCloseTo(c.label.offset.y, 9);
+        // The automatic branch is frozen on the first turn so distant bends stay fixed.
+        spun.objects.slice(1).forEach((object, i) => {
+          if (object.kind !== 'wire') throw Error();
+          expect(object.startEndpoint).toEqual(wires[i].startEndpoint);
+          expect(object.endEndpoint).toEqual(wires[i].endEndpoint);
+        });
         const bounds = objectBounds(c, doc);
         for (const t of c.terminals) {
           const expected = rotatePoint({ x: t.localX, y: t.localY }, rotation);

@@ -2,7 +2,11 @@ export interface Point {
   x: number;
   y: number;
 }
-export type Rotation = 0 | 90 | 180 | 270;
+export type Rotation = 0 | 45 | 90 | 135 | 180 | 225 | 270 | 315;
+export const ROTATIONS: readonly Rotation[] = [0, 45, 90, 135, 180, 225, 270, 315];
+export function isRotation(value: unknown): value is Rotation {
+  return typeof value === 'number' && ROTATIONS.includes(value as Rotation);
+}
 export const componentTypes = [
   'resistor',
   'capacitor',
@@ -168,6 +172,10 @@ export interface ElectricalAnnotation {
   start: Point;
   end: Point;
   wireId?: string;
+  /** Omitted in older documents: the parallel, external representation. */
+  currentPlacement?: 'external' | 'inline';
+  /** Position on the chosen route segment, independent of other segment lengths. */
+  wireSegment?: { index: number; ratio: number };
   componentId?: string;
   ratio: number;
   offset: Point;

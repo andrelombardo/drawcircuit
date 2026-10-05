@@ -70,11 +70,16 @@ describe('serialization, clipboard and edits', () => {
       endEndpoint: { kind: 'free', point: { x: -240, y: 0 } },
     });
   });
-  it('returns geometry to its original position after four rotations', () => {
+  it('returns geometry to its original position after eight component rotations', () => {
     const doc = demoDocument(),
       ids = doc.objects.map((o) => o.id);
     let rotated = doc;
-    for (let i = 0; i < 4; i++) rotated = rotateObjects(rotated, ids);
-    expect(rotated).toEqual(doc);
+    for (let i = 0; i < 8; i++) rotated = rotateObjects(rotated, ids);
+    // Diagonal transforms introduce sub-pixel floating-point error, not drift.
+    const rounded = (value: unknown) =>
+      JSON.stringify(value, (_key, number) =>
+        typeof number === 'number' ? Math.round(number * 1e8) / 1e8 : number,
+      );
+    expect(rounded(rotated)).toEqual(rounded(doc));
   });
 });

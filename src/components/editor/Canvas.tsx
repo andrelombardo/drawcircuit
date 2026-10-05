@@ -27,6 +27,7 @@ import { PlacementLayer } from '../../smartPlacement/PlacementLayer';
 import { PresetPlacementLayer } from '../../presets/PresetPlacementLayer';
 import { presetRegistry } from '../../presets/registry';
 import { inlineCompatible } from '../../smartPlacement/findCandidates';
+import { useTerminalProximity } from './useTerminalProximity';
 export function Canvas({
   sidebarVisible = true,
   onToggleSidebar,
@@ -44,6 +45,7 @@ export function Canvas({
     pendingPresetId = useEditorStore((s) => s.pendingPresetId),
     grid = useEditorStore((s) => s.grid),
     selection = useEditorStore((s) => s.selection),
+    gestureActive = useEditorStore((s) => Boolean(s.gestureStart)),
     arrowType = useEditorStore((s) => s.arrowType),
     storageError = useEditorStore((s) => s.storageError);
   const personalBlocks = usePersonalBlocks((s) => s.blocks);
@@ -58,6 +60,19 @@ export function Canvas({
   const placementType =
     interactions.paletteDragType ?? (isComponent ? (tool as ComponentType) : null);
   const smart = interactions.smart;
+  const terminalsNeeded =
+    tool === 'wire' ||
+    tool === 'junction' ||
+    tool === 'voltage' ||
+    !!placementType ||
+    !!draft ||
+    interactions.dragging === 'wire';
+  const terminalProximity = useTerminalProximity(
+    svgRef,
+    doc,
+    v,
+    !terminalsNeeded && !interactions.dragging && !gestureActive,
+  );
   const smartHint =
     smart.preview?.phase === 'anchor-target'
       ? 'Clic per ancorare · poi sposta e clicca per inserire'
@@ -153,11 +168,17 @@ export function Canvas({
         aria-label="Foglio SVG del circuito"
         data-testid="circuit-canvas"
         onPointerDown={interactions.pointerDown}
-        onPointerMove={interactions.pointerMove}
+        onPointerMove={(event) => {
+          terminalProximity.move(event);
+          interactions.pointerMove(event);
+        }}
         onPointerUp={interactions.pointerUp}
         onPointerCancel={interactions.cancel}
         onDoubleClick={interactions.doubleClick}
-        onPointerLeave={interactions.leave}
+        onPointerLeave={() => {
+          terminalProximity.leave();
+          interactions.leave();
+        }}
         onDragOver={interactions.dragOver}
         onDragLeave={smart.leave}
         onDrop={interactions.drop}
@@ -180,7 +201,8 @@ export function Canvas({
           <CircuitLayer
             doc={doc}
             selection={selection}
-            terminals={tool === 'wire' || tool === 'select'}
+            terminals={terminalsNeeded}
+            nearbyComponents={terminalProximity.ids}
             zoom={v.zoom}
             activeLabel={interactions.activeLabel}
             editingTextId={editedObject?.kind === 'text' ? editedObject.id : undefined}

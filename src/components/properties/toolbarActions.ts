@@ -2,9 +2,13 @@ import { componentRegistry } from '../../model/catalog';
 import type { CircuitObject } from '../../model/types';
 /** Shared audit/mapping keeps properties specific to the selected object. */
 export function toolbarActions(o: CircuitObject | null) {
-  if (!o) return { primary: ['style', 'rotate', 'duplicate'], secondary: ['saveBlock', 'delete'] };
+  if (!o)
+    return {
+      primary: ['style', 'rotate', 'duplicate'],
+      secondary: ['saveBlock', 'copyPNG', 'delete'],
+    };
   const common = ['duplicate'];
-  const secondary = ['saveBlock', 'delete'];
+  const secondary = ['saveBlock', 'copyPNG', 'delete'];
   switch (o.kind) {
     case 'component':
       return {

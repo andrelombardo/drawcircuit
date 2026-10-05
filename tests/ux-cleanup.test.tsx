@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import App from '../src/App';
 import { useEditorStore } from '../src/store/editorStore';
 import { emptyDocument } from '../src/model/demo';
@@ -261,7 +261,7 @@ describe('annotation and placement cleanup', () => {
     fireEvent.click(inline);
     expect(inline.getAttribute('aria-pressed')).toBe('true');
     key('r');
-    expect(state().placementRotation).toBe(90);
+    expect(state().placementRotation).toBe(45);
     expect(document.querySelector('.editor-bottom [role="status"]')!.textContent).not.toContain(
       'Alt/Option',
     );
@@ -278,7 +278,9 @@ describe('annotation and placement cleanup', () => {
     expect(screen.getByRole('button', { name: 'Staffa' })).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Annotazioni elettriche' }));
     expect(screen.queryByRole('button', { name: 'Graffa' })).toBeNull();
-    expect(screen.getByRole('button', { name: 'Corrente su un filo' })).toBeTruthy();
+    expect(screen.getByText('Corrente su un filo')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Esterna' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Integrata' })).toBeTruthy();
     key('Escape');
     expect(screen.queryByRole('menu')).toBeNull();
   });
@@ -363,7 +365,9 @@ describe('direct PNG export actions', () => {
         screen.getByRole('textbox', { name: 'Codice TikZ generato' }) as HTMLTextAreaElement
       ).value;
       await act(async () => {
-        fireEvent.click(screen.getByRole('button', { name: 'Copia PNG' }));
+        fireEvent.click(
+          within(screen.getByRole('dialog')).getByRole('button', { name: 'Copia PNG' }),
+        );
       });
       expect(copyPNG).toHaveBeenCalledWith(expected);
       await act(async () => {

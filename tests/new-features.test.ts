@@ -346,12 +346,12 @@ describe('dedicated electrical annotations', () => {
     expect(o.componentId).toBe(c.id);
     expect(createPolarity(createComponent('npn', { x: 0, y: 0 }, 1))).toBeNull();
     const doc = documentFor([c, o]),
-      rotated = rotateObjects(doc, [c.id, o.id]),
+      rotated = rotateObjects(rotateObjects(doc, [c.id, o.id]), [c.id, o.id]),
       g = electricalGeometry(rotated.objects[1] as ElectricalAnnotation, rotated);
     const horizontal = electricalGeometry(o, doc);
     expect(horizontal.labelPoint.y).toBeGreaterThan(c.y);
     expect(horizontal.start.y).toBeLessThan(c.y);
-    expect(g.start.x).toBe(g.end.x);
+    expect(g.start.x).toBeCloseTo(g.end.x, 9);
     expect(g.labelPoint.x).toBeLessThan(c.x);
     expect(g.start.x).toBeGreaterThan(c.x);
     expect(exportSVG(documentFor([c, { ...o, reversed: true }]))).toContain('&#8722;');

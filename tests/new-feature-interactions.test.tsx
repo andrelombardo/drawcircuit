@@ -85,7 +85,9 @@ const key = (key: string, options = {}) => fireEvent.keyDown(canvas(), { key, ..
 const doc = () => useEditorStore.getState().document;
 function chooseElectrical(name: string) {
   fireEvent.click(screen.getByRole('button', { name: 'Annotazioni elettriche' }));
-  fireEvent.click(screen.getByRole('button', { name }));
+  fireEvent.click(
+    screen.getByRole('button', { name: name === 'Corrente su un filo' ? 'Esterna' : name }),
+  );
 }
 const line = (x1: number, y1: number, x2: number, y2: number) =>
   createWire({ kind: 'free', point: { x: x1, y: y1 } }, { kind: 'free', point: { x: x2, y: y2 } });
@@ -140,7 +142,9 @@ describe('new feature UI integrates with the existing editor', () => {
     const annotation = doc().objects.at(-1) as ElectricalAnnotation;
     expect(annotation.wireId).toBe(w.id);
     expect(useEditorStore.getState().tool).toBe('select');
-    fireEvent.change(screen.getByLabelText('Etichetta annotazione'), { target: { value: 'i_{AB}' } });
+    fireEvent.change(screen.getByLabelText('Etichetta annotazione'), {
+      target: { value: 'i_{AB}' },
+    });
     fireEvent.blur(screen.getByLabelText('Etichetta annotazione'));
     fireEvent.click(screen.getByRole('button', { name: 'Inverti freccia' }));
     fireEvent.click(screen.getByRole('button', { name: 'Stile' }));

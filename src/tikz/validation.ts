@@ -1,5 +1,6 @@
 import { componentRegistry } from '../model/catalog';
 import type { CircuitObject, Endpoint, Point } from '../model/types';
+import { isRotation } from '../model/types';
 import { localToWorld } from '../utils/geometry';
 
 /** Export-only validation: never repair or mutate the editor's document. */
@@ -11,7 +12,7 @@ export const finitePoint = (p: unknown): p is Point =>
   Number.isFinite(p.x) &&
   Number.isFinite(p.y);
 const positive = (n: number) => Number.isFinite(n) && n > 0;
-const rotation = (n: number) => [0, 90, 180, 270].includes(n);
+const rotation = isRotation;
 
 export function normalizeHex(color: string): string | null {
   if (typeof color !== 'string') return null;
@@ -79,6 +80,16 @@ export function isExportableObject(o: CircuitObject): boolean {
         Number.isFinite(o.ratio) &&
         o.ratio >= 0 &&
         o.ratio <= 1 &&
+        (o.currentPlacement === undefined ||
+          (o.mode === 'current' && ['external', 'inline'].includes(o.currentPlacement))) &&
+        (o.wireSegment === undefined ||
+          (o.mode === 'current' &&
+            !!o.wireId &&
+            Number.isInteger(o.wireSegment.index) &&
+            o.wireSegment.index >= 0 &&
+            Number.isFinite(o.wireSegment.ratio) &&
+            o.wireSegment.ratio >= 0 &&
+            o.wireSegment.ratio <= 1)) &&
         typeof o.reversed === 'boolean' &&
         !!o.label &&
         typeof o.label.text === 'string' &&

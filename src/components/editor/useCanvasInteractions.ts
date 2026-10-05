@@ -357,7 +357,7 @@ export function useCanvasInteractions(
         }
       } else if (e.key === 'Delete' || e.key === 'Backspace') {
         e.preventDefault();
-        s.remove();
+        s.remove(e.shiftKey);
       } else if (e.key === 'Escape') {
         setFirstPoint(null);
         s.cancelGesture();
@@ -537,7 +537,7 @@ export function useCanvasInteractions(
     if (s.tool === 'current') {
       const near = nearestWire(p, s.document, 16 / viewport.zoom);
       if (near) {
-        s.add([createCurrent(near.wire, near.point, s.document)]);
+        s.add([createCurrent(near.wire, near.point, s.document, s.currentPlacement)]);
         s.setTool('select');
       } else s.notify('Clicca un filo per associare la freccia di corrente.');
       return;

@@ -2,9 +2,11 @@ import { usePersonalBlocks, instantiatePersonalBlock } from '../personalBlocks/l
 import { replaceComponent as replaceComponentInDocument } from '../model/replacement';
 import type { ComponentType } from '../model/types';
 import { create } from 'zustand';
+import { reconcileCurrentSegments } from '../annotations/electrical';
 import { demoDocument } from '../model/demo';
 import { deserializeDocument, serializeDocument } from '../model/serialization';
 import { cloneObjects, extractSelection, removeObjects, rotateObjects } from '../utils/operations';
+import { hasAssociatedLabel, replaceInlineText } from '../utils/labels';
 import { instantiatePreset } from '../presets/instantiate';
 import { presetRegistry } from '../presets/registry';
 import { localPersistence } from '../utils/localPersistence';
@@ -36,6 +38,8 @@ interface EditorState {
   placementRotation: Rotation;
   rotatePlacement: () => void;
   arrowType: ArrowAnnotation['type'];
+  currentPlacement: 'external' | 'inline';
+  setCurrentPlacement: (placement: 'external' | 'inline') => void;
   grid: boolean;
   past: CircuitDocument[];
   future: CircuitDocument[];
@@ -56,7 +60,7 @@ interface EditorState {
   cancelGesture: () => void;
   undo: () => void;
   redo: () => void;
-  remove: () => void;
+  remove: (includeLabelOwner?: boolean) => void;
   duplicate: () => void;
   rotate: () => void;
   replace: (doc: CircuitDocument) => void;
@@ -92,8 +96,13 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     get().commit(replaceComponentInDocument(get().document, id, type)),
   placementRotation: 0,
   rotatePlacement: () =>
-    set((s) => ({ placementRotation: ((s.placementRotation + 90) % 360) as Rotation })),
+    set((s) => ({
+      placementRotation: ((s.placementRotation + (s.tool === 'preset' ? 90 : 45)) %
+        360) as Rotation,
+    })),
   arrowType: 'straight',
+  currentPlacement: 'external',
+  setCurrentPlacement: (currentPlacement) => set({ currentPlacement }),
   grid: true,
   past: [],
   future: [],
@@ -114,7 +123,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   toggleGrid: () => set((s) => ({ grid: !s.grid })),
   commit: (document) =>
     set((s) => ({
-      document,
+      document: reconcileCurrentSegments(s.gestureStart ?? s.document, document),
       past: [...s.past, s.document].slice(-100),
       future: [],
       gestureStart: null,
@@ -129,7 +138,10 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     s.commit({ ...s.document, objects: s.document.objects.map((o) => (o.id === id ? fn(o) : o)) });
   },
   beginGesture: () => set((s) => ({ gestureStart: s.gestureStart ?? s.document })),
-  preview: (document) => set({ document }),
+  preview: (document) =>
+    set((s) => ({
+      document: reconcileCurrentSegments(s.gestureStart ?? s.document, document),
+    })),
   endGesture: () => {
     const s = get();
     if (s.gestureStart && s.gestureStart !== s.document)
@@ -178,12 +190,19 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       pendingPresetId: null,
     });
   },
-  remove: () => {
+  remove: (includeLabelOwner = false) => {
     const s = get();
-    if (s.selection.length) {
-      s.commit(removeObjects(s.document, s.selection));
-      s.select([]);
-    }
+    if (!s.selection.length) return;
+    const labelOwner =
+      !includeLabelOwner && s.selection.length === 1 && s.selection[0] === s.activeLabel
+        ? s.document.objects.find((o) => o.id === s.activeLabel)
+        : undefined;
+    if (labelOwner && hasAssociatedLabel(labelOwner)) {
+      // Labels share their owner's id; explicit label focus is the selection subtarget.
+      // Clearing the embedded text preserves its placement, owner and wire topology.
+      if (labelOwner.label.text) s.update(labelOwner.id, (o) => replaceInlineText(o, ''));
+    } else s.commit(removeObjects(s.document, s.selection));
+    s.select([]);
   },
   duplicate: () => {
     const s = get();

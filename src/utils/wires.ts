@@ -1,4 +1,4 @@
-import { createCurrent, electricalGeometry } from '../annotations/electrical';
+import { createCurrent, currentWireAnchor } from '../annotations/electrical';
 import { makeId } from '../model/catalog';
 import { createJunction, createWire } from '../model/factories';
 import type {
@@ -164,15 +164,17 @@ export function normalizeWire(wire: Wire, doc: CircuitDocument): Wire {
   return result;
 }
 export function normalizeDocumentWires(doc: CircuitDocument): CircuitDocument {
-  let changed = false;
+  const normalizedIds = new Map<string, string[]>();
   const objects = doc.objects.map((o) => {
     if (o.kind !== 'wire') return o;
     const next = normalizeWire(o, doc);
     if (next.vertices.length === o.vertices.length) return o;
-    changed = true;
+    normalizedIds.set(o.id, [o.id]);
     return next;
   });
-  return changed ? { ...doc, objects } : doc;
+  // Redundant waypoints can change route indices without changing the branch.
+  // Rebind the same physical current position through the existing split path.
+  return normalizedIds.size ? remapSplitWireCurrents(doc, { ...doc, objects }, normalizedIds) : doc;
 }
 /** Quick Junction: split all incident wires, preserving terminal references at endpoints. */
 export function insertJunction(
@@ -262,16 +264,23 @@ export function remapSplitWireCurrents(
   next: CircuitDocument,
   splitIds: Map<string, string[]>,
 ): CircuitDocument {
+  const originalObjects = new Map(doc.objects.map((o) => [o.id, o]));
   return {
     ...next,
     objects: next.objects.map((o) => {
-      if (o.kind !== 'electrical' || !o.wireId || !splitIds.has(o.wireId)) return o;
-      const geometry = electricalGeometry(o, doc),
-        center = {
-          x: (geometry.start.x + geometry.end.x) / 2 - o.offset.x,
-          y: (geometry.start.y + geometry.end.y) / 2 - o.offset.y,
-        };
-      const ids = new Set(splitIds.get(o.wireId));
+      const original = originalObjects.get(o.id);
+      if (
+        o.kind !== 'electrical' ||
+        original?.kind !== 'electrical' ||
+        !original.wireId ||
+        !splitIds.has(original.wireId)
+      )
+        return o;
+      // Earlier normalization may already have rebound the shortened first
+      // fragment. Resolve the selected branch from the original annotation,
+      // never combine its new segment index with the old unsplit wire route.
+      const center = currentWireAnchor(original, doc);
+      const ids = new Set(splitIds.get(original.wireId));
       const candidate = nearestWire(
         center,
         next,
@@ -279,11 +288,12 @@ export function remapSplitWireCurrents(
         new Set(next.objects.filter((x) => !ids.has(x.id)).map((x) => x.id)),
       );
       if (!candidate) return o;
-      const attached = createCurrent(candidate.wire, center, next);
+      const attached = createCurrent(candidate.wire, center, next, original.currentPlacement);
       return {
         ...o,
         wireId: attached.wireId,
         ratio: attached.ratio,
+        wireSegment: attached.wireSegment,
         start: attached.start,
         end: attached.end,
       };

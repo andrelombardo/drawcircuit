@@ -49,7 +49,7 @@ describe('geometry and persistent connections', () => {
       rotated = rotateObjects(doc, ['r-AB']);
     expect(
       resolveEndpoint({ kind: 'terminal', componentId: 'r-AB', terminalId: 'a' }, rotated),
-    ).toEqual({ x: -120, y: -40 });
+    ).toEqual({ x: -120 - 40 * Math.SQRT1_2, y: -40 * Math.SQRT1_2 });
   });
   it('junction motion updates every incident wire', () => {
     const doc = demoDocument(),

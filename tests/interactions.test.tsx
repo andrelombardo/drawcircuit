@@ -118,7 +118,7 @@ describe('complete editor workflows', () => {
     expect(useEditorStore.getState().selection).not.toContain('r-AC');
     key('r');
     expect(useEditorStore.getState().document.objects.find((o) => o.id === 'r-AB')).toMatchObject({
-      rotation: 90,
+      rotation: 45,
     });
     expect(() =>
       deserializeDocument(serializeDocument(useEditorStore.getState().document)),
@@ -133,7 +133,7 @@ describe('complete editor workflows', () => {
     expect(useEditorStore.getState().document.objects).toHaveLength(1);
     key('v');
     key('r');
-    expect(useEditorStore.getState().document.objects[0]).toMatchObject({ rotation: 90 });
+    expect(useEditorStore.getState().document.objects[0]).toMatchObject({ rotation: 45 });
     key('d', { ctrlKey: true });
     expect(useEditorStore.getState().document.objects).toHaveLength(2);
     key('Delete');
@@ -471,6 +471,7 @@ describe('fast drawing interactions', () => {
     click(120, 0);
     click(0, -160);
     key('r');
+    key('r');
     click(-240, 120);
     click(0, 120);
     click(240, 120);
@@ -634,15 +635,15 @@ describe('fast drawing interactions', () => {
           (o) => o.kind === 'component' && [o.rotation, o.label.text, o.label.rotation],
         ),
     ).toEqual([
-      [90, 'R_1', 0],
-      [90, 'R_2', 0],
+      [45, 'R_1', 0],
+      [45, 'R_2', 0],
     ]);
     key('Escape');
     fireEvent.pointerDown(canvas().querySelector('[data-object] .object-hit')!, client(0, 0));
     fireEvent.pointerUp(canvas(), client(0, 0));
     key('r');
     expect(useEditorStore.getState().document.objects[0]).toMatchObject({
-      rotation: 180,
+      rotation: 90,
       label: { rotation: 0 },
     });
     key('d', { metaKey: true });
@@ -996,7 +997,7 @@ describe('expanded library and annotation fonts in the rendered interface', () =
       const afterRotation = useEditorStore
         .getState()
         .document.objects.find((o) => o.id === original.id)!;
-      expect(afterRotation).toMatchObject({ x: original.x, y: original.y, rotation: 90 });
+      expect(afterRotation).toMatchObject({ x: original.x, y: original.y, rotation: 45 });
       fireEvent.pointerDown(hit, client(original.x, original.y));
       fireEvent.pointerMove(canvas(), {
         ...client(original.x + 40, original.y + 40),
@@ -1007,7 +1008,7 @@ describe('expanded library and annotation fonts in the rendered interface', () =
       expect(doc.objects.find((o) => o.id === original.id)).toMatchObject({
         x: original.x + 40,
         y: original.y + 40,
-        rotation: 90,
+        rotation: 45,
       });
       for (const pin of original.terminals) {
         const endpoint = {

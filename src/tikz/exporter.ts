@@ -5,6 +5,7 @@ import { chevron } from './arrowheads';
 import { mathContent, normalizeLatex, renderLatex } from '../math/latex';
 import { symbolText } from '../model/symbolGeometry';
 import type { CircuitDocument, Label, Point, Rotation } from '../model/types';
+import { isRotation } from '../model/types';
 import { add, distance, localToWorld, midpoint, wirePoints } from '../utils/geometry';
 import { loopGeometry, wrapPosition } from '../utils/loops';
 import { componentRegistry } from '../model/catalog';
@@ -50,7 +51,7 @@ export function texText(raw: string, formula = false): string {
     (unescaped.includes('&') &&
       !/\\begin\{(?:[pbBvV]?matrix|aligned|alignedat|gathered|cases|split)\}/.test(raw));
   return result.kind === 'math' && !unsafe
-    ? `$${mathContent(normalizeLatex(raw))}$`
+    ? `$${mathContent(normalizeLatex(raw, formula))}$`
     : escapeTex(raw);
 }
 export function exportTikz(source: CircuitDocument): string {
@@ -101,7 +102,7 @@ function generateTikz(source: CircuitDocument, canvas: boolean): string {
       !normalizeHex(color) ||
       !Number.isFinite(size) ||
       size <= 0 ||
-      ![0, 90, 180, 270].includes(rotation)
+      !isRotation(rotation)
     )
       return;
     const anchor = align === 'start' ? 'west' : align === 'end' ? 'east' : 'center';
@@ -263,9 +264,10 @@ function generateTikz(source: CircuitDocument, canvas: boolean): string {
         node(o.reversed ? '-' : '+', g.start, o.color, 22, 0, 'middle', false, true);
         node(o.reversed ? '+' : '-', g.end, o.color, 22, 0, 'middle', false, true);
       } else {
-        lines.push(
-          `\\draw[draw=${col(o.color)},line width=${pixelsToPt(o.width)}pt] ${tikzCoordinate(g.start)} -- ${tikzCoordinate(g.end)};`,
-        );
+        if (!g.inline)
+          lines.push(
+            `\\draw[draw=${col(o.color)},line width=${pixelsToPt(o.width)}pt] ${tikzCoordinate(g.start)} -- ${tikzCoordinate(g.end)};`,
+          );
         const head = chevron(g.arrowEnd, {
           x: g.arrowEnd.x - g.arrowStart.x,
           y: g.arrowEnd.y - g.arrowStart.y,

@@ -14,6 +14,7 @@ import {
   SlidersHorizontal,
   BookmarkPlus,
   Replace,
+  Image,
 } from 'lucide-react';
 import { useLayoutEffect, useRef, useState } from 'react';
 import type { RefObject } from 'react';
@@ -25,6 +26,8 @@ import { useEditorStore } from '../../store/editorStore';
 import { IconButton } from '../toolbar/IconButton';
 import { toolbarActions } from './toolbarActions';
 import { replaceInlineText } from '../../utils/labels';
+import { copyPNG } from '../../png/exporter';
+import { getExportSelection } from '../../tikz/selection';
 function PropertyText({
   value,
   label,
@@ -77,6 +80,7 @@ export function ContextToolbar({
   const selection = useEditorStore((s) => s.selection),
     doc = useEditorStore((s) => s.document),
     tool = useEditorStore((s) => s.tool),
+    activeLabel = useEditorStore((s) => s.activeLabel),
     update = useEditorStore((s) => s.update);
   const root = useRef<HTMLDivElement>(null),
     more = useRef<HTMLDetailsElement>(null),
@@ -87,6 +91,23 @@ export function ContextToolbar({
   const [dismissed, setDismissed] = useState(o?.kind === 'text'),
     [blockDialog, setBlockDialog] = useState(false),
     [replaceDialog, setReplaceDialog] = useState(false);
+  const [pngBusy, setPngBusy] = useState(false);
+  const copySelectionPNG = async () => {
+    if (pngBusy) return;
+    setPngBusy(true);
+    if (more.current) more.current.open = false;
+    try {
+      const state = useEditorStore.getState();
+      await copyPNG(getExportSelection(state.document, state.selection));
+      state.notify('PNG copiato');
+    } catch (error) {
+      useEditorStore
+        .getState()
+        .notify(error instanceof Error ? error.message : 'Impossibile copiare il PNG.');
+    } finally {
+      setPngBusy(false);
+    }
+  };
   useLayoutEffect(() => {
     const outside = (e: PointerEvent) => {
       if (!root.current?.contains(e.target as Node)) {
@@ -310,7 +331,10 @@ export function ContextToolbar({
         </IconButton>
       )}
       {actions.primary.includes('rotate') && (
-        <IconButton label="Ruota 90° (R)" onClick={() => useEditorStore.getState().rotate()}>
+        <IconButton
+          label={`Ruota ${objects.some((object) => object.kind === 'component') ? 45 : 90}° (R)`}
+          onClick={() => useEditorStore.getState().rotate()}
+        >
           <RotateCw size={17} />
         </IconButton>
       )}
@@ -370,8 +394,34 @@ export function ContextToolbar({
               <BookmarkPlus size={16} />
               Salva come blocco
             </button>
+            <button
+              className="secondary-property"
+              disabled={pngBusy}
+              onClick={() => void copySelectionPNG()}
+            >
+              <Image size={16} />
+              {pngBusy ? 'Copia PNG…' : 'Copia PNG'}
+            </button>
             {o?.kind === 'electrical' && (
               <>
+                {o.mode === 'current' && (
+                  <label className="property-control">
+                    <span>Posizione</span>
+                    <select
+                      aria-label="Posizione corrente"
+                      value={o.currentPlacement ?? 'external'}
+                      onChange={(event) => {
+                        const currentPlacement = event.target.value as 'external' | 'inline';
+                        update(o.id, (object) =>
+                          object.kind === 'electrical' ? { ...object, currentPlacement } : object,
+                        );
+                      }}
+                    >
+                      <option value="external">Esterna</option>
+                      <option value="inline">Sul filo</option>
+                    </select>
+                  </label>
+                )}
                 <label className="property-control">
                   Offset X
                   <input
@@ -466,12 +516,16 @@ export function ContextToolbar({
             )}
             <button
               className="secondary-property destructive-button"
-              title="Elimina (Delete)"
-              aria-label="Elimina (Delete)"
+              title={
+                activeLabel
+                  ? 'Elimina etichetta (Delete) · Shift+Delete elimina l’oggetto'
+                  : 'Elimina (Delete)'
+              }
+              aria-label={activeLabel ? 'Elimina etichetta (Delete)' : 'Elimina (Delete)'}
               onClick={() => useEditorStore.getState().remove()}
             >
               <Trash2 size={16} />
-              Elimina
+              {activeLabel ? 'Elimina etichetta' : 'Elimina'}
             </button>
           </div>
         </details>

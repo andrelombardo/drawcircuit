@@ -24,8 +24,8 @@ export const ComponentView = memo(function ComponentView({
           <Symbol type={o.type} color={o.color} width={o.width} bodyText={o.bodyText} />
         </g>
       </g>
-      {terminals &&
-        o.terminals.map((t) => {
+      <g className="terminal-handles" data-visible={terminals} aria-hidden="true">
+        {o.terminals.map((t) => {
           const p = localToWorld(o, { x: t.localX, y: t.localY });
           return (
             <g key={t.id} data-terminal={t.id}>
@@ -41,6 +41,7 @@ export const ComponentView = memo(function ComponentView({
             </g>
           );
         })}
+      </g>
     </g>
   );
 });

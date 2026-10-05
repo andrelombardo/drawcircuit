@@ -1,4 +1,4 @@
-import { COLORS, componentTypes } from './types';
+import { COLORS, componentTypes, isRotation } from './types';
 import { componentRegistry, terminalsFor } from './catalog';
 import type { CircuitDocument } from './types';
 import { resolveEndpoint } from '../utils/geometry';
@@ -12,7 +12,7 @@ function record(v: unknown): Record<string, unknown> {
 const str = (v: unknown) => typeof v === 'string' && v.length <= 10000;
 const num = (v: unknown) => typeof v === 'number' && Number.isFinite(v) && Math.abs(v) <= 1e7;
 const color = (v: unknown) => typeof v === 'string' && /^#[a-fA-F0-9]{6}$/.test(v);
-const rotation = (v: unknown) => [0, 90, 180, 270].includes(Number(v)) && typeof v === 'number';
+const rotation = isRotation;
 const point = (v: unknown) => {
   const p = record(v);
   return num(p.x) && num(p.y);
@@ -144,6 +144,16 @@ export function deserializeDocument(raw: string): CircuitDocument {
         !color(o.color) ||
         !positive(o.width, 20) ||
         (o.wireId !== undefined && (o.mode !== 'current' || !str(o.wireId) || !o.wireId)) ||
+        (o.currentPlacement !== undefined &&
+          (o.mode !== 'current' || !['external', 'inline'].includes(String(o.currentPlacement)))) ||
+        (o.wireSegment !== undefined &&
+          (o.mode !== 'current' ||
+            o.wireId === undefined ||
+            !Number.isInteger(record(o.wireSegment).index) ||
+            Number(record(o.wireSegment).index) < 0 ||
+            !num(record(o.wireSegment).ratio) ||
+            Number(record(o.wireSegment).ratio) < 0 ||
+            Number(record(o.wireSegment).ratio) > 1)) ||
         (o.componentId !== undefined &&
           (o.mode !== 'polarity' || !str(o.componentId) || !o.componentId)) ||
         (o.wireId !== undefined && o.componentId !== undefined)

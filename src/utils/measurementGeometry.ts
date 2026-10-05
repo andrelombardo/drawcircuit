@@ -1,27 +1,24 @@
 import { componentRegistry } from '../model/catalog';
+import { symbolMeasurementBounds } from '../model/symbolBounds';
 import type { CircuitComponent, CircuitDocument, CircuitObject } from '../model/types';
-import { localToWorld } from './geometry';
+import { rotatePoint } from './geometry';
 import { visualBounds } from './visualBounds';
 import type { Bounds } from './visualBounds';
 
-/** Rotated world bounds of the symbol body; independent of leads, hit padding,
+const rotatedBodyBounds = new Map<string, Bounds>();
+
+/** Exact rotated world bounds of the authored symbol body; independent of leads, hit padding,
  * label offsets and document/export bounds. */
 export function getMeasurementBounds(component: CircuitComponent): Bounds {
-  const b = componentRegistry[component.type].measurementBounds;
-  const corners = [
-    { x: b.x, y: b.y },
-    { x: b.x + b.width, y: b.y },
-    { x: b.x, y: b.y + b.height },
-    { x: b.x + b.width, y: b.y + b.height },
-  ].map((p) => localToWorld(component, p));
-  const x = Math.min(...corners.map((p) => p.x)),
-    y = Math.min(...corners.map((p) => p.y));
-  return {
-    x,
-    y,
-    width: Math.max(...corners.map((p) => p.x)) - x,
-    height: Math.max(...corners.map((p) => p.y)) - y,
-  };
+  const key = `${component.type}:${component.rotation}`;
+  let bounds = rotatedBodyBounds.get(key);
+  if (!bounds) {
+    bounds = symbolMeasurementBounds(componentRegistry[component.type].shapes, (p) =>
+      rotatePoint(p, component.rotation),
+    );
+    rotatedBodyBounds.set(key, bounds);
+  }
+  return { ...bounds, x: bounds.x + component.x, y: bounds.y + component.y };
 }
 
 export function measurementBounds(object: CircuitObject, document: CircuitDocument): Bounds {

@@ -170,31 +170,65 @@ export function rotateObjects(doc: CircuitDocument, ids: string[]): CircuitDocum
   const selected = new Set(ids),
     objects = doc.objects.filter((o) => selected.has(o.id));
   if (!objects.length) return doc;
+  const angle: Rotation = objects.some((o) => o.kind === 'component') ? 45 : 90;
   const boxes = objects.map((o) => objectBounds(o, doc));
   const minX = Math.min(...boxes.map((b) => b.x)),
     maxX = Math.max(...boxes.map((b) => b.x + b.width)),
     minY = Math.min(...boxes.map((b) => b.y)),
     maxY = Math.max(...boxes.map((b) => b.y + b.height));
+  const anchors = objects.map((o): Point => {
+    if ('x' in o)
+      return o.kind === 'loop-arrow'
+        ? { x: o.x + o.width / 2, y: o.y + o.height / 2 }
+        : { x: o.x, y: o.y };
+    if (o.kind === 'wire')
+      return midpoint(resolveEndpoint(o.startEndpoint, doc), resolveEndpoint(o.endEndpoint, doc));
+    return midpoint(o.start, o.end);
+  });
   const center =
     objects.length === 1 && objects[0].kind === 'component'
       ? { x: objects[0].x, y: objects[0].y }
       : objects.length === 1 && objects[0].kind === 'brace'
         ? midpoint(objects[0].start, objects[0].end)
-        : { x: Math.round((minX + maxX) / 40) * 20, y: Math.round((minY + maxY) / 40) * 20 };
-  const rp = (p: Point) => add(rotatePoint({ x: p.x - center.x, y: p.y - center.y }, 90), center);
-  const next = (r: Rotation) => ((r + 90) % 360) as Rotation;
+        : angle === 45
+          ? {
+              x: anchors.reduce((sum, p) => sum + p.x, 0) / anchors.length,
+              y: anchors.reduce((sum, p) => sum + p.y, 0) / anchors.length,
+            }
+          : { x: Math.round((minX + maxX) / 40) * 20, y: Math.round((minY + maxY) / 40) * 20 };
+  const rp = (p: Point) =>
+    add(rotatePoint({ x: p.x - center.x, y: p.y - center.y }, angle), center);
+  const next = (r: Rotation) => ((r + angle) % 360) as Rotation;
   const ep = (e: Endpoint): Endpoint =>
     e.kind === 'free' ? { kind: 'free', point: rp(e.point) } : e;
   return {
     ...doc,
     objects: doc.objects.map((o) => {
-      if (!selected.has(o.id)) return o;
+      if (!selected.has(o.id)) {
+        if (
+          o.kind === 'wire' &&
+          !o.vertices.length &&
+          [o.startEndpoint, o.endEndpoint].some(
+            (endpoint) => endpoint.kind === 'terminal' && selected.has(endpoint.componentId),
+          )
+        ) {
+          // Keep the distant branch stable as its terminal rotates. Stored
+          // waypoints remain authored geometry; only the endpoint route adapts.
+          const points = wirePoints(o, doc),
+            vertices = points.slice(1, -1);
+          return {
+            ...o,
+            vertices: vertices.length ? vertices : [midpoint(points[0], points.at(-1)!)],
+          };
+        }
+        return o;
+      }
       if (o.kind === 'component')
         return {
           ...o,
           ...rp(o),
           rotation: next(o.rotation),
-          label: { ...o.label, offset: rotatePoint(o.label.offset, 90) },
+          label: { ...o.label, offset: rotatePoint(o.label.offset, angle) },
         };
       if (o.kind === 'junction') return { ...o, ...rp(o) };
       if (o.kind === 'text') return { ...o, ...rp(o), rotation: next(o.rotation) };
@@ -217,17 +251,27 @@ export function rotateObjects(doc: CircuitDocument, ids: string[]): CircuitDocum
           ...base,
           start: rp(base.start),
           end: rp(base.end),
-          offset: rotatePoint(base.offset, 90),
-          label: { ...base.label, offset: rotatePoint(base.label.offset, 90) },
+          offset: rotatePoint(base.offset, angle),
+          label: { ...base.label, offset: rotatePoint(base.label.offset, angle) },
         };
       }
-      if (o.kind === 'brace')
+      if (o.kind === 'brace') {
+        // Brace baselines retain their supported orthogonal orientation while
+        // their center follows a mixed component selection through 45 degrees.
+        const originalCenter = midpoint(o.start, o.end),
+          rotatedCenter = rp(originalCenter),
+          baseline = (p: Point) =>
+            add(
+              rotatePoint({ x: p.x - originalCenter.x, y: p.y - originalCenter.y }, 90),
+              rotatedCenter,
+            );
         return {
           ...o,
-          start: rp(o.start),
-          end: rp(o.end),
+          start: baseline(o.start),
+          end: baseline(o.end),
           label: { ...o.label, offset: rotatePoint(o.label.offset, 90) },
         };
+      }
       if (o.kind === 'arrow')
         return {
           ...o,

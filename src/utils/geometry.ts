@@ -24,8 +24,16 @@ export function rotatePoint(p: Point, rotation: Rotation): Point {
       return { x: -p.x, y: -p.y };
     case 270:
       return { x: p.y, y: -p.x };
-    default:
+    case 0:
       return { ...p };
+    default: {
+      // Preserve exact cardinal coordinates and use the real transform for the
+      // intermediate steps. Equal diagonal sine/cosine avoids axis jitter.
+      const diagonal = Math.SQRT1_2;
+      const cos = rotation === 45 || rotation === 315 ? diagonal : -diagonal;
+      const sin = rotation === 45 || rotation === 135 ? diagonal : -diagonal;
+      return { x: p.x * cos - p.y * sin, y: p.x * sin + p.y * cos };
+    }
   }
 }
 export function localToWorld(component: CircuitComponent, p: Point): Point {
@@ -66,7 +74,7 @@ export function endpointDirection(ep: Endpoint, doc: CircuitDocument): 'x' | 'y'
   const direction =
     axis === 'x' ? { x: 1, y: 0 } : axis === 'y' ? { x: 0, y: 1 } : { x: t.localX, y: t.localY };
   const d = rotatePoint(direction, c.rotation);
-  return Math.abs(d.x) > Math.abs(d.y) ? 'x' : 'y';
+  return Math.abs(d.x) >= Math.abs(d.y) ? 'x' : 'y';
 }
 function orthogonal(a: Point, b: Point, direction: 'x' | 'y', both = false): Point[] {
   if (a.x === b.x || a.y === b.y) return [a, b];
@@ -106,6 +114,20 @@ function terminalExit(endpoint: Endpoint | null, doc: CircuitDocument) {
   };
 }
 
+/** A short lead follows a diagonal pin before the existing orthogonal route.
+ * Its length clears the rotated body bounds, including multi-pin symbols. */
+function diagonalLead(endpoint: Endpoint, point: Point, doc: CircuitDocument): Point | null {
+  const exit = terminalExit(endpoint, doc);
+  if (!exit || !exit.direction.x || !exit.direction.y) return null;
+  const { direction, bounds } = exit;
+  const outside = Math.min(
+    ((direction.x > 0 ? bounds.x + bounds.width : bounds.x) - point.x) / direction.x,
+    ((direction.y > 0 ? bounds.y + bounds.height : bounds.y) - point.y) / direction.y,
+  );
+  const length = Math.max(GRID, outside + GRID / 2);
+  return add(point, { x: direction.x * length, y: direction.y * length });
+}
+
 /** Preserve familiar routes; only reroute when a terminal would point inward or
  * the connection would cross one of its own symbol bodies. The small visibility
  * graph concerns at most the two endpoint bodies, not a document-wide router. */
@@ -122,6 +144,15 @@ function terminalSafeRoute(
     start = points[0],
     end = points.at(-1)!;
   if (points.length < 2 || !obstacles.length) return points;
+  // Diagonal pins already have their outward lead at this point. Continue on a
+  // cardinal axis without asking the axis-aligned visibility graph to diagonalize.
+  for (const exit of [startExit, endExit]) {
+    if (!exit || !exit.direction.x || !exit.direction.y) continue;
+    exit.direction =
+      Math.abs(exit.direction.x) >= Math.abs(exit.direction.y)
+        ? { x: Math.sign(exit.direction.x), y: 0 }
+        : { x: 0, y: Math.sign(exit.direction.y) };
+  }
   const follows = (from: Point, to: Point, direction: Point) =>
     (to.x - from.x) * direction.x + (to.y - from.y) * direction.y > 0.001 &&
     (direction.x ? to.y === from.y : to.x === from.x);
@@ -229,18 +260,27 @@ export function safeWirePoints(wire: Wire, doc: CircuitDocument): Point[] {
 }
 
 function routeWire(wire: Wire, doc: CircuitDocument, protectTerminals: boolean): Point[] {
-  const start = resolveEndpoint(wire.startEndpoint, doc),
-    end = resolveEndpoint(wire.endEndpoint, doc);
+  const startPoint = resolveEndpoint(wire.startEndpoint, doc),
+    endPoint = resolveEndpoint(wire.endEndpoint, doc);
+  // Smart Placement uses a semantic zero-length wire at coincident terminals.
+  // Diagonal lead-outs must not turn that connection into a visible loop.
+  if (!wire.vertices.length && distance(startPoint, endPoint) < 0.001) return [startPoint];
+  const startLead = diagonalLead(wire.startEndpoint, startPoint, doc),
+    endLead = diagonalLead(wire.endEndpoint, endPoint, doc),
+    start = startLead ?? startPoint,
+    end = endLead ?? endPoint;
   const sd = endpointDirection(wire.startEndpoint, doc),
     ed = endpointDirection(wire.endEndpoint, doc);
   const route = (points: Point[], start: Endpoint | null, end: Endpoint | null) =>
     protectTerminals ? terminalSafeRoute(points, start, end, doc) : points;
+  const withLeads = (points: Point[]) =>
+    [startPoint, ...points, endPoint].filter(
+      (p, i, all) => i === 0 || distance(p, all[i - 1]) > 0.001,
+    );
   if (!wire.vertices.length)
-    return route(
-      orthogonal(start, end, sd, sd === ed),
-      wire.startEndpoint,
-      wire.endEndpoint,
-    ).filter((p, i, points) => i === 0 || distance(p, points[i - 1]) > 0.001);
+    return withLeads(
+      route(orthogonal(start, end, sd, sd === ed), wire.startEndpoint, wire.endEndpoint),
+    );
   const result: Point[] = [start];
   wire.vertices.forEach((p, i) =>
     result.push(
@@ -256,7 +296,7 @@ function routeWire(wire: Wire, doc: CircuitDocument, protectTerminals: boolean):
       .reverse()
       .slice(1),
   );
-  return result.filter((p, i, arr) => i === 0 || distance(p, arr[i - 1]) > 0.001);
+  return withLeads(result);
 }
 export const pointsPath = (points: Point[]) =>
   points.map((p, i) => `${i ? 'L' : 'M'} ${p.x} ${p.y}`).join(' ');

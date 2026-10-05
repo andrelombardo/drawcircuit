@@ -170,20 +170,24 @@ export function exportSVG(source: CircuitDocument): string {
           text(o.reversed ? '−' : '+', g.start, o.color, 22),
           text(o.reversed ? '+' : '−', g.end, o.color, 22),
         );
-      else
-        parts.push(
-          path(pointsPath([g.start, g.end]), o.color, o.width),
-          path(
-            pointsPath(
-              chevron(g.arrowEnd, {
-                x: g.arrowEnd.x - g.arrowStart.x,
-                y: g.arrowEnd.y - g.arrowStart.y,
-              }),
-            ),
-            o.color,
-            o.width,
+      else {
+        const head = chevron(g.arrowEnd, {
+          x: g.arrowEnd.x - g.arrowStart.x,
+          y: g.arrowEnd.y - g.arrowStart.y,
+        });
+        boxes.push(
+          unionBounds(
+            head.map((p) => ({
+              x: p.x - o.width / 2,
+              y: p.y - o.width / 2,
+              width: o.width,
+              height: o.width,
+            })),
           ),
         );
+        if (!g.inline) parts.push(path(pointsPath([g.start, g.end]), o.color, o.width));
+        parts.push(path(pointsPath(head), o.color, o.width));
+      }
       labels.push(
         text(o.label.text, g.labelPoint, o.label.color, o.label.fontSize, o.label.rotation),
       );

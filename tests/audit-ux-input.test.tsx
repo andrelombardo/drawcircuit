@@ -173,8 +173,8 @@ describe('audit UX/input evidence', () => {
     click(200, 0);
     click(0, 100);
     fireEvent.click(screen.getByRole('button', { name: 'Selezione (V)' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Ruota 90° (R)' }));
-    expect(useEditorStore.getState().document.objects.at(-1)).toMatchObject({ rotation: 90 });
+    fireEvent.click(screen.getByRole('button', { name: 'Ruota 45° (R)' }));
+    expect(useEditorStore.getState().document.objects.at(-1)).toMatchObject({ rotation: 45 });
     fireEvent.click(screen.getByRole('button', { name: 'Nodo (N)' }));
     click(-100, -100);
     expect(useEditorStore.getState().tool).toBe('select');
@@ -217,7 +217,7 @@ describe('audit UX/input evidence', () => {
       render(<App />);
       const original = placeResistor();
       key('r');
-      expect(selectedComponent()).toMatchObject({ rotation: 90 });
+      expect(selectedComponent()).toMatchObject({ rotation: 45 });
       key('a', { [modifier]: true });
       key('c', { [modifier]: true });
       await waitFor(() => expect(clipboardText).toContain(original.id));

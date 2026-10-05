@@ -103,7 +103,7 @@ function place(type: ComponentType, x: number, y: number, rotation = 0): Circuit
   fireEvent.click(
     screen.getByRole('button', { name: `Inserisci ${definition.name.toLowerCase()}` }),
   );
-  for (let angle = 0; angle < rotation; angle += 90) key('r');
+  for (let angle = 0; angle < rotation; angle += 45) key('r');
   click(x, y);
   key('Escape');
   const c = current().objects.at(-1)!;
@@ -549,7 +549,7 @@ describe('audit: snapping, cancellation, topology and history edges', () => {
     for (const raw of [
       '{bad',
       JSON.stringify({ ...before, objects: [{ ...r, id: '' }] }),
-      JSON.stringify({ ...before, objects: [{ ...r, rotation: 45 }] }),
+      JSON.stringify({ ...before, objects: [{ ...r, rotation: 22.5 }] }),
     ]) {
       expect(() => deserializeDocument(raw)).toThrow();
       expect(current()).toEqual(before);

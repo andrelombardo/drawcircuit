@@ -15,6 +15,7 @@ import {
   replaceInlineText,
 } from '../src/utils/labels';
 import { moveSelection } from '../src/utils/operations';
+import { wirePoints } from '../src/utils/geometry';
 
 const documentWith = (objects: CircuitObject[]): CircuitDocument => ({
   version: 1,
@@ -319,5 +320,92 @@ describe('label and standalone Text movement is independent from circuit geometr
         .filter(hasAssociatedLabel)
         .every((o) => state().document.objects.find((next) => next.id === o.id)?.kind === o.kind),
     ).toBe(true);
+  });
+});
+
+describe('deletion respects the selected label subtarget', () => {
+  const labelShortcuts = labelIds.flatMap((id) =>
+    ['Delete', 'Backspace'].map((key) => ({ id, key })),
+  );
+
+  it.each(labelShortcuts)(
+    '$id label + $key clears only its text and supports Undo/Redo',
+    ({ id, key }) => {
+      render(<Canvas />);
+      const original = state().document;
+      const owner = original.objects.find((o) => o.id === id)!;
+      clickLabel(id);
+      fireEvent.keyDown(canvas(), { key });
+      const cleared = state().document;
+      expect(cleared.objects.find((o) => o.id === id)).toEqual(replaceInlineText(owner, ''));
+      expect(cleared.objects.filter((o) => o.id !== id)).toEqual(
+        original.objects.filter((o) => o.id !== id),
+      );
+      expect(cleared.objects).toHaveLength(original.objects.length);
+      expect(state().activeLabel).toBeNull();
+      expect(state().selection).toEqual([]);
+      expect(state().past).toHaveLength(1);
+      // Holding Delete cannot turn label deletion into deletion of the remaining body.
+      fireEvent.keyDown(canvas(), { key, repeat: true });
+      expect(state().document).toBe(cleared);
+      act(() => state().undo());
+      expect(state().document).toEqual(original);
+      act(() => state().redo());
+      expect(state().document).toEqual(cleared);
+    },
+  );
+
+  it.each(labelShortcuts)(
+    '$id label + Shift $key removes its owner and embedded label',
+    ({ id, key }) => {
+      render(<Canvas />);
+      const original = state().document;
+      const wire = original.objects.find((o) => o.kind === 'wire')!;
+      const route = wirePoints(wire, original);
+      clickLabel(id);
+      fireEvent.keyDown(canvas(), { key, shiftKey: true });
+      const deleted = state().document;
+      expect(deleted.objects.some((o) => o.id === id)).toBe(false);
+      expect(deleted.objects).toHaveLength(original.objects.length - 1);
+      expect(deleted.objects.filter((o) => o.kind === 'text')).toEqual(
+        original.objects.filter((o) => o.kind === 'text'),
+      );
+      const afterWire = deleted.objects.find((o) => o.kind === 'wire')!;
+      expect(wirePoints(afterWire, deleted)).toEqual(route);
+      if (id === 'resistor') expect(afterWire.endEndpoint.kind).toBe('free');
+      if (id === 'junction') expect(afterWire.startEndpoint.kind).toBe('free');
+      expect(state().past).toHaveLength(1);
+      act(() => state().undo());
+      expect(state().document).toEqual(original);
+      act(() => state().redo());
+      expect(state().document).toEqual(deleted);
+    },
+  );
+
+  it.each(['resistor', 'junction'])('%s body + Delete removes the body and its label', (id) => {
+    render(<Canvas />);
+    clickLabel(id);
+    const layer = id === 'resistor' ? 'components' : 'junctions';
+    const body = canvas().querySelector(`[data-layer="${layer}"] [data-object="${id}"]`)!;
+    fireEvent.pointerDown(body, client(0, 0));
+    fireEvent.pointerUp(canvas(), client(0, 0));
+    expect(state().activeLabel).toBeNull();
+    fireEvent.keyDown(canvas(), { key: 'Delete' });
+    expect(state().document.objects.some((o) => o.id === id)).toBe(false);
+    expect(state().document.objects.filter((o) => o.kind === 'text')).toHaveLength(1);
+  });
+
+  it('explicit multiselect after label focus deletes the selected owners', () => {
+    render(<Canvas />);
+    clickLabel('resistor');
+    act(() => state().select(['resistor', 'junction', 'brace']));
+    fireEvent.keyDown(canvas(), { key: 'Backspace' });
+    expect(
+      state().document.objects.some((o) => ['resistor', 'junction', 'brace'].includes(o.id)),
+    ).toBe(false);
+    expect(state().document.objects.find((o) => o.id === 'wire')).toMatchObject({
+      startEndpoint: { kind: 'free' },
+      endEndpoint: { kind: 'free' },
+    });
   });
 });

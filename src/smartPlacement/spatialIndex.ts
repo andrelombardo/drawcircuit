@@ -1,5 +1,5 @@
-import type { CircuitDocument, Point } from '../model/types';
-import { localToWorld, wirePoints } from '../utils/geometry';
+import type { CircuitComponent, CircuitDocument, Point } from '../model/types';
+import { localToWorld, objectBounds, wirePoints } from '../utils/geometry';
 import type { ConnectionTarget, WireSegment } from './types';
 
 const CELL = 160;
@@ -27,6 +27,7 @@ export class PlacementIndex {
   private segments = new Map<string, WireSegment[]>();
   private longSegments: WireSegment[] = [];
   private centers = new Map<string, Point[]>();
+  private components = new Map<string, CircuitComponent[]>();
   constructor(doc: CircuitDocument) {
     const occupied = new Set<string>();
     for (const o of doc.objects)
@@ -36,6 +37,8 @@ export class PlacementIndex {
       }
     for (const o of doc.objects) {
       if (o.kind === 'component' || o.kind === 'junction') {
+        if (o.kind === 'component')
+          for (const key of cells(objectBounds(o, doc))) add(this.components, key, o);
         add(this.centers, cells({ ...o, width: 0, height: 0 })[0], { x: o.x, y: o.y });
         const targets: ConnectionTarget[] =
           o.kind === 'junction'
@@ -114,6 +117,14 @@ export class PlacementIndex {
   }
   nearbyCenters(p: Point, radius: number): Point[] {
     return query(this.centers, {
+      x: p.x - radius,
+      y: p.y - radius,
+      width: radius * 2,
+      height: radius * 2,
+    });
+  }
+  nearbyComponents(p: Point, radius: number): CircuitComponent[] {
+    return query(this.components, {
       x: p.x - radius,
       y: p.y - radius,
       width: radius * 2,

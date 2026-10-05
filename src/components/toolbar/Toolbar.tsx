@@ -133,17 +133,37 @@ export function DrawingToolbar({
                   onClick={() => setMenu(null)}
                 />
                 <div className="file-menu electrical-tools-menu" role="menu" aria-label={label}>
-                  {options.map(([type, name]) => (
-                    <button
-                      key={type}
-                      onClick={() => {
-                        setTool(type);
-                        setMenu(null);
-                      }}
-                    >
-                      {name}
-                    </button>
-                  ))}
+                  {options.map(([type, name]) =>
+                    type === 'current' ? (
+                      <div className="current-placement-options" key={type}>
+                        <span>{name}</span>
+                        <div>
+                          {(['external', 'inline'] as const).map((placement) => (
+                            <button
+                              key={placement}
+                              onClick={() => {
+                                useEditorStore.getState().setCurrentPlacement(placement);
+                                setTool('current');
+                                setMenu(null);
+                              }}
+                            >
+                              {placement === 'external' ? 'Esterna' : 'Integrata'}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    ) : (
+                      <button
+                        key={type}
+                        onClick={() => {
+                          setTool(type);
+                          setMenu(null);
+                        }}
+                      >
+                        {name}
+                      </button>
+                    ),
+                  )}
                 </div>
               </>
             )}
