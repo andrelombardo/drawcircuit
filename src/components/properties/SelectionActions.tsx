@@ -7,7 +7,7 @@ import { createPersonalBlock, usePersonalBlocks } from '../../personalBlocks/lib
 import { BlockNameDialog } from '../toolbar/BlockNameDialog';
 import { ReplaceDialog } from './ReplaceDialog';
 import { EditorCommandContext } from './EditorCommandContext';
-import { copyPNG } from '../../png/exporter';
+import { copyPNG } from '../../png/clipboard';
 import { getExportSelection } from '../../tikz/selection';
 
 /** Dialogs are shared by canvas commands and the personal block library.
