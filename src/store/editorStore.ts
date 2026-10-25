@@ -17,6 +17,7 @@ import { cloneObjects, extractSelection, removeObjects, rotateObjects } from '..
 import { alignSelection, distributeSelection, positionSelection } from '../utils/selectionGeometry';
 import type { Axis, Alignment, DistributionMode } from '../utils/selectionGeometry';
 import { copySelection, pasteSelection } from '../utils/clipboard';
+import { documentBounds, snapPoint } from '../utils/geometry';
 import { mirrorArrows } from '../utils/arrows';
 import {
   hasAssociatedLabel,
@@ -101,6 +102,8 @@ interface EditorState {
   copy: (clipboardData?: DataTransfer | null) => Promise<boolean>;
   cut: (clipboardData?: DataTransfer | null) => Promise<boolean>;
   paste: (nativeText?: string) => Promise<void>;
+  viewCenter: Point;
+  setViewCenter: (point: Point) => void;
   update: (id: string, fn: (o: CircuitObject) => CircuitObject) => void;
   beginGesture: () => void;
   preview: (doc: CircuitDocument) => void;
@@ -275,11 +278,17 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   },
   paste: async (nativeText) => {
     const copied = await pasteSelection(nativeText);
-    if (!copied) return;
-    const s = get();
-    s.add(cloneObjects(copied, { x: 40, y: 40 }, s.document));
+    if (!copied?.objects.length) return;
+    const s = get(), bounds = documentBounds(copied);
+    const delta = {
+      x: s.viewCenter.x - (bounds.x + bounds.width / 2),
+      y: s.viewCenter.y - (bounds.y + bounds.height / 2),
+    };
+    s.add(cloneObjects(copied, s.snapEnabled ? snapPoint(delta) : delta, s.document));
     s.notify(t('Selection pasted'));
   },
+  viewCenter: { x: 0, y: 0 },
+  setViewCenter: (viewCenter) => set({ viewCenter }),
   update: (id, fn) => {
     const s = get();
     s.commit({

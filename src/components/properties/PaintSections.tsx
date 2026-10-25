@@ -2,6 +2,7 @@ import { useRef, useState } from 'react';
 import { ArrowDown, ArrowUp, Blend, ChevronDown, CirclePlus, Layers2, Settings2, Trash2 } from 'lucide-react';
 import { t } from '../../i18n';
 import { makeId } from '../../model/catalog';
+import { MAX_LINE_WIDTH } from '../../model/limits';
 import { COLORS } from '../../model/types';
 import type { CircuitObject, ShapeBorder, ShapeFill } from '../../model/types';
 import { objectBorders, objectFills, withPaints } from '../../model/shapeAppearance';
@@ -54,6 +55,15 @@ export function ObjectPaintSection({ objects, apply, border = false }: {
           ]}>
           {opacityField}
         </ColorControl>
+        {border && <PropertyField
+          label={t('{paint} thickness', { paint: itemLabel })}
+          caption={t('Thickness')}
+          numeric
+          min={0.1}
+          max={MAX_LINE_WIDTH}
+          value={commonValue(borders.map((b) => b?.width))}
+          onCommit={(v) => update(index, { width: Number(v) })}
+        />}
         {border && expanded && index === settingsIndex && <InspectorPopover title={t('Border settings')} anchor={settingsButton} onClose={() => setExpanded(false)}>
           {count > 1 && <PropertySelect label={t('Border')} caption={<Layers2 size={14} />} embedded value={settingsIndex} onChange={(v) => setActiveBorder(Number(v))}>
             {Array.from({ length: count }, (_, i) => <option key={i} value={i}>{`${label} ${i+1}`}</option>)}

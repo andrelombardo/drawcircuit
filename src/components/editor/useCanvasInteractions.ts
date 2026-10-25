@@ -170,6 +170,12 @@ export function useCanvasInteractions(
   });
   useEffect(() => saveZoomPreference(viewport.zoom), [viewport.zoom]);
   const [surfaceSize, setSurfaceSize] = useState({ width: 1200, height: 700 });
+  useEffect(() => {
+    useEditorStore.getState().setViewCenter({
+      x: (surfaceSize.width / 2 - viewport.x) / viewport.zoom,
+      y: (surfaceSize.height / 2 - viewport.y) / viewport.zoom,
+    });
+  }, [surfaceSize, viewport]);
   const previousSurface = useRef<{ width: number; height: number } | null>(null);
   const smart = useSmartPlacement(viewport);
   const {
