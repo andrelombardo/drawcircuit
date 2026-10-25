@@ -3179,15 +3179,15 @@ summary:focus-visible {
 }
 .palette-heading .sidebar-toggle { flex: none; }
 .palette-scroll {
-  order: 1;
+  order: 2;
   padding: 0 8px 16px;
   scrollbar-gutter: auto;
 }
 .palette > .search-field {
-  order: 2;
+  order: 0;
   flex: none;
   height: 32px;
-  margin: 10px 14px 14px;
+  margin: 0 14px 8px;
   padding: 0 10px;
   border-radius: 20px;
 }
@@ -4078,3 +4078,42 @@ summary:focus-visible {
 .drawing-surface.tool-angle { cursor: crosshair; }
 .drawing-surface.tool-angle .circuit-object,
 .drawing-surface.tool-angle [data-label] { cursor: crosshair; }
+
+/* Keep library navigation outside the scrolling catalog. */
+.palette-filter { flex: none; order: 1; padding: 0 14px 10px; }
+.palette-filter select {
+  width: 100%; min-height: 32px; padding: 4px 8px;
+  border: 1px solid var(--ui-border); border-radius: 8px;
+  background: var(--ui-surface); color: var(--ui-text); font: inherit; font-size: 11px;
+}
+.inspector-component-details :is(h2, p) { overflow: hidden; text-overflow: ellipsis; }
+.main-tools .icon-button.active { background: var(--ui-focus); }
+@media (pointer: coarse) {
+  .component-card { min-height: 44px; }
+  .group-heading, .palette-filter select { min-height: 44px; }
+  .search-field button { min-width: 32px; min-height: 32px; }
+}
+
+.workspace-utilities > .action-menu-root {
+  border: 1px solid var(--floating-surface-border); border-radius: 50%;
+  background: var(--floating-surface-bg); box-shadow: var(--floating-surface-shadow);
+}
+.workspace-utilities > .action-menu-root > button { width: 38px; height: 38px; border-radius: 50%; }
+.project-dialog-actions { flex-wrap: wrap; }
+.project-import-title { overflow-wrap: anywhere; font-weight: 600; }
+
+.help-disclosure { border-top: 1px solid var(--ui-border); padding: 14px 0; font-size: 12px; line-height: 1.7; }
+.help-disclosure summary { cursor: pointer; font-weight: 600; color: var(--ui-text); }
+.help-disclosure p { color: var(--ui-text-secondary); }
+.help-disclosure .shortcut-grid { margin-top: 16px; }
+.help-guide-link { display: inline-block; margin-top: 8px; color: var(--ui-accent); font-size: 12px; }
+
+.inspector-input:has([aria-invalid='true']) { border-color: var(--ui-danger); }
+.property-field-control { min-width: 0; flex: 1; }
+@media (max-width: 620px) {
+  .main-tools .icon-button:not(.action-menu-trigger-label) { width: 40px; height: 44px; }
+}
+
+.properties-inspector .property-row:has(.numeric-combobox-error) { height: auto; align-items: flex-start; }
+.property-row:has(.numeric-combobox-error) > .inspector-field-caption { min-height: var(--property-height); }
+.property-row:has(input[aria-invalid='true']) { outline: 1px solid var(--ui-danger); }

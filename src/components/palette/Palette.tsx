@@ -1,7 +1,7 @@
 import { t } from '../../i18n';
 import { usePersonalBlocks } from '../../personalBlocks/library';
 import { PersonalBlockPalette } from '../../personalBlocks/PersonalBlockPalette';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { ChevronDown, Search, X } from 'lucide-react';
 import { SidebarToggle } from '../toolbar/SidebarToggle';
 import { categories, catalog, matchesComponent } from '../../model/catalog';
@@ -11,6 +11,9 @@ import { circuitPresets, matchesPreset } from '../../presets/registry';
 import { presetCategories } from '../../presets/types';
 import { PresetThumbnail } from '../../presets/PresetThumbnail';
 export function Palette({ onHide }: { onHide: () => void }) {
+  const searchInput = useRef<HTMLInputElement>(null);
+  const scroll = useRef<HTMLDivElement>(null);
+  const [category, setCategory] = useState('');
   const personalBlocks = usePersonalBlocks((s) => s.blocks);
   const [search, setSearch] = useState(''),
     [collapsed, setCollapsed] = useState<string[]>([]),
@@ -26,8 +29,58 @@ export function Palette({ onHide }: { onHide: () => void }) {
         <h2>{t('Components')}</h2>
         <SidebarToggle side="left" visible onToggle={onHide} />
       </div>
-      <div className="palette-scroll">
-        <section className="preset-section" aria-label={t('Quick blocks')}>
+      <div className="search-field">
+        <Search size={15} />
+        <input
+          ref={searchInput}
+          type="search"
+          value={search}
+          onChange={(e) => {
+            setSearch(e.target.value);
+            setCategory('');
+            scroll.current?.scrollTo({ top: 0 });
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape' && search) {
+              e.stopPropagation();
+              setSearch('');
+            }
+          }}
+          placeholder={t('Search components…')}
+          aria-label={t('Search components')}
+          title={t('Search components and blocks')}
+        />
+        {search && (
+          <button
+            aria-label={t('Clear search')}
+            title={t('Clear search')}
+            onClick={() => { setSearch(''); searchInput.current?.focus(); }}
+          >
+            <X size={14} />
+          </button>
+        )}
+      </div>
+      <div className="palette-filter">
+        <select
+          aria-label={t('Component category')}
+          value={category}
+          onChange={(e) => {
+            const value = e.target.value;
+            setCategory(value);
+            setCollapsed((items) => items.filter((group) => group !== value));
+            if (value === 'blocks') setPresetsOpen(true);
+            scroll.current?.scrollTo({ top: 0 });
+          }}
+          disabled={!!search}
+        >
+          <option value="">{t('All categories')}</option>
+          <option value="blocks">{t('Quick blocks')}</option>
+          <option value="personal">{t('Personal blocks')}</option>
+          {categories.map((group) => <option key={group} value={group}>{t(group)}</option>)}
+        </select>
+      </div>
+      <div ref={scroll} className="palette-scroll">
+        {(!category || category === 'blocks') && <section className="preset-section" aria-label={t('Quick blocks')}>
           <button
             className="group-heading preset-heading"
             aria-expanded={presetsOpen || !!search}
@@ -85,9 +138,10 @@ export function Palette({ onHide }: { onHide: () => void }) {
                 </section>
               );
             })}
-        </section>
-        <PersonalBlockPalette search={search} />
+        </section>}
+        {(!category || category === 'personal') && <PersonalBlockPalette search={search} />}
         {categories.map((group) => {
+          if (category && category !== group) return null;
           const items = catalog.filter((c) => c.group === group && matchesComponent(c, search));
           if (!items.length) return null;
           const closed = collapsed.includes(group) && !search;
@@ -147,25 +201,6 @@ export function Palette({ onHide }: { onHide: () => void }) {
           !personalBlocks.some((b) =>
             b.name.toLocaleLowerCase().includes(search.toLocaleLowerCase()),
           ) && <p className="no-results">{t('No components or blocks found.')}</p>}
-      </div>
-      <div className="search-field">
-        <Search size={15} />
-        <input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder={t('Search components…')}
-          aria-label={t('Search components')}
-          title={t('Search components and blocks')}
-        />
-        {search && (
-          <button
-            aria-label={t('Clear search')}
-            title={t('Clear search')}
-            onClick={() => setSearch('')}
-          >
-            <X size={14} />
-          </button>
-        )}
       </div>
     </aside>
   );
