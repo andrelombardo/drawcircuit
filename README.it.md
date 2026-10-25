@@ -33,8 +33,8 @@ DrawCircuit è un editor gratuito utilizzabile dal browser, pensato per studenti
 - **Disegna con precisione.** Scegli tra 72 simboli elettrici suddivisi in 12 categorie. Collega i componenti con fili ortogonali, a 45° o con percorso libero, grazie agli strumenti di aggancio e allineamento.
 - **Spiega con le immagini.** Aggiungi etichette matematiche, marcatori di polarità, annotazioni di tensione e corrente, frecce ed evidenziazioni modificabili. Le espressioni in stile LaTeX vengono visualizzate con KaTeX.
 - **Mantieni tutto allineato.** Sposta, ruota, specchia, distribuisci e distanzia gli elementi con controlli precisi. I collegamenti seguono le modifiche.
-- **Crea più velocemente.** Parti da 25 blocchi di circuiti e diagrammi già pronti oppure salva le tue selezioni come blocchi personali riutilizzabili.
-- **Porta i tuoi schemi ovunque.** Copia l’intero circuito, o soltanto una selezione, come PNG trasparente. Il lavoro viene salvato automaticamente nel browser, senza bisogno di un account.
+- **Crea più velocemente.** Cerca nomi italiani o inglesi in cima alla libreria, filtra per categoria e usa 25 blocchi pronti o i tuoi blocchi personali. Il filo è accessibile con un clic dalla toolbar.
+- **Porta i tuoi schemi ovunque.** Copia l’intero circuito, o soltanto una selezione, come PNG trasparente. Scarica progetti `.drawcircuit` modificabili e riaprili con validazione e protezione tramite Annulla. Il lavoro si salva anche automaticamente nel browser.
 
 ## Inizia a usare DrawCircuit
 
@@ -48,7 +48,7 @@ DrawCircuit è un editor gratuito utilizzabile dal browser, pensato per studenti
 Per scorciatoie, annotazioni, strumenti di disposizione e blocchi riutilizzabili, consulta la **[guida utente](docs/it/guide.md)**.
 
 > [!note]
-> **Il tuo lavoro resta nel browser.** Disegni, blocchi personali e preferenze vengono salvati localmente. La cancellazione dei dati del browser potrebbe eliminarli.
+> **Il tuo lavoro resta nel browser.** Disegni, blocchi personali e preferenze vengono salvati localmente. La cancellazione dei dati del browser potrebbe eliminarli. Usa **Progetto → Scarica progetto**, accanto ad Aiuto, per conservarne una copia separata.
 
 ## Esegui in locale
 

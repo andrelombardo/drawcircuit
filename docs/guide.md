@@ -2,7 +2,7 @@
 
 [Read in Italian](it/guide.md) · [Open DrawCircuit](https://andrelombardo.github.io/drawcircuit/)
 
-DrawCircuit is a browser editor for electrical circuits in notes and teaching material. Components, wires, and annotations are editable vector objects. The library contains 72 symbols in 12 categories and 25 quick blocks and diagrams. Comic Relief is bundled for circuit text and formulas; the UI uses Inter and KaTeX lays out mathematical labels.
+DrawCircuit is a browser editor for electrical circuits in notes and teaching material. Components, wires, and annotations are editable vector objects. The library contains 72 symbols in 12 categories and 25 quick blocks and diagrams. Search stays at the top while the catalog scrolls. The category selector jumps directly to a component family, Quick blocks or Personal blocks; typing a search returns to all categories and matches both Italian and English names. Clear search or press Esc in it to reset. Comic Relief is bundled for circuit text and formulas; the UI uses Inter and KaTeX lays out mathematical labels.
 
 ## Language and local data
 
@@ -52,7 +52,9 @@ Choose **Curved** in **Line routing**, either while drawing or in Properties, to
 
 The **Properties** sidebar shows the selected type or number of elements. It offers only shared properties for mixed selections. Different values appear as **Mixed values**, **Mixed**, or a dash. Confirm text and numeric changes with Enter or by leaving the field; Esc discards the draft. A shared edit changes the whole selection in one undo step.
 
-**Text size** and **Rotation** combine editable values with their usual presets. Type a custom number, then press Enter or leave the field to apply it; use the arrow button or Up/Down to browse presets. Esc discards the draft. Decimal points, decimal commas, and pasted units are accepted. Invalid values show an error and leave the drawing unchanged. Text size must be greater than 0 and at most 200 px. New circuit strokes use width 2, without thickness controls; highlighters retain their independent brush width. Components, text, labels, rectangles, arrows, and loops accept custom rotation angles; suggested presets do not constrain the entered angle. Distances, coordinates, and other numeric fields remain directly editable.
+The inspector shows a selected component’s label as its title, with the symbol type below. Label and text controls come before position and geometry. Mixed selections keep only applicable controls.
+
+**Text size** and **Rotation** combine editable values with their usual presets. Type a custom number, then press Enter or leave the field to apply it; use the arrow button or Up/Down to browse presets. Esc discards the draft. Decimal points, decimal commas, and pasted units are accepted. Invalid values show an error and leave the drawing unchanged. Text size must be greater than 0 and at most 200 px. New circuit strokes use width 2, adjustable in Borders; highlighters retain their independent brush width. Components, text, labels, rectangles, arrows, and loops accept custom rotation angles; suggested presets do not constrain the entered angle. Distances, coordinates, and other numeric fields remain directly editable. Invalid numeric drafts show an error without changing the drawing; correct the value or press Esc to discard it.
 
 - **Label / Text:** edit object text or a shared value; its size control sits to the right. **Internal text** edits the text inside generic blocks.
 - **Position:** X/Y describe an object’s position or the top-left geometric bounds of a multiple selection. Editing a group coordinate translates the entire selection. Rotation applies to the object or selected label.
@@ -127,6 +129,14 @@ Compatible two-terminal components insert into wires automatically. Confirm only
 **Quick blocks** starts collapsed. Choose from series/parallel resistors, star/delta networks, voltage/current dividers, Wheatstone bridge, practical sources, Thévenin/Norton equivalents, series/parallel RC/RL/RLC, and small multi-branch networks. Search matches both languages. Choose a block, use R to rotate by 90°, and click to place; Esc cancels. Presets create ordinary editable objects with fresh IDs and collision-free automatic labels, selected as one undo step.
 
 For **Personal blocks**, select elements and choose **Save as block** in the context menu or library. Use a 1–80 character name. Saved blocks stay in this browser; you can place, rename, delete, or import an existing JSON library. **Undo deletion** restores the last removed block during the session separately from circuit history. Libraries allow at most 100 blocks and 10 MB of JSON.
+
+## Projects
+
+Use **Project** (the folder beside Help) → **Download project** to save the complete drawing as a `.drawcircuit` file. This is versioned JSON, including every editable object, label, style and connection. It uses the same v1 format as browser autosave; existing documents and legacy optional fields remain readable. Viewport, UI preferences and personal libraries remain separate.
+
+**Project → Open project…** accepts `.drawcircuit` and `.json`. The file is limited to 10 MB and validated before anything is replaced. Invalid versions, duplicate IDs, invalid geometry and missing references are rejected. The confirmation names the incoming drawing and lets you download your current work first. Cancel preserves the current drawing. Opening is one Undo step; Undo restores the previous drawing and Redo reopens the imported one. An unfinished preview is excluded from saved files and the Undo backup.
+
+Automatic saving still applies after opening. Keep separate downloads for projects you want to retain beyond the current session; Undo history is session-only. Image copying remains a separate command in the selection context menu.
 
 ## Copying and navigation
 

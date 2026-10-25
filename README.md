@@ -28,8 +28,8 @@ DrawCircuit is a free, browser-based editor built for students, educators, and a
 - **Draw precisely.** Choose from 72 electrical symbols across 12 categories. Connect components with orthogonal, 45°, or free-routing wires, with snapping and alignment assistance.
 - **Explain visually.** Add mathematical labels, polarity markers, voltage and current annotations, arrows, and editable highlights. LaTeX-style expressions are rendered with KaTeX.
 - **Keep everything aligned.** Move, rotate, mirror, distribute, and space elements with precise controls. Connections follow your edits.
-- **Build faster.** Start from 25 ready-made circuit blocks and diagrams, or save your own selections as reusable personal blocks.
-- **Take your diagrams anywhere.** Copy the entire circuit—or just a selection—as a transparent PNG. Your work is saved automatically in your browser, with no account required.
+- **Build faster.** Search Italian or English names from the top of the library, filter by category, start from 25 ready-made blocks, or reuse personal blocks. Wires are one click away in the toolbar.
+- **Take your diagrams anywhere.** Copy the entire circuit—or just a selection—as a transparent PNG. Download editable `.drawcircuit` projects and reopen them with validation and Undo protection. Your work also saves automatically in your browser.
 
 ## Get started
 
@@ -43,7 +43,7 @@ DrawCircuit is a free, browser-based editor built for students, educators, and a
 For shortcuts, annotations, layout tools, and reusable blocks, see the **[user guide](docs/guide.md)**.
 
 > [!note]
-> **Your work stays in your browser.** Drawings, personal blocks, and preferences are stored locally. Clearing your browser data may remove them.
+> **Your work stays in your browser.** Drawings, personal blocks, and preferences are stored locally. Clearing your browser data may remove them. Use **Project → Download project** beside Help to keep a separate copy.
 
 ## Run locally
 
