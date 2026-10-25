@@ -1,4 +1,6 @@
 import { createAngle, resizeAngle } from '../../annotations/angle';
+import { angleBetweenRays, angleRayAt } from '../../utils/anglePlacement';
+import type { AngleRay } from '../../utils/anglePlacement';
 import type { AngleAnnotation } from '../../model/types';
 import { beginLine, commitLine, graphicEndpoint, moveLineEndpoint, nearestLinePoint, normalizeLine, routeEditedLine } from '../../utils/lines';
 import { HighlightEraserGesture } from '../../annotations/eraseHighlight';
@@ -71,7 +73,6 @@ import {
   resolveWireCandidate,
   routeEditedWire,
   moveWireSegment,
-  moveWireVertex,
   healWireConnections,
 } from '../../utils/wires';
 import type { WireCandidate, WireDraft } from '../../utils/wires';
@@ -186,8 +187,13 @@ export function useCanvasInteractions(
   const doc = useEditorStore((s) => s.document);
   const objectMap = useMemo(() => new Map(doc.objects.map((o) => [o.id, o])), [doc]);
   const anglePointsRef = useRef<Point[]>([]);
+  const angleRayRef = useRef<AngleRay | null>(null);
   const [angleStep, setAngleStep] = useState(0);
-  const setAnglePoints = (points: Point[]) => { anglePointsRef.current = points; setAngleStep(points.length); };
+  const setAnglePoints = (points: Point[]) => {
+    anglePointsRef.current = points;
+    if (!points.length) angleRayRef.current = null;
+    setAngleStep(points.length);
+  };
   const [voltageStart, setVoltageStart] = useState<Point | null>(null);
   const voltageStartRef = useRef<Point | null>(null);
   const setFirstPoint = (point: Point | null) => {
@@ -507,7 +513,7 @@ export function useCanvasInteractions(
       } else if (e.key === 'Delete' || e.key === 'Backspace') {
         e.preventDefault();
         const draft = draftRef.current;
-        if (s.tool === 'angle' && anglePointsRef.current.length) {
+        if (s.tool === 'angle' && (anglePointsRef.current.length || angleRayRef.current)) {
           setAnglePoints(anglePointsRef.current.slice(0, -1));
           setOverlay(blank);
         } else if (draft) {
@@ -698,7 +704,45 @@ export function useCanvasInteractions(
   const pointerTarget = (e: ReactPointerEvent<SVGSVGElement>) => {
     // Visible editing handles own their modifier gestures; never cycle through them.
     if ((e.target as Element).closest('[data-handle]')) return e.target as Element;
-    if (!e.altKey || !document.elementsFromPoint) return e.target as Element;
+    if (!document.elementsFromPoint) return e.target as Element;
+    if (!e.altKey) {
+      const original = e.target as Element;
+      if (original.closest('[data-label], [data-terminal], [data-source]')) return original;
+      const object = objectMap.get(original.closest('[data-object]')?.getAttribute('data-object') ?? '');
+      // The filled node owns its center even where several wire strokes meet.
+      if (object?.kind === 'junction' && distance(world(e.clientX, e.clientY), object) <=
+        (object.radius ?? 4.5) + 2 / viewport.zoom) return original;
+      // Compare the real strokes inside overlapping hit halos in screen pixels.
+      // Paint order remains the tie-breaker at an exact crossing.
+      let best = original, gap = Infinity;
+      for (const element of document.elementsFromPoint(e.clientX, e.clientY)) {
+        if (!(element instanceof SVGGeometryElement) || !element.closest('[data-object]') ||
+          !svgRef.current?.contains(element)) continue;
+        const matrix = element.getScreenCTM();
+        if (!matrix) continue;
+        const length = element.getTotalLength();
+        const scale = Math.hypot(matrix.a, matrix.b);
+        const count = Math.min(512, Math.max(8, Math.ceil(length * scale / 4)));
+        const at = (t: number) => {
+          const p = element.getPointAtLength(t).matrixTransform(matrix);
+          return Math.hypot(p.x - e.clientX, p.y - e.clientY);
+        };
+        let sample = 0, score = Infinity;
+        for (let i = 0; i <= count; i++) {
+          const d = at(length * i / count);
+          if (d < score) { score = d; sample = i; }
+        }
+        let low = Math.max(0, (sample - 1) * length / count),
+          high = Math.min(length, (sample + 1) * length / count);
+        for (let i = 0; i < 10; i++) {
+          const a = low + (high - low) / 3, b = high - (high - low) / 3;
+          if (at(a) < at(b)) high = b; else low = a;
+        }
+        score = Math.min(score, at((low + high) / 2));
+        if (score < gap - 0.25) { best = element; gap = score; }
+      }
+      return best;
+    }
     const labels = document
       .elementsFromPoint(e.clientX, e.clientY)
       .map((element) => element.closest('[data-label]'))
@@ -722,7 +766,7 @@ export function useCanvasInteractions(
         (el) => el.getAttribute('data-object') === useEditorStore.getState().selection[0],
       );
       return targets.length
-        ? targets[(Math.max(0, current) + 1) % targets.length]
+        ? targets[(current + 1) % targets.length]
         : (e.target as Element);
     }
     const current = unique.findIndex(
@@ -771,6 +815,24 @@ export function useCanvasInteractions(
     if (s.tool === 'angle') {
       const point = s.snapEnabled && !e.altKey ? snapPoint(p) : p;
       const points = anglePointsRef.current;
+      const ray = !e.altKey ? angleRayAt(p, s.document, viewport.zoom, angleRayRef.current?.id) : null;
+      if (angleRayRef.current) {
+        const object = ray && angleBetweenRays(angleRayRef.current, ray);
+        if (object) {
+          s.add([object]);
+          setAnglePoints([]);
+          s.setTool('select');
+          s.select([object.id]);
+          setOverlay(blank);
+        } else s.notify(t('Choose an intersecting line, away from the vertex.'));
+        return;
+      }
+      if (!points.length && ray) {
+        angleRayRef.current = ray;
+        setAngleStep(3);
+        setOverlay({ ...blank, target: ray.point });
+        return;
+      }
       if (!points.length) setAnglePoints([point]);
       else if (points.length === 1) {
         if (distance(points[0], point) >= 8) setAnglePoints([...points, point]);
@@ -985,18 +1047,6 @@ export function useCanvasInteractions(
       }
     }
     if (id) {
-      if (e.altKey && handle?.startsWith('vertex:')) {
-        s.update(id, (o) =>
-          o.kind === 'line' ? routeEditedLine({ ...o, vertices: o.vertices?.filter((_, i) => i !== Number(handle.split(':')[1])) }, s.document) :
-          o.kind === 'wire'
-            ? {
-                ...o,
-                vertices: o.vertices.filter((_, i) => i !== Number(handle.split(':')[1])),
-              }
-            : o,
-        );
-        return;
-      }
       if (e.shiftKey && !handle) {
         s.select(
           s.selection.includes(id) ? s.selection.filter((i) => i !== id) : [...s.selection, id],
@@ -1094,6 +1144,13 @@ export function useCanvasInteractions(
     const d = drag.current;
     if (s.tool === 'angle' && !d && !spaceDown.current) {
       const point = s.snapEnabled && !e.altKey ? snapPoint(p) : p;
+      if (angleRayRef.current) {
+        const ray = angleRayAt(p, s.document, viewport.zoom, angleRayRef.current.id);
+        const object = ray && angleBetweenRays(angleRayRef.current, ray);
+        setOverlay({ ...blank, target: ray?.point ?? point,
+          ...(object ? { arrow: { ...object, id: 'preview' } } : {}) });
+        return;
+      }
       const [vertex, first] = anglePointsRef.current;
       if (!vertex) setOverlay({ ...blank, target: point });
       else {
@@ -1352,9 +1409,6 @@ export function useCanvasInteractions(
                     if (d.handle?.startsWith('segment:'))
                       return lineFromWire(o, moveWireSegment(wire, Number(d.handle.split(':')[1]), raw, d.doc,
                         s.snapEnabled && !e.altKey), d.doc);
-                    if (d.handle?.startsWith('vertex:'))
-                      return lineFromWire(o, moveWireVertex(wire, Number(d.handle.split(':')[1]),
-                        s.snapEnabled && !e.altKey && o.routing !== 'free' ? snapPoint(p) : p, d.doc), d.doc);
                     if (d.handle === 'wireStart' || d.handle === 'wireEnd') {
                       const side = d.handle === 'wireStart' ? 'start' : 'end',
                         target = wireEndpointCandidate(p, wire, side, d.doc, viewport.zoom,
@@ -1378,9 +1432,6 @@ export function useCanvasInteractions(
                     if (d.handle?.startsWith('segment:'))
                       return moveWireSegment(o, Number(d.handle.split(':')[1]), raw, d.doc,
                         s.snapEnabled && !e.altKey);
-                    if (d.handle?.startsWith('vertex:'))
-                      return moveWireVertex(o, Number(d.handle.split(':')[1]),
-                        s.snapEnabled && !e.altKey && o.routing !== 'free' ? snapPoint(p) : p, d.doc);
                     const target = wireEndpointCandidate(
                         p,
                         o,
@@ -1696,21 +1747,6 @@ export function useCanvasInteractions(
       s.select([target.id]);
       setActiveLabel(o.kind === 'text' ? null : target.id);
       setEditing(target);
-    } else if (o.kind === 'line' && !o.controlPoints) {
-      const near = nearestLinePoint(world(e.clientX, e.clientY), o, s.document);
-      if (near.gap > 14 / viewport.zoom) return;
-      const vertices = [...near.points.slice(1, near.segment + 1), near.point, ...near.points.slice(near.segment + 1, -1)];
-      s.update(o.id, (obj) => obj.kind === 'line' ? { ...obj, vertices } : obj);
-    } else if (o.kind === 'wire') {
-      const p = world(e.clientX, e.clientY),
-        near = nearestWire(p, s.document, 14 / viewport.zoom);
-      if (!near || near.wire.id !== o.id) return;
-      const vertices = [
-        ...near.points.slice(1, near.segment + 1),
-        near.point,
-        ...near.points.slice(near.segment + 1, -1),
-      ];
-      s.update(o.id, (obj) => (obj.kind === 'wire' ? { ...obj, vertices } : obj));
     }
   };
   const drop = (e: DragEvent<SVGSVGElement>) => {

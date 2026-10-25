@@ -85,7 +85,7 @@ export function demoDocument(): CircuitDocument {
           { x: 0, y: 0 },
         ],
         color: COLORS.red,
-        width: 1.8,
+        width: 2,
         reversed: false,
       },
       {
@@ -110,7 +110,7 @@ export function demoDocument(): CircuitDocument {
           { x: -80, y: -83 },
         ],
         color: COLORS.red,
-        width: 1.8,
+        width: 2,
         reversed: false,
       },
       {

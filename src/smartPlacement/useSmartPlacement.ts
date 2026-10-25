@@ -70,50 +70,38 @@ export function useSmartPlacement(viewport: Viewport) {
           rotation,
           guides: [],
         };
-      } else if (current.kind === 'inline') {
-        const held =
-          previewRef.current?.phase === 'inline-candidate' ? previewRef.current.candidate : null;
-        const candidate = findInlineCandidate(
-          s.document,
-          type,
-          point,
-          rotation,
-          viewport.zoom,
-          current.manualRotation,
-          held,
-        );
-        if (candidate)
-          next = {
-            phase: 'inline-candidate',
-            candidate,
-            position: candidate.position,
-            rotation: candidate.rotation,
-            guides: [],
-          };
       } else {
-        const anchor = findAnchorTarget(s.document, point, viewport.zoom);
-        const held = previewRef.current?.phase === 'snapped' ? previewRef.current.candidate : null;
-        const candidate = findSnapCandidate(
-          s.document,
-          type,
-          point,
-          rotation,
-          viewport.zoom,
-          current.terminalId,
-          held,
-        );
-        const anchorDistance = anchor ? distance(point, anchor.point) * viewport.zoom : Infinity;
-        // At low zoom the center and a preview pin can both be inside a target's hitbox.
-        // A clearly closer preview pin wins; a direct click on the target still anchors.
-        if (
-          anchor &&
-          (anchorDistance <= 2 || !candidate || anchorDistance + 2 < candidate.distance)
-        )
-          next = { phase: 'anchor-target', target: anchor, position, rotation, guides: [] };
-        else {
-          if (candidate) {
-            position = snappedPosition(type, rotation, candidate);
-            next = { phase: 'snapped', candidate, position, rotation, guides: [] };
+        const heldInline = previewRef.current?.phase === 'inline-candidate' ? previewRef.current.candidate : null;
+        const inline = findInlineCandidate(s.document, type, point, rotation, viewport.zoom,
+          current.manualRotation, heldInline);
+        if (inline) {
+          next = { phase: 'inline-candidate', candidate: inline, position: inline.position,
+            rotation: inline.rotation, guides: [] };
+        } else {
+          const anchor = findAnchorTarget(s.document, point, viewport.zoom);
+          const held = previewRef.current?.phase === 'snapped' ? previewRef.current.candidate : null;
+          const candidate = findSnapCandidate(
+            s.document,
+            type,
+            point,
+            rotation,
+            viewport.zoom,
+            current.terminalId,
+            held,
+          );
+          const anchorDistance = anchor ? distance(point, anchor.point) * viewport.zoom : Infinity;
+          // At low zoom the center and a preview pin can both be inside a target's hitbox.
+          // A clearly closer preview pin wins; a direct click on the target still anchors.
+          if (
+            anchor &&
+            (anchorDistance <= 2 || !candidate || anchorDistance + 2 < candidate.distance)
+          )
+            next = { phase: 'anchor-target', target: anchor, position, rotation, guides: [] };
+          else {
+            if (candidate) {
+              position = snappedPosition(type, rotation, candidate);
+              next = { phase: 'snapped', candidate, position, rotation, guides: [] };
+            }
           }
         }
       }
@@ -206,19 +194,16 @@ export function useSmartPlacement(viewport: Viewport) {
       next.phase === 'snapped' &&
       visible?.phase === 'snapped' &&
       next.candidate.key === visible.candidate.key;
-    const confirmedInline =
-      next.phase === 'inline-candidate' &&
-      visible?.phase === 'inline-candidate' &&
-      next.candidate.segment.key === visible.candidate.segment.key;
+    // Taps and palette drops can confirm without a preceding hover event.
+    const confirmedInline = next.phase === 'inline-candidate';
     if (confirmedSnap || next.phase === 'anchored' || confirmedInline) {
       const s = useEditorStore.getState(),
         result = smartPlacement(s.document, type, next);
       s.commit(result.doc);
       s.select([result.component.id]);
       setContinueEndpoint(result.continueEndpoint);
-      const mode = sessionRef.current.kind === 'inline' ? 'inline' : 'free';
       changeSession({
-        kind: mode,
+        kind: 'free',
         terminalId: sessionRef.current.terminalId,
         manualRotation: false,
       });
@@ -228,7 +213,7 @@ export function useSmartPlacement(viewport: Viewport) {
     }
     // The original placement function handles all free clicks and Alt/Option placements.
     changeSession({
-      kind: sessionRef.current.kind === 'inline' ? 'inline' : 'free',
+      kind: 'free',
       terminalId: sessionRef.current.terminalId,
       manualRotation: false,
     });
@@ -241,14 +226,6 @@ export function useSmartPlacement(viewport: Viewport) {
     changeSession({ ...sessionRef.current, terminalId });
     recompute.current();
   }
-  function toggleInline() {
-    changeSession({
-      kind: sessionRef.current.kind === 'inline' ? 'free' : 'inline',
-      terminalId: sessionRef.current.terminalId,
-      manualRotation: sessionRef.current.manualRotation,
-    });
-    recompute.current();
-  }
   const tool = useEditorStore.getState().tool as ComponentType;
   return {
     session,
@@ -257,7 +234,6 @@ export function useSmartPlacement(viewport: Viewport) {
     move,
     confirm,
     chooseTerminal,
-    toggleInline,
     reset,
     modifierKey,
     blur,

@@ -1,7 +1,6 @@
 import { memo } from 'react';
 import type { CircuitComponent } from '../../model/types';
 import { localToWorld } from '../../utils/geometry';
-import { componentRegistry } from '../../model/catalog';
 import { Symbol } from './Symbol';
 export const ComponentView = memo(function ComponentView({
   object: o,
@@ -12,11 +11,11 @@ export const ComponentView = memo(function ComponentView({
   terminals: boolean;
   selected?: boolean;
 }) {
-  const bounds = componentRegistry[o.type].bounds;
   return (
     <g data-object={o.id} className="circuit-object">
       <g transform={`translate(${o.x} ${o.y}) rotate(${o.rotation}) scale(${o.scale ?? 1})`}>
-        <rect {...bounds} rx={5} className="object-hit" />
+        <Symbol type={o.type} color="transparent" width={12} bodyText={o.bodyText}
+          rotation={o.rotation} hit />
         <g
           className={selected ? 'selected-symbol' : undefined}
           opacity={o.opacity}

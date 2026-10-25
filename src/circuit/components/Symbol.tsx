@@ -8,12 +8,14 @@ export function Symbol({
   width = 2,
   bodyText,
   rotation = 0,
+  hit = false,
 }: {
   type: ComponentType;
   color?: string;
   width?: number;
   bodyText?: string;
   rotation?: number;
+  hit?: boolean;
 }) {
   return (
     <g color={color} stroke={color} strokeWidth={width} fill="none" strokeLinecap="round" strokeLinejoin="round">
@@ -23,15 +25,17 @@ export function Symbol({
             <path
               key={i}
               d={shape.d}
+              vectorEffect={hit ? 'non-scaling-stroke' : undefined}
               transform={shape.fixedOrientation ? `rotate(${-rotation})` : undefined}
-              fill={shape.fill ?? 'none'}
-              strokeDasharray={shape.dashed ? '4 4' : undefined}
+              fill={shape.fill ? (hit ? 'transparent' : shape.fill) : 'none'}
+              strokeDasharray={shape.dashed && !hit ? '4 4' : undefined}
             />
           );
         if (shape.kind === 'circle')
           return (
             <circle key={i} cx={shape.x} cy={shape.y} r={shape.r}
-              fill={shape.fill === 'currentColor' ? color : (shape.fill ?? 'none')} />
+              vectorEffect={hit ? 'non-scaling-stroke' : undefined}
+              fill={hit && shape.fill ? 'transparent' : shape.fill === 'currentColor' ? color : (shape.fill ?? 'none')} />
           );
         if (shape.kind === 'rect')
           return (
@@ -41,7 +45,8 @@ export function Symbol({
               y={shape.y}
               width={shape.width}
               height={shape.height}
-              fill={shape.fill ?? 'none'}
+              vectorEffect={hit ? 'non-scaling-stroke' : undefined}
+              fill={shape.fill ? (hit ? 'transparent' : shape.fill) : 'none'}
             />
           );
         const { value, size } = symbolText(shape, bodyText);

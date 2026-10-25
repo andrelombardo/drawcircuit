@@ -506,33 +506,12 @@ svg {
   fill: var(--ui-accent-soft);
   fill-opacity: 0.7;
 }
-/* Placement controls share the existing bottom feedback, without a floating surface. */
+/* Contextual drawing instructions sit beside the zoom controls. */
 .placement-feedback {
   min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 2px;
-}
-.placement-controls {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--ui-space-1);
-  pointer-events: auto;
-  font-size: 11px;
-  color: var(--ui-text-secondary);
-}
-.placement-controls button {
-  min-height: 28px;
-  padding: 0 var(--ui-space-2);
-  border-radius: var(--ui-radius-sm);
-  border: 1px solid var(--ui-border);
-  background: var(--ui-surface);
-  color: var(--ui-text-secondary);
-}
-.placement-controls button[aria-pressed='true'] {
-  background: var(--ui-accent-soft);
-  color: var(--ui-accent);
 }
 .smart-guide {
   fill: none;
@@ -1141,6 +1120,19 @@ kbd {
   stroke-opacity: 0.65;
   pointer-events: none;
 }
+.selection-node-halo {
+  fill: var(--ui-accent);
+  fill-opacity: 0.16;
+  stroke: white;
+  stroke-width: 3;
+  vector-effect: non-scaling-stroke;
+}
+.selection-node-ring {
+  fill: none;
+  stroke: var(--ui-accent);
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+}
 .distance-guide path {
   fill: none;
   stroke: #7599d1;
@@ -1344,7 +1336,6 @@ kbd {
 .zoom-number:hover,
 .secondary-property:hover,
 .arrow-tool-options button:hover,
-.placement-controls button:hover,
 .personal-block-row button:hover,
 .personal-library-actions button:hover {
   background: var(--ui-hover);
@@ -2114,18 +2105,18 @@ summary:focus-visible {
   }
 }
 
-/* Keep placement instructions and controls available on narrow canvases too. */
-.has-placement-controls .canvas-hint {
-  display: block;
-}
+/* Instructions remain readable above zoom controls on compact canvases. */
 @container (max-width: 580px) {
-  .editor-bottom:has(.has-placement-controls) {
+  .editor-bottom:has(.placement-feedback) {
     align-items: flex-start;
-    flex-direction: column;
-    gap: 4px;
+    flex-direction: column-reverse;
+    gap: 6px;
   }
-  .has-placement-controls .canvas-hint {
+  .placement-feedback .canvas-hint {
+    display: block;
     font-size: 10px;
+    white-space: normal;
+    line-height: 1.5;
   }
 }
 
@@ -3142,10 +3133,6 @@ summary:focus-visible {
   .editor-bottom {
     right: 66px;
   }
-  .editor-bottom:has(.has-placement-controls) {
-    max-width: calc(100% - 156px);
-    right: auto;
-  }
 }
 
 /* The eraser footprint is a vector overlay and never intercepts circuit input. */
@@ -3377,13 +3364,11 @@ summary:focus-visible {
 .action-menu-item:hover:not(:disabled) :is(.action-menu-icon, .action-menu-chevron) {
   color: inherit;
 }
-.arrow-tool-options,
-.placement-controls {
+.arrow-tool-options {
   border-radius: 20px;
   background: var(--floating-surface-bg);
 }
-.arrow-tool-options button,
-.placement-controls button {
+.arrow-tool-options button {
   border-radius: 16px;
 }
 .canvas-hint {
@@ -3530,6 +3515,13 @@ summary:focus-visible {
 }
 .inspector-transform-row:empty {
   display: none;
+}
+.inspector-position-help {
+  margin: 0 0 10px;
+}
+.inspector-transform-row > .inspector-rotation-help {
+  flex: 0 0 100%;
+  margin: 0;
 }
 .inspector-transform-row > .property-row {
   flex: 0 0 100%;

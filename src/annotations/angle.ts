@@ -5,13 +5,17 @@ import type { AngleAnnotation, Point } from '../model/types';
 export const normalizeAngle = (degrees: number) => ((degrees % 360) + 360) % 360;
 export const angleAt = (vertex: Point, point: Point) =>
   normalizeAngle(Math.atan2(vertex.y - point.y, point.x - vertex.x) * 180 / Math.PI);
+export const angleSweep = (start: number, end: number) => {
+  const sweep = normalizeAngle(end - start);
+  return sweep > 180 ? sweep - 360 : sweep;
+};
 
 export function createAngle(vertex: Point, first: Point, last?: Point): AngleAnnotation {
   const startAngle = angleAt(vertex, first);
   return {
     kind: 'angle', id: makeId(), ...vertex,
     radius: Math.max(8, Math.hypot(first.x - vertex.x, first.y - vertex.y)),
-    startAngle, sweepAngle: last ? normalizeAngle(angleAt(vertex, last) - startAngle) || 360 : 45,
+    startAngle, sweepAngle: last ? angleSweep(startAngle, angleAt(vertex, last)) || 0.1 : 45,
     showRays: true, color: COLORS.blue, width: 2,
     label: { text: '\\varphi', offset: { x: 0, y: 0 }, color: COLORS.blue, fontSize: 22, rotation: 0 },
   };

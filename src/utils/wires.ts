@@ -25,6 +25,7 @@ import {
   resolveEndpoint,
   snapPoint,
   safeWirePoints,
+  outsideComponentBodies,
   wirePoints,
   add,
   isLooseEndpoint,
@@ -269,7 +270,8 @@ export function wireCandidate(
   options: WireSnapOptions = {},
 ): WireCandidate {
   const enabled = options.enabled !== false;
-  const point = alignedWirePoint(p, zoom, context, enabled);
+  const alignedPoint = alignedWirePoint(p, zoom, context, enabled);
+  const point = options.includeLines ? alignedPoint : outsideComponentBodies(alignedPoint, doc);
   const free: WireCandidate = { kind: 'grid', point, endpoint: { kind: 'free', point } };
   if (!enabled) return free;
   type Choice = { candidate: WireCandidate; key: string; gap: number; pointTarget: boolean };

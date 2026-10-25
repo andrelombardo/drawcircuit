@@ -46,7 +46,7 @@ export function HelpDialog({ onClose }: { onClose: () => void }) {
           </p>
         </div>
         <p className="help-note">
-          {t('From Drawing and annotations, choose Diagrams for editable Cartesian axes or a Gauss plane. The Angle tool uses three clicks: vertex, first ray and radius, then second ray. Adjust degrees, radius and label in Properties. Decorative lines attach to the center or outline of circles and rectangles and follow them when moved.')}
+          {t('From Drawing and annotations, choose Diagrams for editable Cartesian axes or a Gauss plane. For an angle between existing lines, click each line: their intersection becomes the vertex. In empty space, click the vertex, first ray and radius, then second ray. Adjust degrees, radius and label in Properties. Decorative lines attach to the center or outline of circles and rectangles and follow them when moved.')}
         </p>
         <p className="help-note">
           {t(
@@ -111,7 +111,7 @@ export function HelpDialog({ onClose }: { onClose: () => void }) {
         </p>
         <p className="help-note">
           {t(
-            'Smart Placement previews snapping and connections; Alt/Option bypasses them. Insert into wire appears in the bottom feedback. The Drawing and annotations pencil menu contains wires, junctions, arrows, loops, rectangles, circles, decorative lines, and electrical annotations. Current on wire creates an integrated arrow; the context menu applies it directly to a selected wire. Polarity + / − is also available in the properties of compatible components. Brace / Bracket offers both tools: drag to group, then add a label; R rotates by 90° and Flip side changes the side. Right-click the sheet or an element for relevant actions; keyboard shortcuts also provide editing commands. Save as block is available in Personal blocks. Drag the grip to move the toolbar; its position is remembered. Select elements and choose Copy as image in the right-click menu to copy the drawing. Use Select all first to copy the whole circuit. The circuit and zoom level are saved automatically in this browser.',
+            'Smart Placement previews snapping and connections; Alt/Option bypasses them. Compatible components insert into a wire automatically when the preview shows the wire split at both terminals. The Drawing and annotations pencil menu contains wires, junctions, arrows, loops, rectangles, circles, decorative lines, and electrical annotations. Current on wire creates an integrated arrow; the context menu applies it directly to a selected wire. Polarity + / − is also available in the properties of compatible components. Brace / Bracket offers both tools: drag to group, then add a label; R rotates by 90° and Flip side changes the side. Right-click the sheet or an element for relevant actions; keyboard shortcuts also provide editing commands. Save as block is available in Personal blocks. Drag the grip to move the toolbar; its position is remembered. Select elements and choose Copy as image in the right-click menu to copy the drawing. Use Select all first to copy the whole circuit. The circuit and zoom level are saved automatically in this browser.',
           )}{' '}
         </p>
       </section>

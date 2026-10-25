@@ -32,7 +32,7 @@ export interface InlineCandidate {
   terminalIds: [string, string];
 }
 export type PlacementSession =
-  | { kind: 'free' | 'inline'; terminalId: string | null; manualRotation: boolean }
+  | { kind: 'free'; terminalId: string | null; manualRotation: boolean }
   | {
       kind: 'anchored';
       target: ConnectionTarget;

@@ -10,7 +10,7 @@ import { arrowCenter, rotationHandle } from '../../utils/arrows';
 import { braceGeometry } from '../../annotations/brace';
 import { electricalDrawingGeometry } from '../../annotations/electrical';
 import type { CircuitDocument, CircuitObject, Point } from '../../model/types';
-import { arrowPath, distance, isLooseEndpoint, lineAsWire, lineCurveGeometry, linePath, linePoints, pointsPath, projectOnSegment, rotatePoint, wirePoints } from '../../utils/geometry';
+import { arrowPath, isLooseEndpoint, lineAsWire, lineCurveGeometry, linePath, linePoints, pointsPath, rotatePoint, wirePoints } from '../../utils/geometry';
 import { unionBounds, contentBounds } from '../../utils/visualBounds';
 import { loopGeometry, loopPath } from '../../utils/loops';
 import { WIRE_ENDPOINT_HIT_PX } from '../../utils/wires';
@@ -135,6 +135,12 @@ export function SelectionLayer({
                 pointerEvents="none"
               />
             ) : null}
+            {o.kind === 'junction' && <g pointerEvents="none" data-selection="junction">
+              <circle cx={o.x} cy={o.y} r={(o.radius ?? 4.5) + 6 / zoom}
+                className="selection-node-halo" />
+              <circle cx={o.x} cy={o.y} r={(o.radius ?? 4.5) + 4 / zoom}
+                className="selection-node-ring" />
+            </g>}
             {single && (
               <>
                 {o.kind === 'angle' && <>
@@ -158,9 +164,6 @@ export function SelectionLayer({
                   })()}
                 {routed && route && (
                   <>
-                    {!(o.kind === 'line' && o.controlPoints) && routed.vertices.map((p, i) => route.some((point, n, route) =>
-                      n > 0 && distance(p, projectOnSegment(p, route[n - 1], point)) < 0.001,
-                    ) ? <Handle key={i} p={p} name={`vertex:${i}`} zoom={zoom} square /> : null)}
                     {[route[0], route.at(-1)!].map((p, i) => (
                       <Handle key={i} p={p} name={i ? 'wireEnd' : 'wireStart'} zoom={zoom}
                         connected={!isLooseEndpoint(i ? routed.endEndpoint : routed.startEndpoint, doc)}

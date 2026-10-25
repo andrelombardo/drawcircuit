@@ -17,8 +17,7 @@ function diagram(gauss: boolean, origin: Point, rotation: Rotation): CircuitObje
     ...createTextAnnotation(point(x, y), value), color: ink, fontSize, rotation,
   });
   objects.push(line(point(-180, 0), point(190, 0), 'open'), line(point(0, 160), point(0, -170), 'open'),
-    text(218, 0, gauss ? '\\mathrm{Re}' : 'x'), text(-28, -174, gauss ? '\\mathrm{Im}' : 'y'),
-    text(0, -218, gauss ? 'Piano di Gauss' : 'Assi cartesiani', 28));
+    text(218, 0, gauss ? '\\mathrm{Re}' : 'x'), text(-28, -174, gauss ? '\\mathrm{Im}' : 'y'));
   if (!gauss) return objects;
   const center = point(0, 0), radius = 120, circleId = makeId();
   objects.push({ kind: 'circle', id: circleId, x: center.x-radius, y: center.y-radius,

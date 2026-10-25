@@ -5,7 +5,7 @@ import { AlignLeft, AlignCenter, AlignRight, Blend, Type } from 'lucide-react';
 import { useEditorStore } from '../../store/editorStore';
 import { commonValue } from './commonValue';
 import { COLORS } from '../../model/types';
-import { MAX_FONT_SIZE, MAX_LINE_WIDTH } from '../../model/limits';
+import { MAX_FONT_SIZE } from '../../model/limits';
 import type { CircuitObject } from '../../model/types';
 import { ActionMenu } from '../toolbar/ActionMenu';
 import type { MenuAction } from '../toolbar/ActionMenu';
@@ -40,9 +40,9 @@ const colorNames = {
   orange: 'Orange',
   green: 'Green',
   purple: 'Purple',
+  magenta: 'Magenta',
 };
 const labeled = (o: CircuitObject) => 'label' in o;
-const stroked = (o: CircuitObject) => 'width' in o || 'strokeWidth' in o;
 
 export function ColorControl({
   label,
@@ -242,10 +242,6 @@ export function SelectionStyle({
 }) {
   const o = objects.length === 1 ? objects[0] : null;
   const hasLabel = objects.every(labeled);
-  const hasStroke = !labelOnly && objects.every(stroked);
-  const width = commonValue(
-    objects.map((o) => ('strokeWidth' in o ? o.strokeWidth : 'width' in o ? o.width : 0)),
-  );
   const shapes = objects.every((o) => o.kind === 'rectangle' || o.kind === 'circle');
   const fillObjects = objects.filter(
     (o) => (o.kind === 'rectangle' || o.kind === 'circle') && o.fill !== 'none',
@@ -274,36 +270,9 @@ export function SelectionStyle({
         </ColorControl>
       )}
       {hasLabel && labelAppearance && <LabelAppearance objects={objects} apply={apply} />}
-      {(hasStroke || typography) && (
-        <div className="inspector-style-fields">
-          {hasStroke && (
-            <PropertySelect
-              label={t('Line width')}
-              caption={t('Thickness')}
-              numeric={{ min: 0, exclusiveMin: true, max: MAX_LINE_WIDTH, unit: 'px' }}
-              value={width}
-              onChange={(v) =>
-                apply((o) =>
-                  'strokeWidth' in o
-                    ? withPrimaryPaint({ ...o, strokeWidth: Number(v) }, { width: Number(v) })
-                    : 'width' in o
-                      ? withPrimaryPaint({ ...o, width: Number(v) }, { width: Number(v) })
-                      : o,
-                )
-              }
-            >
-              {[...new Set([1, 1.5, 1.8, 2, 3, 4, ...(width === undefined ? [] : [width])])]
-                .sort((a, b) => a - b)
-                .map((w) => (
-                  <option key={w} value={w}>
-                    {w} px
-                  </option>
-                ))}
-            </PropertySelect>
-          )}
-          {typography && <SelectionTypography objects={objects} apply={apply} />}
-        </div>
-      )}
+      {typography && <div className="inspector-style-fields">
+        <SelectionTypography objects={objects} apply={apply} />
+      </div>}
       {shapes && (
         <PropertySelect
           label={t('Fill')}

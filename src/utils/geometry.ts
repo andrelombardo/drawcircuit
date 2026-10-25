@@ -134,6 +134,52 @@ function orthogonal(a: Point, b: Point, direction: 'x' | 'y', both = false): Poi
   return [a, direction === 'x' ? { x: b.x, y: a.y } : { x: a.x, y: b.y }, b];
 }
 
+interface ComponentBody { component: CircuitComponent; bounds: SymbolBounds }
+const documentBodies = new WeakMap<CircuitDocument, ComponentBody[]>();
+function componentBodies(doc: CircuitDocument): ComponentBody[] {
+  let bodies = documentBodies.get(doc);
+  if (!bodies) {
+    bodies = doc.objects.flatMap((component) => {
+      if (component.kind !== 'component') return [];
+      const body = componentRegistry[component.type].measurementBounds;
+      const corners = [body, { x: body.x + body.width, y: body.y },
+        { x: body.x, y: body.y + body.height }, { x: body.x + body.width, y: body.y + body.height }]
+        .map((p) => localToWorld(component, p));
+      const x = Math.min(...corners.map((p) => p.x)), y = Math.min(...corners.map((p) => p.y));
+      return [{ component, bounds: { x, y, width: Math.max(...corners.map((p) => p.x)) - x,
+        height: Math.max(...corners.map((p) => p.y)) - y } }];
+    });
+    documentBodies.set(doc, bodies);
+  }
+  return bodies;
+}
+function bodyLocalPoint(point: Point, component: CircuitComponent) {
+  const p = rotatePoint({ x: point.x - component.x, y: point.y - component.y }, -component.rotation);
+  return { x: p.x / (component.scale ?? 1), y: p.y / (component.scale ?? 1) };
+}
+function crossesComponent(a: Point, b: Point, body: ComponentBody) {
+  if (!crossesBody(a, b, body.bounds)) return false;
+  return crossesBody(bodyLocalPoint(a, body.component), bodyLocalPoint(b, body.component),
+    componentRegistry[body.component.type].measurementBounds);
+}
+
+/** A free wire end rests outside symbols; real pins are resolved separately. */
+export function outsideComponentBodies(point: Point, doc: CircuitDocument): Point {
+  const bodies = componentBodies(doc);
+  const containing = bodies.filter((body) => crossesComponent(point, point, body));
+  if (!containing.length) return point;
+  const candidates = containing.flatMap((body) => {
+    const p = bodyLocalPoint(point, body.component), b = componentRegistry[body.component.type].measurementBounds;
+    return [{ x: b.x - 2, y: Math.max(b.y - 2, Math.min(b.y + b.height + 2, p.y)) },
+      { x: b.x + b.width + 2, y: Math.max(b.y - 2, Math.min(b.y + b.height + 2, p.y)) },
+      { y: b.y - 2, x: Math.max(b.x - 2, Math.min(b.x + b.width + 2, p.x)) },
+      { y: b.y + b.height + 2, x: Math.max(b.x - 2, Math.min(b.x + b.width + 2, p.x)) }]
+      .map((p) => localToWorld(body.component, p));
+  });
+  return candidates.filter((p) => bodies.every((body) => !crossesComponent(p, p, body)))
+    .sort((a, b) => distance(point, a) - distance(point, b))[0] ?? point;
+}
+
 function terminalExit(endpoint: Endpoint | null, doc: CircuitDocument) {
   if (endpoint?.kind !== 'terminal') return null;
   const component = objectIndex(doc).get(endpoint.componentId);
@@ -205,17 +251,17 @@ function crossesBody(a: Point, b: Point, box: SymbolBounds) {
   return enter < leave;
 }
 
-/** Small visibility graph around the endpoint bodies. Safe authored bends are
+/** Small visibility graph around nearby component bodies. Safe authored bends are
  * retained; only individual obstructed legs need a detour. */
 function routeAroundBodies(
   start: Point,
   end: Point,
-  obstacles: SymbolBounds[],
+  obstacles: ComponentBody[],
   startDirection?: Point,
   endDirection?: Point,
   routing: WireRouting = 'orthogonal',
 ): Point[] {
-  const clear = (a: Point, b: Point) => obstacles.every((box) => !crossesBody(a, b, box));
+  const clear = (a: Point, b: Point) => obstacles.every((body) => !crossesComponent(a, b, body));
   const outward = (a: Point, b: Point, direction?: Point) =>
     !direction || (b.x - a.x) * direction.x + (b.y - a.y) * direction.y >= -0.001;
   const dx = end.x - start.x, dy = end.y - start.y,
@@ -223,13 +269,16 @@ function routeAroundBodies(
       (routing === '45' && Math.abs(Math.abs(dx) - Math.abs(dy)) < 0.001);
   if (direct && clear(start, end) && outward(start, end, startDirection) && outward(end, start, endDirection))
     return [start, end];
+  const nearby = obstacles.filter(({ bounds: b }) =>
+    b.x <= Math.max(start.x, end.x) + GRID && b.x + b.width >= Math.min(start.x, end.x) - GRID &&
+    b.y <= Math.max(start.y, end.y) + GRID && b.y + b.height >= Math.min(start.y, end.y) - GRID);
   const xs = [...new Set([
       start.x, end.x, start.x - GRID, start.x + GRID, end.x - GRID, end.x + GRID,
-      ...obstacles.flatMap((b) => [b.x - GRID, b.x + b.width + GRID]),
+      ...nearby.flatMap(({ bounds: b }) => [b.x - GRID, b.x + b.width + GRID]),
     ])].sort((a, b) => a - b),
     ys = [...new Set([
       start.y, end.y, start.y - GRID, start.y + GRID, end.y - GRID, end.y + GRID,
-      ...obstacles.flatMap((b) => [b.y - GRID, b.y + b.height + GRID]),
+      ...nearby.flatMap(({ bounds: b }) => [b.y - GRID, b.y + b.height + GRID]),
     ])].sort((a, b) => a - b),
     nodes = ys.flatMap((y) => xs.map((x) => ({ x, y }))),
     first = nodes.findIndex((p) => p.x === start.x && p.y === start.y),
@@ -279,7 +328,10 @@ function cleanRoute(points: Point[]): Point[] {
 function terminalSafeRoute(original: Point[], wire: Wire, doc: CircuitDocument): Point[] {
   const startExit = terminalExit(wire.startEndpoint, doc),
     endExit = terminalExit(wire.endEndpoint, doc),
-    obstacles = [startExit?.bounds, endExit?.bounds].filter((b) => b !== undefined),
+    decorative = objectIndex(doc).get(wire.id)?.kind === 'line',
+    obstacles = componentBodies(doc).filter(({ component }) => !decorative ||
+      (wire.startEndpoint.kind === 'terminal' && component.id === wire.startEndpoint.componentId) ||
+      (wire.endEndpoint.kind === 'terminal' && component.id === wire.endEndpoint.componentId)),
     points = original.filter((p, i) => i === 0 || distance(p, original[i - 1]) > 0.001);
   if (points.length < 2 || !obstacles.length) return points;
   const start = points[0], end = points.at(-1)!;
@@ -291,13 +343,7 @@ function terminalSafeRoute(original: Point[], wire: Wire, doc: CircuitDocument):
   };
   // Lead-outs may lie inside the AABB of a diagonal symbol even though they are
   // outside its actual body. Test those two short segments in local coordinates.
-  const clear = (a: Point, b: Point) => [wire.startEndpoint, wire.endEndpoint].every((ep) => {
-    if (ep.kind !== 'terminal') return true;
-    const component = objectIndex(doc).get(ep.componentId);
-    if (component?.kind !== 'component') return true;
-    const local = (p: Point) => rotatePoint({ x: p.x - component.x, y: p.y - component.y }, -component.rotation);
-    return !crossesBody(local(a), local(b), componentRegistry[component.type].measurementBounds);
-  });
+  const clear = (a: Point, b: Point) => obstacles.every((body) => !crossesComponent(a, b, body));
   if (follows(start, points[1], startExit) && follows(end, points.at(-2)!, endExit) &&
     points.slice(1).every((p, i) => clear(points[i], p))) return points;
   const lead = (point: Point, exit: NonNullable<ReturnType<typeof terminalExit>>) => {
@@ -307,7 +353,7 @@ function terminalSafeRoute(original: Point[], wire: Wire, doc: CircuitDocument):
     ] : []));
     return add(point, { x: d.x * Math.max(GRID, outside + GRID / 2), y: d.y * Math.max(GRID, outside + GRID / 2) });
   };
-  const inside = (p: Point) => obstacles.some((box) => crossesBody(p, p, box)),
+  const inside = (p: Point) => obstacles.some((body) => crossesComponent(p, p, body)),
     retained = [start, ...points.slice(1, -1).filter((p) => !inside(p) &&
       distance(p, start) > 0.001 && distance(p, end) > 0.001), end];
   // A short connection may become straight again when an obsolete interior bend

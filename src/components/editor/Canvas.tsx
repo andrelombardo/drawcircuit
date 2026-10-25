@@ -36,7 +36,6 @@ import { ArrowView } from '../../circuit/annotations/ArrowView';
 import { PlacementLayer } from '../../smartPlacement/PlacementLayer';
 import { PresetPlacementLayer } from '../../presets/PresetPlacementLayer';
 import { presetRegistry } from '../../presets/registry';
-import { inlineCompatible } from '../../smartPlacement/findCandidates';
 import { useTerminalProximity } from './useTerminalProximity';
 import { useCanvasFocus } from './useCanvasFocus';
 type CanvasProps = {
@@ -134,8 +133,10 @@ function CanvasContent({
   }
   const hint =
     tool === 'angle'
-      ? t(interactions.angleStep === 0 ? 'Click the angle vertex · Esc cancels' : interactions.angleStep === 1
-        ? 'Click the first ray to set the radius · Alt bypasses snap' : 'Click the second ray · angles run counterclockwise · Alt bypasses snap')
+      ? t(interactions.angleStep === 3 ? 'Click the second line · the vertex is their intersection · Esc cancels'
+        : interactions.angleStep === 0 ? 'Click a line, or choose a vertex in empty space · Alt for a precise vertex'
+        : interactions.angleStep === 1 ? 'Click the first ray to set the radius · Alt bypasses snap'
+        : 'Click the second ray · the smaller angle is drawn · Alt bypasses snap')
       : tool === 'highlight-eraser'
       ? t('Click a highlight to delete it · drag to erase part · Esc returns to Select')
       : tool === 'highlight'
@@ -523,22 +524,7 @@ function CanvasContent({
             </IconButton>
           </div>
           {hint && (
-            <div className={`placement-feedback${isComponent ? ' has-placement-controls' : ''}`}>
-              {isComponent && inlineCompatible(tool as ComponentType) && (
-                <div
-                  className="placement-controls"
-                  role="group"
-                  aria-label={t('Placement assistance')}
-                >
-                  <button
-                    aria-pressed={smart.session.kind === 'inline'}
-                    onClick={smart.toggleInline}
-                    title={t('Enable insertion only when the preview shows the wire being split')}
-                  >
-                    {t('Insert into wire')}{' '}
-                  </button>
-                </div>
-              )}
+            <div className="placement-feedback">
               <div className="canvas-hint" role="status">
                 {isComponent ? (smartHint ?? hint) : hint}
               </div>

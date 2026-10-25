@@ -285,10 +285,11 @@ export function rotateObjects(
     return transformLineRoutes(doc, (adapted) => rotateObjects(adapted, ids, increment));
   const selected = new Set(ids),
     objects = doc.objects.filter((o) => selected.has(o.id));
-  if (!objects.length || increment === 0) return doc;
+  if (!objects.length || increment === 0 ||
+    (increment !== undefined && increment % 90 !== 0 && objects.some((o) => o.kind === 'brace'))) return doc;
   if (objects.some((o) => o.kind === 'rectangle' && o.frame)) return doc;
   if (objects.length === 1 && objects[0].kind === 'circle') return doc;
-  const angle: Rotation = increment ?? (objects.some((o) => o.kind === 'component') ? 45 : 90);
+  const angle: Rotation = increment ?? (objects.some((o) => o.kind === 'component') && !objects.some((o) => o.kind === 'brace') ? 45 : 90);
   const boxes = objects.map((o) => objectBounds(o, doc));
   const minX = Math.min(...boxes.map((b) => b.x)),
     maxX = Math.max(...boxes.map((b) => b.x + b.width)),
@@ -320,7 +321,7 @@ export function rotateObjects(
           : { x: Math.round((minX + maxX) / 40) * 20, y: Math.round((minY + maxY) / 40) * 20 };
   const rp = (p: Point) =>
     add(rotatePoint({ x: p.x - center.x, y: p.y - center.y }, angle), center);
-  const next = (r: Rotation) => ((r + angle) % 360) as Rotation;
+  const next = (r: Rotation) => (((r + angle) % 360 + 360) % 360) as Rotation;
   const ep = (e: Endpoint): Endpoint =>
     e.kind === 'free' && !fixedWireConnection(e, doc, selected) ? { ...e, point: rp(e.point) } : e;
   return {
@@ -378,20 +379,19 @@ export function rotateObjects(
         };
       }
       if (o.kind === 'brace') {
-        // Brace baselines retain their supported orthogonal orientation while
-        // their center follows a mixed component selection through 45 degrees.
+        // Braces keep an orthogonal baseline; groups containing one use 90° steps.
         const originalCenter = midpoint(o.start, o.end),
           rotatedCenter = rp(originalCenter),
           baseline = (p: Point) =>
             add(
-              rotatePoint({ x: p.x - originalCenter.x, y: p.y - originalCenter.y }, 90),
+              rotatePoint({ x: p.x - originalCenter.x, y: p.y - originalCenter.y }, angle),
               rotatedCenter,
             );
         return {
           ...o,
           start: baseline(o.start),
           end: baseline(o.end),
-          label: { ...o.label, offset: rotatePoint(o.label.offset, 90) },
+          label: { ...o.label, offset: rotatePoint(o.label.offset, angle) },
         };
       }
       if (o.kind === 'rectangle' || o.kind === 'circle') {

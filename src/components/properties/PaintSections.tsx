@@ -1,11 +1,10 @@
 import { useRef, useState } from 'react';
-import { AlignJustify, ArrowDown, ArrowUp, Blend, ChevronDown, CirclePlus, Layers2, Settings2, Trash2 } from 'lucide-react';
+import { ArrowDown, ArrowUp, Blend, ChevronDown, CirclePlus, Layers2, Settings2, Trash2 } from 'lucide-react';
 import { t } from '../../i18n';
 import { makeId } from '../../model/catalog';
 import { COLORS } from '../../model/types';
 import type { CircuitObject, ShapeBorder, ShapeFill } from '../../model/types';
 import { objectBorders, objectFills, withPaints } from '../../model/shapeAppearance';
-import { MAX_LINE_WIDTH } from '../../model/limits';
 import { ActionMenu } from '../toolbar/ActionMenu';
 import { commonValue } from './commonValue';
 import { ColorControl } from './SelectionStyle';
@@ -53,8 +52,7 @@ export function ObjectPaintSection({ objects, apply, border = false }: {
             { id: 'down', label: t('Move paint down'), icon: <ArrowDown size={14} />, disabled: index === count-1, onSelect: () => reorder(index, 1) },
             { id: 'delete', label: t(border ? 'Remove border' : 'Remove fill'), icon: <Trash2 size={14} />, separatorBefore: true, onSelect: () => apply((o) => withPaints(o, border, get(o).filter((_, i) => i !== index))) },
           ]}>
-          {border ? <PropertyField label={t('{paint} thickness', { paint: itemLabel })} caption="" icon={<AlignJustify size={12} />} numeric min={0.1} max={objects.every((o) => o.kind === 'highlight') ? 1000 : MAX_LINE_WIDTH}
-            value={commonValue(borders.map((b) => b?.width))} onCommit={(v) => update(index, { width: Number(v) })} /> : opacityField}
+          {opacityField}
         </ColorControl>
         {border && expanded && index === settingsIndex && <InspectorPopover title={t('Border settings')} anchor={settingsButton} onClose={() => setExpanded(false)}>
           {count > 1 && <PropertySelect label={t('Border')} caption={<Layers2 size={14} />} embedded value={settingsIndex} onChange={(v) => setActiveBorder(Number(v))}>

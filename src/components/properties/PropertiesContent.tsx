@@ -76,11 +76,13 @@ export function PropertiesContent() {
   const arrows = objects.filter((o) => o.kind === 'arrow' || o.kind === 'loop-arrow');
   const independentRotation = rotatables.length === objects.length;
   const selectedIds = new Set(objects.map((object) => object.id));
-  const hasComponent = objects.some((object) => object.kind === 'component');
+  const hasBrace = objects.some((object) => object.kind === 'brace');
   const groupRotation =
     !objects.some((object) => object.kind === 'rectangle' && object.frame) && objects.every(
       (item) =>
         [
+          'electrical',
+          'highlight',
           'component',
           'text',
           'arrow',
@@ -93,18 +95,25 @@ export function PropertiesContent() {
           'circle',
           'line',
         ].includes(item.kind) &&
-        !(hasComponent && ['brace', 'rectangle'].includes(item.kind)) &&
         (item.kind !== 'wire' ||
           [item.startEndpoint, item.endEndpoint].every((ep) =>
             ep.kind === 'free'
               ? !fixedWireConnection(ep, doc, selectedIds)
               : selectedIds.has(ep.kind === 'terminal' ? ep.componentId : ep.kind === 'shape' ? ep.shapeId : ep.junctionId),
           )),
-    ) && objects.some((item) => !['wire', 'junction', 'circle'].includes(item.kind));
+    ) && (objects.length > 1 || objects.some((item) => !['wire', 'junction', 'circle'].includes(item.kind)));
   const electricalOnly = o?.kind === 'electrical' && !labelTarget;
   const absoluteRotation = !!labelTarget || (!!o && independentRotation);
   const rectangles = objects.filter((o) => o.kind === 'rectangle');
   const setRotation = (degrees: number) => {
+    if (!absoluteRotation && groupRotation) {
+      if (hasBrace && degrees % 90 !== 0) {
+        state().notify(t('Braces rotate in multiples of 90°.'));
+        return;
+      }
+      if (degrees) state().commit(rotateObjects(state().document, objects.map((item) => item.id), ((degrees % 360) + 360) % 360));
+      return;
+    }
     const value = ((degrees % 360) + 360) % 360;
     if (!labelTarget && o?.kind === 'component') {
       if (value === o.rotation) return;
@@ -128,16 +137,16 @@ export function PropertiesContent() {
       return o;
     });
   };
-  const rotationControl = absoluteRotation && (
+  const rotationControl = (absoluteRotation || groupRotation) && (
     <PropertySelect
       label={t('Rotation')}
       caption={<><RotateCw size={16} aria-hidden="true" /><span>{t('Rotation')}</span></>}
       embedded
-      value={rotation === undefined ? undefined : Number(rotation.toFixed(2))}
-      numeric={{ min: -MAX_COORDINATE, max: MAX_COORDINATE, unit: '°' }}
+      value={!absoluteRotation ? 0 : rotation === undefined ? undefined : Number(rotation.toFixed(2))}
+      numeric={{ min: -MAX_COORDINATE, max: MAX_COORDINATE, unit: '°', ...(!absoluteRotation && hasBrace ? { min: -360000, max: 360000, step: 90 } : {}) }}
       onChange={(v) => setRotation(Number(v))}
     >
-      {ROTATIONS.map((r) => (
+      {ROTATIONS.filter((r) => absoluteRotation || !hasBrace || r % 90 === 0).map((r) => (
         <option key={r} value={r}>
           {r}°
         </option>
@@ -158,6 +167,9 @@ export function PropertiesContent() {
   return (
     <div className="inspector-properties" key={objects.map((o) => o.id).join(',')}>
       <InspectorSection title={t('Position')} className="inspector-position">
+        {objects.length > 1 && <p className="inspector-note inspector-position-help">
+          {t('X/Y: top-left corner of the selection · canvas units')}
+        </p>}
         {o && parent ? <FramePosition object={o} frame={parent} /> : <div className="inspector-pair inspector-position-fields">
           {(['x', 'y'] as const).map((axis) => (
             <PropertyField
@@ -173,19 +185,10 @@ export function PropertiesContent() {
           ))}
         </div>}
         <div className="inspector-transform-row">
+          {!absoluteRotation && groupRotation && <p className="inspector-note inspector-rotation-help">
+            {t(objects.length > 1 ? 'Rotation: angle to add around the selection center' : 'Rotation: angle to add around the element center')}
+          </p>}
           {rotationControl}
-          {groupRotation && !absoluteRotation && (
-            <button
-              className="inspector-property-action inspector-transform-action"
-              aria-label={t(objects.length > 1 ? 'Rotate group by {angle}°' : 'Rotate by {angle}°', {
-                angle: rotatables.some((object) => object.kind === 'component') ? 45 : 90,
-              }) + ' (R)'}
-              title={t('Rotate selection around its center (R)')}
-              onClick={() => state().rotate()}
-            >
-              <RotateCw size={16} />
-            </button>
-          )}
           {objects.every((object) => object.kind === 'arrow' || object.kind === 'loop-arrow' || object.kind === 'circle' || (object.kind === 'rectangle' && !object.frame)) && (
             <>
               <button
@@ -207,16 +210,6 @@ export function PropertiesContent() {
             </>
           )}
         </div>
-        {objects.length > 1 && (
-          <p
-            className="inspector-note"
-            title={t(
-              "Top-left corner of the selection's geometric bounds, in canvas units independent of zoom.",
-            )}
-          >
-            {t('X/Y: top-left corner · u')}{' '}
-          </p>
-        )}
       </InspectorSection>
       {!labelTarget && (
           <InspectorSection title={t('Layout')} className="inspector-layout">

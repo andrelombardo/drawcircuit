@@ -430,5 +430,6 @@ export const COLORS = {
   orange: '#FFA500',
   green: '#269978',
   purple: '#8855c2',
+  magenta: '#CB51EE',
 };
 export const GRID = 20;
