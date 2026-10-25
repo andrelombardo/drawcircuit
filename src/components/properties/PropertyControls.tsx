@@ -135,12 +135,13 @@ export function PropertyRow({
 }
 export function PropertyField(props: Parameters<typeof DraftInput>[0] & { caption?: ReactNode; embedded?: boolean; icon?: ReactNode }) {
   const id = useId();
-  const [error, setError] = useState('');
+  const [validation, setValidation] = useState({ value: props.value, error: '' });
+  const error = validation.value === props.value ? validation.error : '';
   const field = (
     <div className="property-field-control">
     <span className="inspector-input">
       {props.icon && <span className="inspector-input-icon" aria-hidden="true">{props.icon}</span>}
-      <DraftInput key={`${props.label}:${props.value}`} {...props} id={id} onError={setError} />
+      <DraftInput key={`${props.label}:${props.value}`} {...props} id={id} onError={(error) => setValidation({ value: props.value, error })} />
       {props.unit && (
         <span className="inspector-unit" aria-hidden="true">
           {props.unit}

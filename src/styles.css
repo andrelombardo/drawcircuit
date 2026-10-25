@@ -4117,3 +4117,7 @@ summary:focus-visible {
 .properties-inspector .property-row:has(.numeric-combobox-error) { height: auto; align-items: flex-start; }
 .property-row:has(.numeric-combobox-error) > .inspector-field-caption { min-height: var(--property-height); }
 .property-row:has(input[aria-invalid='true']) { outline: 1px solid var(--ui-danger); }
+@media (max-width: 800px) {
+  /* The mobile library overlays the canvas; hide tools it would partially cover. */
+  .workspace:has(.component-sidebar:not([hidden])) .main-tools { visibility: hidden; }
+}
