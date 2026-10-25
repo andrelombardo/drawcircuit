@@ -5,8 +5,10 @@ export const CIRCUIT_FONT =
 export async function prepareCircuitFonts(fonts = document.fonts): Promise<void> {
   if (!fonts) return;
   await Promise.all([
-    fonts.load(`400 22px ${CIRCUIT_FONT}`),
-    fonts.load(`700 22px ${CIRCUIT_FONT}`),
+    // Request each primary face directly. A fallback list may resolve to another
+    // family for the probe text without loading the primary face.
+    fonts.load('400 22px "Comic Relief"'),
+    fonts.load('700 22px "Comic Relief"'),
     fonts.load('400 22px "DrawCircuit Symbols"'),
     fonts.load('700 22px "DrawCircuit Symbols"'),
     ...[1, 2, 3, 4].map((size) => fonts.load(`400 22px "DrawCircuit Size${size}"`)),

@@ -4121,3 +4121,5 @@ summary:focus-visible {
   /* The mobile library overlays the canvas; hide tools it would partially cover. */
   .workspace:has(.component-sidebar:not([hidden])) .main-tools { visibility: hidden; }
 }
+
+.palette .search-field input::-webkit-search-cancel-button { display: none; }

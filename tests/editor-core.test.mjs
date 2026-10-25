@@ -28,6 +28,7 @@ const { localPersistence } = await load('utils/localPersistence.ts');
 const { exportSVG } = await load('svg/exporter.tsx');
 const { pngDimensions, PNG_MAX_PIXELS, PNG_MAX_DIMENSION } = await load('png/exporter.ts');
 const { numericValue } = await load('utils/numericValue.ts');
+const { prepareCircuitFonts } = await load('model/fonts.ts');
 const { actionMenuPosition } = await load('components/toolbar/actionMenuPosition.ts');
 const document = (...objects) => ({version:1,title:'Circuit test',objects});
 const reset = (doc = demoDocument()) => store.setState({document:doc,past:[],future:[],gestureStart:null,selection:[],activeLabel:null,tool:'select',pendingPresetId:null,splittingWireId:null});
@@ -283,4 +284,22 @@ test('menus stay in the viewport near all four edges, including nested menus', (
       }
     }
   }
+});
+
+
+test('font preparation explicitly waits for both Comic Relief faces and all math supplements', async () => {
+  const requested=[]; const pending=[];
+  let finished=false;
+  const preparation=prepareCircuitFonts({load:(spec)=>{
+    requested.push(spec);
+    return new Promise(resolve=>pending.push(resolve));
+  }}).then(()=>{finished=true;});
+  await Promise.resolve(); assert.equal(finished,false);
+  assert(requested.includes('400 22px "Comic Relief"'));
+  assert(requested.includes('700 22px "Comic Relief"'));
+  assert(requested.includes('400 22px "DrawCircuit Symbols"'));
+  assert(requested.includes('700 22px "DrawCircuit Symbols"'));
+  pending.slice(1).forEach(resolve=>resolve([]));
+  await Promise.resolve(); assert.equal(finished,false);
+  pending[0]([]); await preparation; assert.equal(finished,true);
 });
