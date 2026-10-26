@@ -1,4 +1,5 @@
 import { t } from '../../i18n';
+import { numericValue } from '../../utils/numericValue';
 import { Children, isValidElement, useId, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { ChevronDown, ChevronRight } from 'lucide-react';
@@ -16,6 +17,7 @@ function DraftInput({
   unit,
   onCommit,
   disabled,
+  onError,
 }: {
   value: string | number | undefined;
   label: string;
@@ -26,10 +28,22 @@ function DraftInput({
   unit?: string;
   onCommit: (value: string) => void;
   disabled?: boolean;
+  onError?: (message: string) => void;
 }) {
   const [draft, setDraft] = useState(value === undefined ? '' : String(value));
   const cancelled = useRef(false);
+  const [error, setErrorState] = useState('');
+  const setError = (message: string) => { setErrorState(message); onError?.(message); };
+  const errorId = `${id}-error`;
   const commit = () => {
+    if (!cancelled.current && numeric && !(value === undefined && !draft.trim())) {
+      const result = numericValue(draft, { min, max });
+      if (result.error) {
+        setError(result.error === 'number' ? t('Enter a valid number.') : t('Enter a value from {min} to {max}{unit}.', { min, max, unit: unit ? ` ${unit}` : '' }));
+        return;
+      }
+    }
+    setError('');
     if (!cancelled.current && draft !== '' && draft !== String(value)) {
       const n = Number(draft);
       if (
@@ -60,6 +74,9 @@ function DraftInput({
       value={draft}
       disabled={disabled}
       aria-label={label}
+      aria-invalid={!!error || undefined}
+      aria-describedby={error ? errorId : undefined}
+      title={error || undefined}
       aria-valuetext={
         numeric ? (value === undefined ? t('Mixed values') : `${value}${unit ?? ''}`) : undefined
       }
@@ -67,7 +84,7 @@ function DraftInput({
       onFocus={() => {
         cancelled.current = false;
       }}
-      onChange={(e) => setDraft(e.target.value)}
+      onChange={(e) => { setDraft(e.target.value); setError(''); }}
       onBlur={commit}
       onKeyDown={(e) => {
         if (e.key === 'Enter') {
@@ -77,6 +94,7 @@ function DraftInput({
         if (e.key === 'Escape') {
           e.stopPropagation();
           cancelled.current = true;
+          setError('');
           setDraft(value === undefined ? '' : String(value));
           e.currentTarget.blur();
         }
@@ -117,16 +135,21 @@ export function PropertyRow({
 }
 export function PropertyField(props: Parameters<typeof DraftInput>[0] & { caption?: ReactNode; embedded?: boolean; icon?: ReactNode }) {
   const id = useId();
+  const [validation, setValidation] = useState({ value: props.value, error: '' });
+  const error = validation.value === props.value ? validation.error : '';
   const field = (
+    <div className="property-field-control">
     <span className="inspector-input">
       {props.icon && <span className="inspector-input-icon" aria-hidden="true">{props.icon}</span>}
-      <DraftInput key={`${props.label}:${props.value}`} {...props} id={id} />
+      <DraftInput key={`${props.label}:${props.value}`} {...props} id={id} onError={(error) => setValidation({ value: props.value, error })} />
       {props.unit && (
         <span className="inspector-unit" aria-hidden="true">
           {props.unit}
         </span>
       )}
     </span>
+    {error && <p id={`${id}-error`} className="numeric-combobox-error" role="status">{error}</p>}
+    </div>
   );
   // An empty caption is an embedded secondary control (for example opacity).
   return props.caption === '' ? (

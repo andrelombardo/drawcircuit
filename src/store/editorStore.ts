@@ -115,7 +115,7 @@ interface EditorState {
   duplicate: () => void;
   mirror: (axis: 'horizontal' | 'vertical') => void;
   rotate: () => void;
-  replace: (doc: CircuitDocument) => void;
+  replace: (doc: CircuitDocument) => boolean;
   notify: (message: string) => void;
 }
 export const useEditorStore = create<EditorState>((set, get) => ({
@@ -401,14 +401,25 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     if (s.selection.length) s.commit(rotateObjects(s.document, s.selection));
   },
   replace: (document) => {
-    get().cancelGesture();
-    get().commit(document);
+    const s = get();
+    // Validate and normalize before cancelling a gesture or changing any editor state.
+    let next: CircuitDocument;
+    try { next = deserializeDocument(serializeDocument(document)); }
+    catch { s.notify(t(invalidEditNotice)); return false; }
+    // Opening a project is an atomic history boundary: do not reconcile unrelated
+    // frame IDs or annotation references against the previous document.
     set({
+      document: next,
+      past: [...s.past, s.gestureStart ?? s.document].slice(-100),
+      future: [],
+      gestureStart: null,
       selection: [],
       activeLabel: null,
       tool: 'select',
       pendingPresetId: null,
+      splittingWireId: null,
     });
+    return true;
   },
   notify: (notice) => set({ notice }),
 }));

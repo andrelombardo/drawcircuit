@@ -46,8 +46,8 @@ export function InspectorHeader() {
           {definition ? <ComponentPreview component={definition} /> : <Icon size={22} />}
         </span>}
         {component ? <div className="inspector-component-details">
-          <h2>{title}</h2>
-          <p>{t('Component')} · {componentCategory}</p>
+          <h2 title={component.label.text || title}>{component.label.text.trim() || title}</h2>
+          <p title={`${title} · ${componentCategory}`}>{title} · {componentCategory}</p>
         </div> : <h2>{title}</h2>}
       </div>
     </div>

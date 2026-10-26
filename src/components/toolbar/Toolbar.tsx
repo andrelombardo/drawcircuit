@@ -44,8 +44,8 @@ export function DrawingToolbar({ sidebarVisible = true, inspectorVisible = true 
   const tool = useEditorStore((s) => s.tool),
     setTool = useEditorStore((s) => s.setTool),
     gestureStart = useEditorStore((s) => s.gestureStart),
-    past = useEditorStore((s) => s.past),
-    future = useEditorStore((s) => s.future),
+    canUndo = useEditorStore((s) => s.past.length > 0),
+    canRedo = useEditorStore((s) => s.future.length > 0),
     undo = useEditorStore((s) => s.undo),
     redo = useEditorStore((s) => s.redo);
   const drawingTools = [
@@ -72,20 +72,16 @@ export function DrawingToolbar({ sidebarVisible = true, inspectorVisible = true 
     ] },
     { id: 'angle', label: t('Angle'), icon: <DraftingCompass size={18} />, onSelect: () => setTool('angle') },
     {
-      id: 'wire',
-      label: t('Wire'),
-      icon: <Spline size={18} />,
-      onSelect: () => setTool('wire'),
-    },
-    {
       id: 'junction',
       label: t('Junction'),
+      shortcut: 'N',
       icon: <CircleDot size={18} />,
       onSelect: () => setTool('junction'),
     },
     {
       id: 'arrow',
       label: t('Arrow'),
+      shortcut: 'A',
       icon: <ArrowRight size={18} />,
       separatorBefore: true,
       onSelect: () => setTool('arrow'),
@@ -93,6 +89,7 @@ export function DrawingToolbar({ sidebarVisible = true, inspectorVisible = true 
     {
       id: 'loop',
       label: t('Loop'),
+      shortcut: 'L',
       icon: <LoopPathIcon />,
       onSelect: () => setTool('loop-arrow'),
     },
@@ -167,6 +164,8 @@ export function DrawingToolbar({ sidebarVisible = true, inspectorVisible = true 
       onSelect: () => setTool('line'),
     },
   ];
+  const currentDrawing = items.flatMap((item) => item.children ? [item, ...item.children] : [item])
+    .find((item) => item.id === tool || (item.id === 'loop' && tool === 'loop-arrow'));
   return (
     <div
       ref={toolbarRef}
@@ -196,28 +195,32 @@ export function DrawingToolbar({ sidebarVisible = true, inspectorVisible = true 
         >
           <MousePointer2 size={18} />
         </IconButton>
+        <IconButton label={`${t('Wire')} (W)`} active={tool === 'wire'} onClick={() => setTool('wire')}>
+          <Spline size={18} />
+        </IconButton>
         <IconButton label={t('Text')} active={tool === 'text'} onClick={() => setTool('text')}>
           <Type size={19} />
         </IconButton>
         <ActionMenu
           label={t('Drawing and annotations')}
-          icon={items.find((item) => item.id === tool)?.icon ?? <Pencil size={18} />}
-          items={items}
-          active={drawingTools.includes(tool)}
+          icon={currentDrawing?.icon ?? <Pencil size={18} />}
+          description={currentDrawing?.label}
+          items={items.map((item) => ({ ...item, checked: item.id === tool || (item.id === 'loop' && tool === 'loop-arrow'), children: item.children?.map((child) => ({ ...child, checked: child.id === tool })) }))}
+          active={drawingTools.includes(tool) && tool !== 'wire'}
           onEscape={() => setTool('select')}
         />
       </div>
       <div className="tool-group">
         <IconButton
           label={`${t('Undo')} (${shortcut('Z')})`}
-          disabled={!past.length && !gestureStart}
+          disabled={!canUndo && !gestureStart}
           onClick={undo}
         >
           <Undo2 size={18} />
         </IconButton>
         <IconButton
           label={`${t('Redo')} (${shortcut('Z', true)})`}
-          disabled={!future.length}
+          disabled={!canRedo}
           onClick={redo}
         >
           <Redo2 size={18} />

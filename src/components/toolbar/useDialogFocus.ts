@@ -17,10 +17,10 @@ export function useDialogFocus<T extends HTMLElement>(
     const controls = () =>
       Array.from(
         dialog.querySelectorAll<HTMLElement>(
-          'button, a[href], input, select, textarea, [tabindex]',
+          'button, a[href], input, select, textarea, summary, [tabindex]',
         ),
       ).filter(
-        (element) => element.tabIndex >= 0 && !element.matches(':disabled') && !element.hidden,
+        (element) => element.tabIndex >= 0 && !element.matches(':disabled') && !element.hidden && element.getClientRects().length > 0,
       );
     controls()[0]?.focus();
     const keydown = (event: KeyboardEvent) => {
