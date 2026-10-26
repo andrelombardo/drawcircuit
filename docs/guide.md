@@ -2,7 +2,7 @@
 
 [Read in Italian](it/guide.md) · [Open DrawCircuit](https://andrelombardo.github.io/drawcircuit/)
 
-DrawCircuit is a browser editor for electrical circuits in notes and teaching material. Components, wires, and annotations are editable vector objects. The library contains 72 symbols in 12 categories and 25 quick blocks and diagrams. Search stays at the top while the catalog scrolls. The category selector jumps directly to a component family, Quick blocks or Personal blocks; typing a search returns to all categories and matches both Italian and English names. Clear search or press Esc in it to reset. Comic Relief is bundled for circuit text and formulas; the UI uses Inter and KaTeX lays out mathematical labels.
+DrawCircuit is a browser editor for electrical circuits in notes and teaching material. Components, wires, and annotations are editable vector objects. The library contains 72 symbols in 12 categories and 25 quick blocks and diagrams. Search stays at the top while the catalog scrolls. Search matches Italian and English names across components, quick blocks and personal blocks. Clear search or press Esc in it to reset. Comic Relief is bundled for circuit text and formulas; the UI uses Inter and KaTeX lays out mathematical labels.
 
 ## Language and local data
 

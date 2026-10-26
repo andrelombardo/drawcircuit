@@ -38,7 +38,7 @@ export function HelpDialog({ onClose }: { onClose: () => void }) {
       <span className="eyebrow">{t('A FEW GESTURES, A CLEAR CIRCUIT')}</span>
       <h2 id="help-heading">{t('Draw. Connect. Annotate.')}</h2>
       <div className="help-steps">
-        <p><b>{t('01 · Place')}</b>{t('Search or choose a category in Components. Click a symbol, then the sheet, or drag it. R rotates; Esc returns to Select.')}</p>
+        <p><b>{t('01 · Place')}</b>{t('Search in Components. Click a symbol, then the sheet, or drag it. R rotates; Esc returns to Select.')}</p>
         <p><b>{t('02 · Connect')}</b>{t('Choose Wire or press W. Click the start and destination terminals; empty-space clicks add bends. Enter or double-click finishes a free end. Backspace removes the last bend; Esc cancels. N inserts junctions.')}</p>
         <p><b>{t('03 · Annotate')}</b>{t('Choose Text or open Drawing and annotations. Double-click a label to edit it; Enter confirms and Esc cancels. Select an object to adjust its properties. Shift + click selects several objects.')}</p>
       </div>

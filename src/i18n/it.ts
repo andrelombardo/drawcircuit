@@ -1,7 +1,5 @@
 /** Italian UI translations. English messages are the source keys. */
 export const italian: Readonly<Record<string, string>> = {
-  'Component category': 'Categoria componenti',
-  'All categories': 'Tutte le categorie',
   "Project": "Progetto",
   "Download project": "Scarica progetto",
   "Open project…": "Apri progetto…",
@@ -22,7 +20,7 @@ export const italian: Readonly<Record<string, string>> = {
   "Drawing and editing tips": "Disegno e modifica",
   "Projects and images": "Progetti e immagini",
   "Read the complete guide": "Leggi la guida completa",
-  "Search or choose a category in Components. Click a symbol, then the sheet, or drag it. R rotates; Esc returns to Select.": "Cerca un simbolo o scegli una categoria in Componenti. Clicca il simbolo e poi il foglio, oppure trascinalo. R ruota; Esc torna a Selezione.",
+  "Search in Components. Click a symbol, then the sheet, or drag it. R rotates; Esc returns to Select.": "Cerca un simbolo in Componenti. Clicca il simbolo e poi il foglio, oppure trascinalo. R ruota; Esc torna a Selezione.",
   "Choose Wire or press W. Click the start and destination terminals; empty-space clicks add bends. Enter or double-click finishes a free end. Backspace removes the last bend; Esc cancels. N inserts junctions.": "Scegli Filo o premi W. Clicca i morsetti di partenza e arrivo; sullo spazio vuoto aggiungi svolte. Enter o doppio clic termina un estremo libero. Backspace rimuove l’ultima svolta; Esc annulla. N inserisce nodi.",
   "Choose Text or open Drawing and annotations. Double-click a label to edit it; Enter confirms and Esc cancels. Select an object to adjust its properties. Shift + click selects several objects.": "Scegli Testo o apri Disegno e annotazioni. Doppio clic su un’etichetta per modificarla; Enter conferma ed Esc annulla. Seleziona un oggetto per regolarne le proprietà. Shift + clic seleziona più oggetti.",
   "Drag a terminal to start a new wire in Select. Drag a round endpoint handle to reconnect an existing wire. Filled handles are connected; hollow handles are free. Alt/Option temporarily disables snapping. A selection click never changes connections.": "In Selezione trascina un morsetto per creare un filo. Trascina un handle rotondo per ricollegare un filo esistente: pieno significa collegato, vuoto significa libero. Alt/Option sospende lo snap. Un clic di selezione non cambia i collegamenti.",

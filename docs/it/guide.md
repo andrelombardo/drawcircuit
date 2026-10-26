@@ -41,7 +41,7 @@ Verifica il codice con `npm run lint`, `npm test` e `npm run build`, poi prova d
 - I testi possono contenere fino a 10.000 caratteri e le coordinate e gli offset devono restare fra −10.000.000 e +10.000.000 unità. Il documento ammette fino a 10.000 oggetti e 10 MB di JSON. Le modifiche che superano questi limiti vengono rifiutate, conservando il documento valido precedente.
 - Trascina il grip della toolbar per spostarla: la posizione viene conservata separatamente dal circuito e adattata a resize e sidebar. Il pulsante **Aiuto** è in basso a destra; zoom e griglia restano in basso a sinistra.
 
-La ricerca resta in alto mentre scorri la libreria. Il selettore di categoria porta direttamente a una famiglia di simboli, ai blocchi rapidi o ai blocchi personali. Scrivere nella ricerca torna a tutte le categorie e riconosce nomi italiani e inglesi; Esc o Svuota ricerca cancella il filtro. Il filo è disponibile direttamente nella toolbar, oltre alla scorciatoia W.
+La ricerca resta in alto mentre scorri la libreria. La ricerca riconosce nomi italiani e inglesi fra componenti, blocchi rapidi e blocchi personali; Esc o Svuota ricerca cancella il filtro. Il filo è disponibile direttamente nella toolbar, oltre alla scorciatoia W.
 
 La sidebar si nasconde e riapre dal bordo, si ridimensiona tra 200 e 480 px e si ripristina con doppio clic sul separatore. Visibilità e larghezza sono preferenze locali separate dal JSON; pan e zoom si conservano durante il resize.
 

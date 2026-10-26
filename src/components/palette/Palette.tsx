@@ -13,7 +13,6 @@ import { PresetThumbnail } from '../../presets/PresetThumbnail';
 export function Palette({ onHide }: { onHide: () => void }) {
   const searchInput = useRef<HTMLInputElement>(null);
   const scroll = useRef<HTMLDivElement>(null);
-  const [category, setCategory] = useState('');
   const personalBlocks = usePersonalBlocks((s) => s.blocks);
   const [search, setSearch] = useState(''),
     [collapsed, setCollapsed] = useState<string[]>([]),
@@ -37,7 +36,6 @@ export function Palette({ onHide }: { onHide: () => void }) {
           value={search}
           onChange={(e) => {
             setSearch(e.target.value);
-            setCategory('');
             scroll.current?.scrollTo({ top: 0 });
           }}
           onKeyDown={(e) => {
@@ -60,27 +58,8 @@ export function Palette({ onHide }: { onHide: () => void }) {
           </button>
         )}
       </div>
-      <div className="palette-filter">
-        <select
-          aria-label={t('Component category')}
-          value={category}
-          onChange={(e) => {
-            const value = e.target.value;
-            setCategory(value);
-            setCollapsed((items) => items.filter((group) => group !== value));
-            if (value === 'blocks') setPresetsOpen(true);
-            scroll.current?.scrollTo({ top: 0 });
-          }}
-          disabled={!!search}
-        >
-          <option value="">{t('All categories')}</option>
-          <option value="blocks">{t('Quick blocks')}</option>
-          <option value="personal">{t('Personal blocks')}</option>
-          {categories.map((group) => <option key={group} value={group}>{t(group)}</option>)}
-        </select>
-      </div>
       <div ref={scroll} className="palette-scroll">
-        {(!category || category === 'blocks') && <section className="preset-section" aria-label={t('Quick blocks')}>
+        <section className="preset-section" aria-label={t('Quick blocks')}>
           <button
             className="group-heading preset-heading"
             aria-expanded={presetsOpen || !!search}
@@ -138,10 +117,9 @@ export function Palette({ onHide }: { onHide: () => void }) {
                 </section>
               );
             })}
-        </section>}
-        {(!category || category === 'personal') && <PersonalBlockPalette search={search} />}
+        </section>
+        <PersonalBlockPalette search={search} />
         {categories.map((group) => {
-          if (category && category !== group) return null;
           const items = catalog.filter((c) => c.group === group && matchesComponent(c, search));
           if (!items.length) return null;
           const closed = collapsed.includes(group) && !search;

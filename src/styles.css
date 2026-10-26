@@ -4079,18 +4079,11 @@ summary:focus-visible {
 .drawing-surface.tool-angle .circuit-object,
 .drawing-surface.tool-angle [data-label] { cursor: crosshair; }
 
-/* Keep library navigation outside the scrolling catalog. */
-.palette-filter { flex: none; order: 1; padding: 0 14px 10px; }
-.palette-filter select {
-  width: 100%; min-height: 32px; padding: 4px 8px;
-  border: 1px solid var(--ui-border); border-radius: 8px;
-  background: var(--ui-surface); color: var(--ui-text); font: inherit; font-size: 11px;
-}
 .inspector-component-details :is(h2, p) { overflow: hidden; text-overflow: ellipsis; }
 .main-tools .icon-button.active { background: var(--ui-focus); }
 @media (pointer: coarse) {
   .component-card { min-height: 44px; }
-  .group-heading, .palette-filter select { min-height: 44px; }
+  .group-heading { min-height: 44px; }
   .search-field button { min-width: 32px; min-height: 32px; }
 }
 

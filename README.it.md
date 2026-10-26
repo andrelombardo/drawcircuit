@@ -33,7 +33,7 @@ DrawCircuit è un editor gratuito utilizzabile dal browser, pensato per studenti
 - **Disegna con precisione.** Scegli tra 72 simboli elettrici suddivisi in 12 categorie. Collega i componenti con fili ortogonali, a 45° o con percorso libero, grazie agli strumenti di aggancio e allineamento.
 - **Spiega con le immagini.** Aggiungi etichette matematiche, marcatori di polarità, annotazioni di tensione e corrente, frecce ed evidenziazioni modificabili. Le espressioni in stile LaTeX vengono visualizzate con KaTeX.
 - **Mantieni tutto allineato.** Sposta, ruota, specchia, distribuisci e distanzia gli elementi con controlli precisi. I collegamenti seguono le modifiche.
-- **Crea più velocemente.** Cerca nomi italiani o inglesi in cima alla libreria, filtra per categoria e usa 25 blocchi pronti o i tuoi blocchi personali. Il filo è accessibile con un clic dalla toolbar.
+- **Crea più velocemente.** Cerca nomi italiani o inglesi in cima alla libreria e usa 25 blocchi pronti o i tuoi blocchi personali. Il filo è accessibile con un clic dalla toolbar.
 - **Porta i tuoi schemi ovunque.** Copia l’intero circuito, o soltanto una selezione, come PNG trasparente. Scarica progetti `.drawcircuit` modificabili e riaprili con validazione e protezione tramite Annulla. Il lavoro si salva anche automaticamente nel browser.
 
 ## Inizia a usare DrawCircuit
