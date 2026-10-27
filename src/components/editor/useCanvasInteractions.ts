@@ -91,6 +91,7 @@ import { createMoveContext, computeMoveGuides } from '../../utils/smartGuides';
 import type { MoveContext, DistanceGuide } from '../../utils/smartGuides';
 import { useSmartPlacement } from '../../smartPlacement/useSmartPlacement';
 import { isMac } from '../../utils/platform';
+import { selectionGroupBounds } from './selectionGroupBounds';
 import { clampZoom, readViewPreference, readZoomPreference, saveViewPreference, saveZoomPreference } from './zoomPreferences';
 type Drag =
   | { type: 'highlight-eraser'; session: HighlightEraserGesture }
@@ -1119,10 +1120,27 @@ export function useCanvasInteractions(
           ).distances,
         });
     } else {
-      svg.setPointerCapture(e.pointerId);
-      setActiveLabel(null);
-      if (!e.shiftKey) s.select([]);
-      drag.current = { type: 'marquee', origin: p, additive: e.shiftKey };
+      const bounds = s.selection.length > 1 && !e.shiftKey
+        ? selectionGroupBounds(s.document, s.selection)
+        : null;
+      if (bounds && p.x >= bounds.x && p.x <= bounds.x + bounds.width &&
+          p.y >= bounds.y && p.y <= bounds.y + bounds.height) {
+        setActiveLabel(null);
+        s.beginGesture();
+        wireSnapRef.current = null;
+        const moveContext = createMoveContext(s.document, s.selection);
+        drag.current = { type: 'move', origin: p, doc: s.document, ids: s.selection, moveContext };
+        setOverlay({
+          ...blank,
+          distances: computeMoveGuides(moveContext, { x: 0, y: 0 }, viewport.zoom,
+            e.altKey || !s.snapEnabled, true).distances,
+        });
+      } else {
+        svg.setPointerCapture(e.pointerId);
+        setActiveLabel(null);
+        if (!e.shiftKey) s.select([]);
+        drag.current = { type: 'marquee', origin: p, additive: e.shiftKey };
+      }
     }
   };
   const advanceHighlight = (

@@ -8,38 +8,12 @@ import {
 } from '../../annotations/highlight';
 import { arrowCenter, rotationHandle } from '../../utils/arrows';
 import { braceGeometry } from '../../annotations/brace';
-import { electricalDrawingGeometry } from '../../annotations/electrical';
-import type { CircuitDocument, CircuitObject, Point } from '../../model/types';
-import { arrowPath, isLooseEndpoint, lineAsWire, lineCurveGeometry, linePath, linePoints, pointsPath, rotatePoint, wirePoints } from '../../utils/geometry';
-import { unionBounds, contentBounds } from '../../utils/visualBounds';
+import type { CircuitDocument, Point } from '../../model/types';
+import { arrowPath, isLooseEndpoint, lineAsWire, lineCurveGeometry, linePath, linePoints, pointsPath, wirePoints } from '../../utils/geometry';
 import { loopGeometry, loopPath } from '../../utils/loops';
 import { WIRE_ENDPOINT_HIT_PX } from '../../utils/wires';
-import { canResizeCircuit, circuitSelectionBounds } from '../../utils/resizeCircuit';
-function selectionBounds(object: CircuitObject, doc: CircuitDocument) {
-  if (object.kind !== 'electrical' || object.mode !== 'current') return contentBounds(object, doc);
-  const g = electricalDrawingGeometry(object, doc);
-  const boxes = [g.start, g.end, ...g.head].map((point) => ({
-    x: point.x - g.strokeWidth / 2,
-    y: point.y - g.strokeWidth / 2,
-    width: g.strokeWidth,
-    height: g.strokeWidth,
-  }));
-  if (object.label.text) {
-    const width = Math.max(g.labelFontSize, object.label.text.length * g.labelFontSize * 0.65);
-    const height = g.labelFontSize * Math.max(1.6, object.label.text.split('\n').length * 1.4);
-    for (const x of [-width / 2, width / 2])
-      for (const y of [-height / 2, height / 2]) {
-        const point = rotatePoint({ x, y }, object.label.rotation);
-        boxes.push({
-          x: g.labelPoint.x + point.x,
-          y: g.labelPoint.y + point.y,
-          width: 0,
-          height: 0,
-        });
-      }
-  }
-  return unionBounds(boxes);
-}
+import { canResizeCircuit } from '../../utils/resizeCircuit';
+import { selectionGroupBounds } from './selectionGroupBounds';
 function Handle({
   p,
   name,
@@ -98,7 +72,7 @@ export function SelectionLayer({
   const objects = doc.objects.filter((object) => selected.has(object.id));
   const single = objects.length === 1;
   const resizable = canResizeCircuit(doc, selection);
-  const groupBounds = resizable ? circuitSelectionBounds(doc, selection) : unionBounds(objects.map((o) => selectionBounds(o, doc)));
+  const groupBounds = selectionGroupBounds(doc, selection);
   return (
     <g data-layer="selection">
       {selection.length > 1 && (
