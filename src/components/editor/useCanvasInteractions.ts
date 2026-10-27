@@ -91,7 +91,7 @@ import { createMoveContext, computeMoveGuides } from '../../utils/smartGuides';
 import type { MoveContext, DistanceGuide } from '../../utils/smartGuides';
 import { useSmartPlacement } from '../../smartPlacement/useSmartPlacement';
 import { isMac } from '../../utils/platform';
-import { clampZoom, readZoomPreference, saveZoomPreference } from './zoomPreferences';
+import { clampZoom, readViewPreference, readZoomPreference, saveViewPreference, saveZoomPreference } from './zoomPreferences';
 type Drag =
   | { type: 'highlight-eraser'; session: HighlightEraserGesture }
   | {
@@ -166,19 +166,22 @@ export function useCanvasInteractions(
   svgRef: RefObject<SVGSVGElement | null>,
   onToggleSidebar?: () => void,
 ) {
-  const [initialZoom] = useState(readZoomPreference);
+  const [initialView] = useState(readViewPreference);
+  const [initialZoom] = useState(() => initialView?.zoom ?? readZoomPreference());
   const [viewport, setViewport] = useState<Viewport>({
-    x: 600,
-    y: 340,
+    x: 600 - (initialView?.center.x ?? 0) * (initialZoom ?? 1),
+    y: 350 - (initialView?.center.y ?? 0) * (initialZoom ?? 1),
     zoom: initialZoom ?? 1,
   });
   useEffect(() => saveZoomPreference(viewport.zoom), [viewport.zoom]);
   const [surfaceSize, setSurfaceSize] = useState({ width: 1200, height: 700 });
   useEffect(() => {
-    useEditorStore.getState().setViewCenter({
+    const center = {
       x: (surfaceSize.width / 2 - viewport.x) / viewport.zoom,
       y: (surfaceSize.height / 2 - viewport.y) / viewport.zoom,
-    });
+    };
+    useEditorStore.getState().setViewCenter(center);
+    saveViewPreference(center, viewport.zoom);
   }, [surfaceSize, viewport]);
   const previousSurface = useRef<{ width: number; height: number } | null>(null);
   const smart = useSmartPlacement(viewport);
@@ -297,7 +300,7 @@ export function useCanvasInteractions(
     });
   }, [viewport, world, svgRef, drawingCandidate]);
   const fit = useCallback(
-    (restoredZoom?: number) => {
+    (restoredZoom?: number, restoredCenter?: Point) => {
       const svg = svgRef.current;
       if (!svg) return;
       const b = svg.getBoundingClientRect(),
@@ -319,8 +322,8 @@ export function useCanvasInteractions(
         );
       setViewport({
         zoom: z,
-        x: b.width / 2 - (bounds.x + bounds.width / 2) * z,
-        y: b.height / 2 - (bounds.y + bounds.height / 2) * z + 15,
+        x: b.width / 2 - (restoredCenter?.x ?? bounds.x + bounds.width / 2) * z,
+        y: b.height / 2 - (restoredCenter?.y ?? bounds.y + bounds.height / 2) * z + (restoredCenter ? 0 : 15),
       });
     },
     [svgRef],
@@ -356,7 +359,7 @@ export function useCanvasInteractions(
     return () => svg.removeEventListener('wheel', wheel);
   }, [svgRef, zoomAt]);
   useEffect(() => {
-    fit(initialZoom ?? undefined);
+    fit(initialZoom ?? undefined, initialView?.center);
     const fitHandler = () => fit(),
       zoomIn = () => zoomAt(1.2),
       zoomOut = () => zoomAt(1 / 1.2);
@@ -390,7 +393,7 @@ export function useCanvasInteractions(
       window.removeEventListener('drawcircuit:zoom-in', zoomIn);
       window.removeEventListener('drawcircuit:zoom-out', zoomOut);
     };
-  }, [fit, zoomAt, svgRef, initialZoom]);
+  }, [fit, zoomAt, svgRef, initialZoom, initialView]);
   const finishWire = useCallback((candidate: WireCandidate) => {
     const d = draftRef.current;
     if (!d) return;
