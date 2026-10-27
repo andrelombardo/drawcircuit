@@ -199,6 +199,27 @@ export function routeEditedWire(wire: Wire, doc: CircuitDocument, axes: WireExit
     : { ...wire, vertices: safe.slice(1, -1) };
 }
 
+/** Retracting an endpoint along its existing route removes the traversed tail. */
+export function moveWireEndpoint(
+  wire: Wire, side: 'start' | 'end', endpoint: Endpoint, doc: CircuitDocument,
+  axes: WireExitAxes = {},
+): Wire {
+  const point = resolveEndpoint(endpoint, doc);
+  const route = wirePoints(wire, doc);
+  const fromEnd = side === 'end' ? [...route].reverse() : route;
+  let vertices = wire.vertices;
+  for (let i = 1; i < fromEnd.length; i++) {
+    const a = fromEnd[i - 1], b = fromEnd[i];
+    if (distance(point, projectOnSegment(point, a, b)) >= 0.001) continue;
+    const remaining = [point, ...fromEnd.slice(i)];
+    if (side === 'end') remaining.reverse();
+    vertices = simplifyPolyline(remaining).slice(1, -1);
+    break;
+  }
+  return routeEditedWire({ ...wire, vertices,
+    [side === 'start' ? 'startEndpoint' : 'endEndpoint']: endpoint }, doc, axes);
+}
+
 export function wirePreview(
   draft: WireDraft,
   candidate: WireCandidate,

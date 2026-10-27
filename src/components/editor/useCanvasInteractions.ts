@@ -72,6 +72,7 @@ import {
   wireEndAtPoint,
   resolveWireCandidate,
   routeEditedWire,
+  moveWireEndpoint,
   moveWireSegment,
   healWireConnections,
 } from '../../utils/wires';
@@ -1452,8 +1453,10 @@ export function useCanvasInteractions(
                           : target.endpoint;
                     wireSnapRef.current = target.kind === 'grid' ? null : target;
                     const exitAxis = target.kind === 'wire' ? target.exitAxis : undefined;
-                    if (d.handle === 'wireStart') return routeEditedWire({ ...o, startEndpoint: endpoint }, d.doc, { start: exitAxis });
-                    if (d.handle === 'wireEnd') return routeEditedWire({ ...o, endEndpoint: endpoint }, d.doc, { end: exitAxis });
+                    if (d.handle === 'wireStart' || d.handle === 'wireEnd') {
+                      const side = d.handle === 'wireStart' ? 'start' : 'end';
+                      return moveWireEndpoint(o, side, endpoint, d.doc, { [side]: exitAxis });
+                    }
                   }
                   return o;
                 }
