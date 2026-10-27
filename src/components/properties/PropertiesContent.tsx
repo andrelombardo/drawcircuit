@@ -5,9 +5,8 @@ import { HighlightProperties } from './HighlightProperties';
 import { commonValue } from './commonValue';
 import { fixedWireConnection, linePoints } from '../../utils/geometry';
 import { useShallow } from 'zustand/react/shallow';
-import { RotateCw, ArrowLeftRight, FlipHorizontal, FlipVertical } from 'lucide-react';
+import { RotateCw, RotateCcw, ArrowLeftRight, FlipHorizontal, FlipVertical } from 'lucide-react';
 import { parentFrame } from '../../model/shapeAppearance';
-import { ObjectStyleSection } from './ObjectStyleSection';
 import { ShapeCorners } from './ShapeAppearance';
 import { ObjectPaintSection } from './PaintSections';
 import { FrameContents, FramePosition, FrameSettings, FrameSizing } from './FrameProperties';
@@ -74,6 +73,9 @@ export function PropertiesContent() {
     (o) => o.kind === 'wire' || o.kind === 'line' || o.kind === 'rectangle' || o.kind === 'circle',
   );
   const arrows = objects.filter((o) => o.kind === 'arrow' || o.kind === 'loop-arrow');
+  const hasAdditionalAppearance = (!fillSelection && !strokeSelection) ||
+    arrows.length === objects.length || objects.every((o) => o.kind === 'line') ||
+    (!strokeSelection && !shapeSelection && lineObjects.length === objects.length);
   const independentRotation = rotatables.length === objects.length;
   const selectedIds = new Set(objects.map((object) => object.id));
   const hasBrace = objects.some((object) => object.kind === 'brace');
@@ -170,8 +172,9 @@ export function PropertiesContent() {
         ((o && ('label' in o || o.kind === 'text')) ||
           objects.every((o) => 'label' in o) ||
           objects.every((o) => o.kind === 'text')) && (
-          <InspectorSection title={t(o?.kind === 'text' ? 'Text' : 'Label')} className="inspector-text">
+          <InspectorSection title={t(o?.kind === 'component' ? 'Component' : o?.kind === 'text' ? 'Text' : 'Label')} className={`inspector-text${o?.kind === 'component' ? ' inspector-component-properties' : ''}`}>
             <div className="inspector-text-content">
+            <span className="inspector-row-label">{t(o?.kind === 'text' ? 'Text' : 'Label')}</span>
             {o && ('label' in o || o.kind === 'text') && (
               <PropertyField
                 label={
@@ -204,7 +207,6 @@ export function PropertiesContent() {
                 onCommit={(text) => apply((o) => replaceInlineText(o, text))}
               />
             )}
-              <div className="inspector-text-size"><SelectionTypography objects={objects} apply={apply} controls="size" /></div>
             </div>
             {o?.kind === 'component' && componentRegistry[o.type].internalText !== undefined && (
               <PropertyField
@@ -215,37 +217,52 @@ export function PropertiesContent() {
                 }
               />
             )}
-            {objects.every((object) => 'label' in object) && (
-              <LabelAppearance objects={objects} apply={apply} caption={t('Color')} />
-            )}
-            <SelectionTypography objects={objects} apply={apply} controls="alignment" />
+            {o?.kind === 'component' ? <InspectorDisclosure title={t('Label appearance')}>
+              <div className="inspector-text-options">
+                <div className="inspector-text-detail-row"><span className="inspector-row-label">{t('Size')}</span><div className="inspector-text-size"><SelectionTypography objects={objects} apply={apply} controls="size" /></div></div>
+                <LabelAppearance objects={objects} apply={apply} caption={t('Color')} />
+              </div>
+            </InspectorDisclosure> : <>
+              <div className="inspector-text-detail-row"><span className="inspector-row-label">{t('Size')}</span><div className="inspector-text-size"><SelectionTypography objects={objects} apply={apply} controls="size" /></div></div>
+              {objects.every((object) => 'label' in object) && <LabelAppearance objects={objects} apply={apply} caption={t('Color')} />}
+              <SelectionTypography objects={objects} apply={apply} controls="alignment" />
+            </>}
           </InspectorSection>
         )}
-      <InspectorSection title={t('Position')} className="inspector-position">
-        {objects.length > 1 && <p className="inspector-note inspector-position-help">
-          {t('X/Y: top-left corner of the selection · canvas units')}
-        </p>}
-        {o && parent ? <FramePosition object={o} frame={parent} /> : <div className="inspector-pair inspector-position-fields">
-          {(['x', 'y'] as const).map((axis) => (
-            <PropertyField
-              key={axis}
-              label={t('Position {axis}', { axis: axis.toUpperCase() })}
-              caption={axis.toUpperCase()}
-              numeric
-              value={Number(position(axis).toFixed(3))}
-              min={-1e7}
-              max={1e7}
-              onCommit={(v) => state().position(axis, Number(v))}
+      {!labelTarget && o && <ElectricalProperties object={o} />}
+      {!labelTarget &&
+        objects.length > 1 &&
+        objects.every(
+          (item) =>
+            item.kind === 'electrical' &&
+            objects[0].kind === 'electrical' &&
+            item.mode === objects[0].mode,
+        ) && (
+          <InspectorSection title={t('Electrical annotations')}>
+            <AnnotationReverseAction
+              mode={objects[0].kind === 'electrical' ? objects[0].mode : 'voltage'}
+              onClick={() =>
+                apply((item) =>
+                  item.kind === 'electrical' ? { ...item, reversed: !item.reversed } : item,
+                )
+              }
             />
-          ))}
-        </div>}
+          </InspectorSection>
+        )}
+      {(rotationControl || (objects.every((object) => object.kind === 'arrow' || object.kind === 'loop-arrow' || object.kind === 'circle' || (object.kind === 'rectangle' && !object.frame)))) && <InspectorSection title={t('Transform')} className="inspector-transform">
         <div className="inspector-transform-row">
           {!absoluteRotation && groupRotation && <p className="inspector-note inspector-rotation-help">
-            {t(objects.length > 1 ? 'Rotation: angle to add around the selection center' : 'Rotation: angle to add around the element center')}
+            {t(objects.length > 1 ? 'Relative rotation · selection center' : 'Relative rotation · element center')}
           </p>}
-          {rotationControl}
+          {rotationControl && <div className="inspector-rotation-controls">
+            <span className="inspector-row-label">{t('Rotate')}</span>
+            <button className="inspector-property-action inspector-rotate-step" aria-label={t('Rotate 90° counterclockwise')} title={t('Rotate 90° counterclockwise')} onClick={() => setRotation(absoluteRotation ? (rotation ?? 0) - 90 : -90)}><RotateCcw size={15} /></button>
+            <button className="inspector-property-action inspector-rotate-step" aria-label={t('Rotate 90° clockwise')} title={t('Rotate 90° clockwise')} onClick={() => setRotation(absoluteRotation ? (rotation ?? 0) + 90 : 90)}><RotateCw size={15} /></button>
+            {rotationControl}
+          </div>}
           {objects.every((object) => object.kind === 'arrow' || object.kind === 'loop-arrow' || object.kind === 'circle' || (object.kind === 'rectangle' && !object.frame)) && (
-            <>
+            <div className="inspector-mirror-controls">
+              <span className="inspector-row-label">{t('Mirror')}</span>
               <button
                 className="inspector-property-action inspector-transform-action"
                 aria-label={t('Mirror horizontally')}
@@ -262,12 +279,33 @@ export function PropertiesContent() {
               >
                 <FlipVertical size={16} />
               </button>
-            </>
+            </div>
           )}
         </div>
-      </InspectorSection>
+      </InspectorSection>}
+      {fillSelection && !labelTarget && <ObjectPaintSection objects={objects} apply={apply} />}
+      {strokeSelection && !labelTarget && <ObjectPaintSection objects={objects} apply={apply} border />}
+      <InspectorSection title={t('Position')} className="inspector-position">
+        {objects.length > 1 && <p className="inspector-note inspector-position-help">
+          {t('X/Y: top-left corner · u')}
+        </p>}
+        {o && parent ? <FramePosition object={o} frame={parent} /> : <div className="inspector-pair inspector-position-fields">
+          {(['x', 'y'] as const).map((axis) => (
+            <PropertyField
+              key={axis}
+              label={t('Position {axis}', { axis: axis.toUpperCase() })}
+              caption={axis.toUpperCase()}
+              numeric
+              value={Number(position(axis).toFixed(3))}
+              min={-1e7}
+              max={1e7}
+              onCommit={(v) => state().position(axis, Number(v))}
+            />
+          ))}
+        </div>}
       {!labelTarget && (
-          <InspectorSection title={t('Layout')} className="inspector-layout">
+          <div className="inspector-transform-layout">
+            <div className="inspector-subheading">{t('Layout')}</div>
             {rectangles.length !== objects.length && o?.kind !== 'loop-arrow' && o?.kind !== 'angle' && <SelectionSizeFields objects={objects} />}
             {o?.kind === 'angle' && <>
               <div className="inspector-pair">
@@ -408,11 +446,17 @@ export function PropertiesContent() {
                 </div>
               ))}
             </InspectorDisclosure>}
-          </InspectorSection>
+          </div>
         )}
+      </InspectorSection>
       {!labelTarget && o?.kind === 'rectangle' && o.frame && <FrameSettings key={o.id} object={o} />}
-      {!labelTarget && (
-        <ObjectStyleSection objects={objects} apply={apply}>
+      {!labelTarget && objects.length > 1 && (
+        <InspectorSection title={t('Arrangement')} className="inspector-arrangement">
+          <SelectionGeometry objects={objects} />
+        </InspectorSection>
+      )}
+      {!labelTarget && hasAdditionalAppearance && (
+        <InspectorSection title={t('Appearance')} className="inspector-additional-appearance">
           {!fillSelection && !strokeSelection && <SelectionStyle
             objects={objects}
             apply={apply}
@@ -527,38 +571,11 @@ export function PropertiesContent() {
                 />
               </div>
             )}
-        </ObjectStyleSection>
+        </InspectorSection>
       )}
       {shapeSelection && !labelTarget && <>
         {rectangles.length === objects.length && <ShapeCorners objects={shapes} apply={apply} />}
       </>}
-      {fillSelection && !labelTarget && <ObjectPaintSection objects={objects} apply={apply} />}
-      {strokeSelection && !labelTarget && <ObjectPaintSection objects={objects} apply={apply} border />}
-      {!labelTarget && objects.length > 1 && (
-        <InspectorSection title={t('Arrangement')} className="inspector-arrangement">
-          <SelectionGeometry objects={objects} showAlignment={false} />
-        </InspectorSection>
-      )}
-      {!labelTarget && o && <ElectricalProperties object={o} />}
-      {!labelTarget &&
-        objects.length > 1 &&
-        objects.every(
-          (item) =>
-            item.kind === 'electrical' &&
-            objects[0].kind === 'electrical' &&
-            item.mode === objects[0].mode,
-        ) && (
-          <InspectorSection title={t('Electrical annotations')}>
-            <AnnotationReverseAction
-              mode={objects[0].kind === 'electrical' ? objects[0].mode : 'voltage'}
-              onClick={() =>
-                apply((item) =>
-                  item.kind === 'electrical' ? { ...item, reversed: !item.reversed } : item,
-                )
-              }
-            />
-          </InspectorSection>
-        )}
     </div>
   );
 }

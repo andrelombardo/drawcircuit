@@ -408,24 +408,6 @@ export function normalizeDocumentWires(doc: CircuitDocument): CircuitDocument {
     : doc;
 }
 
-/** Keep adjacent orthogonal bends aligned when a stored vertex moves. In
- * particular, moving a bend inserted on a straight run must not leave a spur. */
-export function moveWireVertex(wire: Wire, index: number, point: Point, doc: CircuitDocument): Wire {
-  const vertex = wire.vertices[index];
-  if (!vertex) return wire;
-  const vertices = wire.vertices.map((p) => ({ ...p }));
-  vertices[index] = point;
-  if (!wire.routing || wire.routing === 'orthogonal') {
-    for (const neighbor of [index - 1, index + 1]) {
-      const original = wire.vertices[neighbor];
-      if (!original) continue;
-      if (Math.abs(original.x - vertex.x) < 0.001) vertices[neighbor].x = point.x;
-      else if (Math.abs(original.y - vertex.y) < 0.001) vertices[neighbor].y = point.y;
-    }
-  }
-  return routeEditedWire({ ...wire, vertices }, doc);
-}
-
 /** Slide the grabbed segment, keeping fixed connections and the rest of the route stable. */
 export function moveWireSegment(
   wire: Wire, index: number, delta: Point, doc: CircuitDocument, snapping = true,

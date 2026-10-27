@@ -1,36 +1,7 @@
-import { makeId } from '../model/catalog';
-import type { CircuitDocument, CircuitObject, FrameConstraint, FrameLayout, RectangleAnnotation } from '../model/types';
+import type { CircuitDocument, CircuitObject, FrameConstraint, RectangleAnnotation } from '../model/types';
 import { frameSelection, parentFrame } from '../model/shapeAppearance';
 import { measurementBounds } from './measurementGeometry';
-import { unionBounds } from './visualBounds';
 import { moveSelection } from './operations';
-
-export const defaultFrame = (children: string[] = []): FrameLayout => ({
-  name: 'Frame', children, constraints: {}, direction: 'free', gap: 16,
-  padding: [16, 16, 16, 16], align: 'start', widthSizing: 'fixed', heightSizing: 'fixed',
-});
-export function createFrame(doc: CircuitDocument, ids: string[]): CircuitDocument {
-  const selected = new Set(ids), b = unionBounds(doc.objects.filter((o) => selected.has(o.id)).map((o) => measurementBounds(o, doc)));
-  if (!selected.size) return doc;
-  const roots = [...selected].filter((id) => !ids.some((ancestor) => ancestor !== id && frameSelection(doc, [ancestor]).includes(id)));
-  const rootIds = new Set(roots);
-  const frame: RectangleAnnotation = { kind: 'rectangle', id: makeId(), x: b.x - 24, y: b.y - 24,
-    width: Math.max(1, b.width + 48), height: Math.max(1, b.height + 48), color: '#b6b6bc', strokeWidth: 1,
-    fill: 'none', frame: defaultFrame(roots),
-  };
-  return { ...doc, objects: [frame, ...doc.objects.map((o) => o.kind === 'rectangle' && o.frame
-    ? { ...o, frame: { ...o.frame, children: o.frame.children.filter((id) => !rootIds.has(id)),
-      constraints: Object.fromEntries(Object.entries(o.frame.constraints).filter(([id]) => !rootIds.has(id))) } } : o)] };
-}
-export function convertToFrame(doc: CircuitDocument, rectangle: RectangleAnnotation): CircuitDocument {
-  const children = doc.objects.filter((o) => {
-    if (o.id === rectangle.id || parentFrame(doc, o.id)) return false;
-    const b = measurementBounds(o, doc);
-    return b.x >= rectangle.x && b.y >= rectangle.y && b.x+b.width <= rectangle.x+rectangle.width && b.y+b.height <= rectangle.y+rectangle.height;
-  }).map((o) => o.id);
-  return { ...doc, objects: doc.objects.map((o) => o.id === rectangle.id
-    ? { ...rectangle, rotation: 0, frame: defaultFrame(children) } : o) };
-}
 
 /** Frame membership is explicit. Electrical routes keep the editor's existing
  * topology-aware move semantics, including routes crossing the frame boundary. */

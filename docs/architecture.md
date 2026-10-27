@@ -9,7 +9,7 @@ DrawCircuit uses React, TypeScript, Vite, and Zustand. `index.html` loads `src/m
 | `src/components/`                                            | Editor, library, properties, menus, and dialogs                         |
 | `src/circuit/`                                               | SVG layers, symbols, annotations, and canvas KaTeX rendering            |
 | `src/math/`                                                  | Math normalization, KaTeX rendering, and glyphs                         |
-| `src/i18n/`                                                  | English message keys and fixed Italian interface translations     |
+| `src/i18n/`                                                  | Source message keys and fixed Italian interface translations      |
 | `src/smartPlacement/`, `src/presets/`, `src/personalBlocks/` | Snapping, preset blocks, and personal library                           |
 | `src/svg/`, `src/png/`, `src/tikz/`                          | Internal SVG-to-PNG copying, shared geometry, validation, and selection |
 | `src/utils/`                                                 | Shared geometry, browser clipboard, and local persistence               |
@@ -49,13 +49,15 @@ KaTeX stays in a dedicated chunk shared by the canvas and image copying. Vector 
 
 Circuit text uses Comic Relief 1.210, served as regular and bold WOFF2 under SIL OFL 1.1. Missing mathematical characters use the local DrawCircuit Symbols handwriting supplement; large operators and delimiters use matching size variants with TeX-compatible metrics. `src/main.tsx` waits for every face before mounting the editor. `src/model/fonts.ts` and `--circuit-font` define the same stack for the canvas, symbols, formulas, and PNG generation. The UI uses Inter. Sources, coverage, adaptations and notices are documented in `src/fonts/comic-relief/` and `src/fonts/math-symbols/` and published under `public/third-party/`. SVG/PNG embed the same fonts, preserve clipped stretchy drawings and cancellation lines, and export all four edges of mathematical rules/boxes. Mathematical rules have a minimum 0.08em pen weight; non-radical SVG strokes receive rounded reinforcement while radicals already reserve that thickness through KaTeX.
 
+Vite keeps KaTeX's layout CSS but removes its unused font-face declarations, since every rendered formula uses the local circuit stack. Inter ships only its WOFF2 faces. Font binaries and license notices remain unchanged. Frame membership and normalized library searches are indexed by immutable document/catalog identity. Appearance wrappers preserve object identity and cache paint variants so memoized symbol and wire views can skip unchanged renders.
+
 ## Localization
 
-English messages and catalog/preset metadata are the source. `t()` resolves Italian entries from `src/i18n/it.ts` and interpolates named placeholders after translation. Missing entries fall back to English. `searchText()` indexes English and Italian together for component and preset searches.
+Messages and catalog/preset metadata are the source. `t()` resolves Italian entries from `src/i18n/it.ts` and interpolates named placeholders after translation. Missing entries fall back to their source keys. `createSearchMatcher()` caches normalized display names and source aliases for component and preset searches.
 
 The interface and document `lang` are fixed to Italian. The former language selector and Zustand language store have been removed; an existing language preference is left untouched. User-authored circuit text, personal block names, document data, and undo history keep their original content.
 
-The primary README and technical documentation are English. `README.it.md` and `docs/it/guide.md` contain the Italian documentation.
+The README, user guide, and technical documentation each have a single maintained version.
 
 ## Wire interaction contract
 

@@ -38,18 +38,18 @@ export function InspectorHeader() {
     object?.kind === 'rectangle' && object.frame ? Frame : object ? objectIcons[object.kind] : Layers2;
   const component = object?.kind === 'component' && !activeLabel && tool !== 'highlight' && tool !== 'highlight-eraser' ? object : null;
   const definition = component ? componentRegistry[component.type] : null;
-  const componentCategory = definition?.name.match(/^(AC|DC)\b/)?.[1] ?? (definition ? t(definition.group) : '');
   return (
     <div className="inspector-header" data-contextual={contextual || undefined} data-component={component ? true : undefined}>
-      <div className="inspector-header-title">
+      <div className="inspector-header-bar">{t('Properties')}</div>
+      {contextual && <div className="inspector-header-title">
         {contextual && <span className="inspector-object-icon" data-component={component ? true : undefined} aria-hidden="true">
           {definition ? <ComponentPreview component={definition} /> : <Icon size={22} />}
         </span>}
         {component ? <div className="inspector-component-details">
-          <h2 title={component.label.text || title}>{component.label.text.trim() || title}</h2>
-          <p title={`${title} · ${componentCategory}`}>{title} · {componentCategory}</p>
+          <h2 title={title}>{title}</h2>
+          <p title={definition ? t(definition.group) : undefined}>{definition ? t(definition.group) : ''}</p>
         </div> : <h2>{title}</h2>}
-      </div>
+      </div>}
     </div>
   );
 }

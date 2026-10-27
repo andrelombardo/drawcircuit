@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 export const INSPECTOR_STORAGE_KEY = 'drawcircuit.inspector.v1';
-export const INSPECTOR_DEFAULT_WIDTH = 264,
-  INSPECTOR_MIN_WIDTH = 252,
-  INSPECTOR_MAX_WIDTH = 440;
+export const INSPECTOR_DEFAULT_WIDTH = 340,
+  INSPECTOR_MIN_WIDTH = 300,
+  INSPECTOR_MAX_WIDTH = 480;
 export const clampInspectorWidth = (width: number) =>
   Math.max(INSPECTOR_MIN_WIDTH, Math.min(INSPECTOR_MAX_WIDTH, width));
 function read() {

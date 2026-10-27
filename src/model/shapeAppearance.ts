@@ -1,5 +1,5 @@
 import { BLEND_MODES } from './types';
-import type { CircuitDocument, CircuitObject, ShapeAnnotation, ShapeStyle, ShapeFill, ShapeBorder } from './types';
+import type { CircuitDocument, CircuitObject, ShapeAnnotation, ShapeFill, ShapeBorder } from './types';
 import { MAX_COORDINATE, MAX_LINE_WIDTH } from './limits';
 
 export const shapeFills = (o: ShapeAnnotation): ShapeFill[] => o.fills ?? (o.fill === 'none' ? [] : [
@@ -9,10 +9,6 @@ export const shapeBorders = (o: ShapeAnnotation): ShapeBorder[] => o.borders ?? 
   { id: 'border', color: o.color, opacity: o.opacity ?? 1, enabled: true, width: o.strokeWidth,
     position: 'center', lineStyle: o.lineStyle, dashLength: o.dashLength, dashGap: o.dashGap },
 ];
-export const shapeStyle = (o: ShapeAnnotation): ShapeStyle => ({
-  fills: shapeFills(o), borders: shapeBorders(o), blendMode: o.blendMode ?? 'normal',
-  styleOpacity: o.styleOpacity ?? 1, cornerRadii: o.cornerRadii ?? [0, 0, 0, 0],
-});
 export const objectFills = (o: CircuitObject): ShapeFill[] => o.kind === 'rectangle' || o.kind === 'circle' ? shapeFills(o) :
   o.fills ?? (o.kind === 'text' || o.kind === 'junction' ? [{ id: 'fill', color: o.color, opacity: o.opacity ?? 1, enabled: true }] : []);
 export const objectBorders = (o: CircuitObject): ShapeBorder[] => o.kind === 'rectangle' || o.kind === 'circle' ? shapeBorders(o) :
@@ -48,16 +44,39 @@ export function paintVariants(o: CircuitObject): CircuitObject[] | null {
 }
 export function frameSelection(doc: CircuitDocument, ids: readonly string[]): string[] {
   const included = new Set(ids);
+  const { frames } = frameIndex(doc);
   for (const id of included) {
-    const o = doc.objects.find((o) => o.id === id);
-    if (o?.kind === 'rectangle' && o.frame)
+    const o = frames.get(id);
+    if (o?.frame)
       o.frame.children.forEach((child) => included.add(child));
   }
   return [...included];
 }
-export const parentFrame = (doc: CircuitDocument, id: string) => doc.objects.find(
-  (o) => o.kind === 'rectangle' && o.frame?.children.includes(id),
-) as Extract<CircuitObject, { kind: 'rectangle' }> | undefined;
+type Frame = Extract<CircuitObject, { kind: 'rectangle' }>;
+const frameIndices = new WeakMap<CircuitDocument, {
+  parents: Map<string, Frame>;
+  frames: Map<string, Frame>;
+}>();
+
+/** Documents are immutable: build frame membership once for rendering and gestures. */
+function frameIndex(doc: CircuitDocument) {
+  let index = frameIndices.get(doc);
+  if (!index) {
+    index = { parents: new Map(), frames: new Map() };
+    for (const object of doc.objects) {
+      if (object.kind !== 'rectangle' || !object.frame) continue;
+      index.frames.set(object.id, object);
+      for (const child of object.frame.children)
+        if (!index.parents.has(child)) index.parents.set(child, object);
+    }
+    frameIndices.set(doc, index);
+  }
+  return index;
+}
+
+export function parentFrame(doc: CircuitDocument, id: string): Frame | undefined {
+  return frameIndex(doc).parents.get(id);
+}
 
 const record = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
 const number = (v: unknown) => typeof v === 'number' && Number.isFinite(v) && Math.abs(v) <= MAX_COORDINATE;

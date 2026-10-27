@@ -24,9 +24,16 @@ import { objectBorders, paintVariants, parentFrame } from '../../model/shapeAppe
 import { dashPattern } from '../../utils/strokeStyle';
 function Appearance({ object, children }: { object: CircuitObject; children: ReactNode }) {
   const renderer = isValidElement<{ object: CircuitObject }>(children) && children.props.object ? children : null;
-  const normalized = renderer ? cloneElement(renderer, { object: { ...object, styleOpacity: 1, blendMode: 'normal' } }) : children;
-  const variants = renderer ? paintVariants(object) : null;
-  const borders = [...objectBorders(object)].reverse().filter((p) => p.enabled);
+  const appearance = useMemo(() => ({
+    // Preserve object identity so memoized symbol and wire views can skip redraws.
+    object: (object.styleOpacity ?? 1) === 1 && (object.blendMode ?? 'normal') === 'normal'
+      ? object : { ...object, styleOpacity: 1, blendMode: 'normal' as const },
+    variants: paintVariants(object),
+    borders: [...objectBorders(object)].reverse().filter((p) => p.enabled),
+  }), [object]);
+  const normalized = renderer ? cloneElement(renderer, { object: appearance.object }) : children;
+  const variants = renderer ? appearance.variants : null;
+  const borders = appearance.borders;
   return <g opacity={object.styleOpacity ?? 1} style={{ mixBlendMode: object.blendMode ?? 'normal' }} data-appearance={object.id}>
     {variants && renderer ? <>
       <g opacity={0}>{normalized}</g>
@@ -82,10 +89,12 @@ export const CircuitLayer = memo(function CircuitLayer({
       ),
     [doc, objects],
   );
+  const wireIds = useMemo(() => wires.map(({ object }) => object.id), [wires]);
+  const highlights = useMemo(() => highlightPaintGroups({ ...doc, objects }), [doc, objects]);
   return (
     <>
       <g data-layer="highlights">
-        {highlightPaintGroups({ ...doc, objects }).map((group) => {
+        {highlights.map((group) => {
           const first = group[0], paints = first.borders ? [...first.borders].reverse().filter((p) => p.enabled) : [{ id: 'stroke', color: first.color, opacity: first.opacity, width: first.width }];
           return <g key={first.id} opacity={first.styleOpacity ?? 1} style={{ mixBlendMode: first.blendMode ?? 'normal' }}>
             {paints.map((paint) => <g key={paint.id} opacity={paint.opacity}>
@@ -121,7 +130,7 @@ export const CircuitLayer = memo(function CircuitLayer({
           /></Appearance>
         ))}
       </g>
-      <WireBridges doc={doc} wireIds={wires.map(({ object }) => object.id)} />
+      <WireBridges doc={doc} wireIds={wireIds} />
       <g data-layer="components">
         {objects.map((o) =>
           o.kind === 'component' ? (

@@ -4,6 +4,8 @@ import { useShallow } from 'zustand/react/shallow';
 import { supportsPolarity } from '../../model/capabilities';
 import type { CircuitObject, ElectricalAnnotation } from '../../model/types';
 import { useEditorStore } from '../../store/editorStore';
+import { componentRegistry } from '../../model/catalog';
+import { ComponentPreview } from '../palette/ComponentPreview';
 import { wirePoints } from '../../utils/geometry';
 import { annotationsForHost, withHostAnnotation } from './annotationActions';
 import {
@@ -24,7 +26,29 @@ export function AnnotationReverseAction({ mode, onClick }: {
   </button>;
 }
 
-function AnnotationFields({ annotation }: { annotation: ElectricalAnnotation }) {
+function PolarityPreview({ host, annotation }: { host: Extract<CircuitObject, { kind: 'component' }>; annotation?: ElectricalAnnotation }) {
+  const reverse = () => {
+    if (!annotation) return;
+    useEditorStore.getState().updateObjects([annotation.id], (object) =>
+      object.kind === 'electrical' ? { ...object, reversed: !object.reversed } : object,
+    );
+  };
+  const terminal = (index: number) => {
+    const name = host.terminals[index]?.id.toUpperCase() ?? String(index + 1);
+    const sign = (index === 0) !== !!annotation?.reversed ? '+' : '−';
+    return <span className="inspector-polarity-side">
+      <small>{name}</small>
+      <button type="button" className="inspector-polarity-sign" disabled={!annotation} aria-label={`${t('Reverse polarity')} · ${name}`} title={t('Reverse polarity')} onClick={reverse}>{sign}</button>
+    </span>;
+  };
+  return <div className="inspector-polarity-preview" role="group" aria-label={t('Polarity and voltage')} data-inactive={!annotation || undefined}>
+    {terminal(0)}
+    <span className="inspector-polarity-symbol" aria-hidden="true"><ComponentPreview component={componentRegistry[host.type]} /></span>
+    {terminal(1)}
+  </div>;
+}
+
+function AnnotationFields({ annotation, host }: { annotation: ElectricalAnnotation; host?: CircuitObject }) {
   const state = () => useEditorStore.getState();
   const apply = (fn: (o: CircuitObject) => CircuitObject) =>
     state().updateObjects([annotation.id], fn);
@@ -35,6 +59,7 @@ function AnnotationFields({ annotation }: { annotation: ElectricalAnnotation }) 
   const current = annotation.mode === 'current';
   return (
     <>
+      {annotation.mode === 'polarity' && host?.kind === 'component' && <PolarityPreview host={host} annotation={annotation} />}
       <div className="inspector-annotation-label">
         <PropertyField
           label={current ? t('Current label') : t('Voltage label')}
@@ -42,10 +67,10 @@ function AnnotationFields({ annotation }: { annotation: ElectricalAnnotation }) 
           value={annotation.label.text}
           onCommit={(text) => update((o) => ({ ...o, label: { ...o.label, text } }))}
         />
-        <AnnotationReverseAction
+        {!(annotation.mode === 'polarity' && host?.kind === 'component') && <AnnotationReverseAction
           mode={annotation.mode}
           onClick={() => update((o) => ({ ...o, reversed: !o.reversed }))}
-        />
+        />}
       </div>
       {current && segments > 0 && (
         <>
@@ -178,10 +203,10 @@ export function ElectricalProperties({ object }: { object: CircuitObject }) {
   const hosted = object.kind !== 'electrical';
   if (hosted && object.kind !== 'wire' && !supportsPolarity(object)) return null;
   return (
-    <InspectorSection
-      title={t('Electrical annotations')}
-      actions={hosted && (
-        <label className="inspector-enable">
+    <InspectorSection title={t('Electrical annotations')} className="inspector-electrical">
+      {hosted && (
+        <label className="inspector-enable inspector-electrical-enable">
+          <span>{t(object.kind === 'wire' ? 'Current on wire' : 'Polarity and voltage')}</span>
           <input
             type="checkbox"
             role="switch"
@@ -198,7 +223,7 @@ export function ElectricalProperties({ object }: { object: CircuitObject }) {
           />
         </label>
       )}
-    >
+      {hosted && supportsPolarity(object) && !annotations.length && <PolarityPreview host={object} />}
       {annotations.map((annotation, index) => (
         <div
           className="inspector-annotation"
@@ -217,7 +242,7 @@ export function ElectricalProperties({ object }: { object: CircuitObject }) {
               </span>
             </PropertyRow>
           )}
-          <AnnotationFields annotation={annotation} />
+          <AnnotationFields annotation={annotation} host={hosted ? object : undefined} />
         </div>
       ))}
     </InspectorSection>

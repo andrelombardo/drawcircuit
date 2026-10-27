@@ -8,7 +8,20 @@ export function t(message: string, values: Record<string, string | number> = {})
   );
 }
 
-/** Search Italian labels and their original message keys. */
-export function searchText(messages: string[]): string {
-  return messages.flatMap((message) => [message, italian[message] ?? '']).join(' ');
+const normalizeSearch = (text: string) =>
+  text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+
+/** Catalog metadata and translations are fixed; normalize each item only once. */
+export function createSearchMatcher<T extends object>(messages: (item: T) => string[]) {
+  const index = new WeakMap<T, string>();
+  return (item: T, search: string): boolean => {
+    const query = normalizeSearch(search.trim());
+    if (!query) return true;
+    let text = index.get(item);
+    if (text === undefined) {
+      text = normalizeSearch(messages(item).flatMap((message) => [message, italian[message] ?? '']).join(' '));
+      index.set(item, text);
+    }
+    return text.includes(query);
+  };
 }

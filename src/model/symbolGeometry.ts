@@ -69,10 +69,8 @@ export const inductor = [
   ),
 ];
 export const variable = auxiliary([path('M-21 22L23-23'), head(23, -23, -46)]);
-export const current = [path('M-12 0H12'), head(12, 0)];
 export const currentBar = [{ ...path('M-10 0H10'), fixedOrientation: true }];
 export const voltageBar = [{ ...path('M0-10V10'), fixedOrientation: true }];
-export const voltage = [path('M-11-5V5M-16 0H-6M7 0H15')];
 export const source = (inside: SymbolShape[] = [], dependent = false) => [
   leads,
   dependent ? path('M-22 0L0-22 22 0 0 22Z', 'white') : circle(),

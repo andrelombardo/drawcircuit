@@ -1,15 +1,16 @@
 import { dashPattern } from '../../utils/strokeStyle';
 import { translucentCrossing } from '../../utils/wireRendering';
-import { memo } from 'react';
+import { memo, useMemo } from 'react';
 import type { CircuitDocument } from '../../model/types';
 import { bridgePaths, wireCrossings } from '../../utils/crossings';
 export const WireBridges = memo(function WireBridges({ doc, wireIds }: { doc: CircuitDocument; wireIds?: string[] }) {
+  const visibleWires = useMemo(() => wireIds ? new Set(wireIds) : null, [wireIds]);
   return (
     <g data-layer="crossings" pointerEvents="none">
       {wireCrossings(doc).map((c) => {
         const p = bridgePaths(c),
           w = Math.max(c.horizontal.width, c.vertical.width) + 4;
-        if (wireIds && !wireIds.includes(p.overWire.id)) return null;
+        if (visibleWires && !visibleWires.has(p.overWire.id)) return null;
         return (
           <g
             key={`${c.x}:${c.y}`}

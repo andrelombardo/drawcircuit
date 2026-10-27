@@ -1,7 +1,8 @@
 import type { ComponentDefinition } from '../../model/catalog';
 import { Symbol } from '../../circuit/components/Symbol';
+import { memo } from 'react';
 /** The palette and replacement picker share the registry's live symbol renderer. */
-export function ComponentPreview({ component: c }: { component: ComponentDefinition }) {
+export const ComponentPreview = memo(function ComponentPreview({ component: c }: { component: ComponentDefinition }) {
   return (
     <svg
       viewBox={`${c.bounds.x - 4} ${c.bounds.y - 4} ${c.bounds.width + 8} ${c.bounds.height + 8}`}
@@ -12,4 +13,4 @@ export function ComponentPreview({ component: c }: { component: ComponentDefinit
       <Symbol type={c.type} width={2.4} bodyText={c.internalText} />
     </svg>
   );
-}
+});

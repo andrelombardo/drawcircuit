@@ -1,12 +1,12 @@
 # DrawCircuit user guide
 
-[Read in Italian](it/guide.md) · [Open DrawCircuit](https://andrelombardo.github.io/drawcircuit/)
+[Open DrawCircuit](https://andrelombardo.github.io/drawcircuit/)
 
-DrawCircuit is a browser editor for electrical circuits in notes and teaching material. Components, wires, and annotations are editable vector objects. The library contains 72 symbols in 12 categories and 25 quick blocks and diagrams. Search stays at the top while the catalog scrolls. Search matches Italian and English names across components, quick blocks and personal blocks. Clear search or press Esc in it to reset. Comic Relief is bundled for circuit text and formulas; the UI uses Inter and KaTeX lays out mathematical labels.
+DrawCircuit is a browser editor for electrical circuits in notes and teaching material. Components, wires, and annotations are editable vector objects. The library contains 72 symbols in 12 categories and 25 quick blocks and diagrams. Search stays at the top while the catalog scrolls and matches names and aliases across components, quick blocks and personal blocks. Clear search or press Esc in it to reset. Comic Relief is bundled for circuit text and formulas; the UI uses Inter and KaTeX lays out mathematical labels.
 
 ## Language and local data
 
-The interface, tooltips, properties, messages, and built-in help use Italian. Searches match English and Italian names. Your existing labels, block names, circuit, and undo history are preserved.
+The interface, tooltips, properties, messages, and built-in help use Italian. Searches match display names and aliases. Your existing labels, block names, circuit, and undo history are preserved.
 
 Your circuit saves automatically after 400 ms of inactivity and before reload or closing. Personal blocks and preferences use separate browser storage. Keep using the same browser profile and origin to access them. Browser storage can be unavailable or cleared by browser settings; if saving fails, keep the page open and copy the drawing as an image. See the [web app guide](pwa.md) for installation and legacy migration.
 

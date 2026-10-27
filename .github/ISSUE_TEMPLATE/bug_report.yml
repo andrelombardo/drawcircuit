@@ -5,7 +5,7 @@ labels: [bug]
 body:
   - type: markdown
     attributes:
-      value: Please write in English and check existing issues first. Do not include private circuit data or credentials.
+      value: Please check existing issues first. Do not include private circuit data or credentials.
   - type: textarea
     id: problem
     attributes:
@@ -29,16 +29,6 @@ body:
     attributes:
       label: Browser, version, and operating system
       placeholder: e.g. Chrome 140 on Windows 11, Safari on iPadOS
-    validations:
-      required: true
-  - type: dropdown
-    id: language
-    attributes:
-      label: Interface language
-      options:
-        - English
-        - Italian
-        - Both
     validations:
       required: true
   - type: input

@@ -1,5 +1,5 @@
 import { diagramPresets } from './diagrams';
-import { searchText } from '../i18n';
+import { createSearchMatcher } from '../i18n';
 import { GRID } from '../model/types';
 import type { ComponentType, Point, Rotation } from '../model/types';
 import type {
@@ -489,12 +489,6 @@ export const circuitPresets: CircuitPreset[] = [
   ),
 ];
 export const presetRegistry = Object.fromEntries(circuitPresets.map((item) => [item.id, item]));
-const normalized = (text: string) =>
-  text
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase();
-export const matchesPreset = (item: CircuitPreset, search: string) =>
-  normalized(searchText([item.name, item.shortName, item.category, ...item.keywords])).includes(
-    normalized(search.trim()),
-  );
+export const matchesPreset = createSearchMatcher((item: CircuitPreset) =>
+  [item.name, item.shortName, item.category, ...item.keywords],
+);

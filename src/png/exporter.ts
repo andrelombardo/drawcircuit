@@ -148,5 +148,3 @@ export async function exportPNG(doc: CircuitDocument): Promise<Blob> {
   await preparePNGFonts();
   return rasterizeSVG(exportSVG(doc, { transparent: true }));
 }
-
-export { copyPNG } from './clipboard';

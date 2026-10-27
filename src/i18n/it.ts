@@ -1,4 +1,4 @@
-/** Italian UI translations. English messages are the source keys. */
+/** Italian UI translations, indexed by complete source messages. */
 export const italian: Readonly<Record<string, string>> = {
   "Project": "Progetto",
   "Download project": "Scarica progetto",
@@ -30,6 +30,11 @@ export const italian: Readonly<Record<string, string>> = {
   "Select elements and choose Copy as image from the right-click menu for a transparent PNG. Use Select all to include the whole circuit. Grid, guides and handles stay out of the image.": "Seleziona gli elementi e scegli Copia come immagine nel menu contestuale per ottenere un PNG trasparente. Usa Seleziona tutto per includere il circuito intero. Griglia, guide e handle restano fuori dall’immagine.",
   Magenta: 'Magenta',
   'Braces rotate in multiples of 90°.': 'Graffe e staffe ruotano per multipli di 90°.',
+  Transform: 'Trasforma', 'Label appearance': 'Aspetto etichetta',
+  'Rotate 90° counterclockwise': 'Ruota di 90° in senso antiorario',
+  'Rotate 90° clockwise': 'Ruota di 90° in senso orario',
+  'Relative rotation · selection center': 'Rotazione relativa · centro della selezione',
+  'Relative rotation · element center': 'Rotazione relativa · centro dell’elemento',
   'Rotation: angle to add around the element center': 'Ruota l’elemento attorno al suo centro dell’angolo indicato.',
   'Choose an intersecting line, away from the vertex.': 'Scegli una linea che incontra la prima, in un punto distante dal vertice.',
   'Click the second line · the vertex is their intersection · Esc cancels': 'Scegli la seconda linea: il vertice sarà l’intersezione · Esc annulla',

@@ -58,7 +58,7 @@ export function HelpDialog({ onClose }: { onClose: () => void }) {
         <p>{t('The drawing is saved automatically in this browser. Project, beside Help, downloads an editable .drawcircuit file or opens a .drawcircuit / JSON project. Opening asks before replacing your work and can be undone.')}</p>
         <p>{t('Select elements and choose Copy as image from the right-click menu for a transparent PNG. Use Select all to include the whole circuit. Grid, guides and handles stay out of the image.')}</p>
       </details>
-      <a className="help-guide-link" href="https://github.com/andrelombardo/drawcircuit/blob/main/docs/it/guide.md" target="_blank" rel="noreferrer">{t('Read the complete guide')}</a>
+      <a className="help-guide-link" href="https://github.com/andrelombardo/drawcircuit/blob/main/docs/guide.md" target="_blank" rel="noreferrer">{t('Read the complete guide')}</a>
     </section>
   </div>;
 }

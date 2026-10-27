@@ -13,7 +13,6 @@ import { commonValue } from './commonValue';
 import { InspectorSection, PropertyField, PropertySelect } from './PropertyControls';
 import { ColorControl } from './SelectionStyle';
 import { SelectionGeometry } from './SelectionGeometry';
-import { ObjectStyleSection } from './ObjectStyleSection';
 import { ObjectPaintSection } from './PaintSections';
 
 /** Reuse the inspector's standard color, opacity and numeric controls. */
@@ -34,7 +33,6 @@ export function HighlightProperties({ objects = [] }: { objects?: Highlight[] })
   const color = commonValue(values.map((o) => o.color));
   const opacity = commonValue(values.map((o) => Math.round(o.opacity * 100)));
   const width = commonValue(values.map((o) => o.width));
-  const AppearanceSection = editing ? ObjectStyleSection : InspectorSection;
   const detachButton = (
     <button
       className="inspector-property-action"
@@ -88,8 +86,8 @@ export function HighlightProperties({ objects = [] }: { objects?: Highlight[] })
           </p>
         </div>
       )}
-      <AppearanceSection title={t('Appearance')} objects={objects} apply={(fn) => state().updateSelection(fn)}>
-        {!editing && <div className="inspector-style">
+      {!editing && <InspectorSection title={t('Appearance')}>
+        <div className="inspector-style">
           <ColorControl
             label={t('Color')}
             value={color}
@@ -119,8 +117,8 @@ export function HighlightProperties({ objects = [] }: { objects?: Highlight[] })
             value={width}
             onCommit={(v) => apply({ width: Number(v) })}
           />
-        </div>}
-      </AppearanceSection>
+        </div>
+      </InspectorSection>}
       {editing && <ObjectPaintSection objects={objects} apply={(fn) => state().updateSelection(fn)} border />}
       {single && (
         <InspectorSection title={t('Geometry')}>

@@ -1,4 +1,4 @@
-import { searchText } from '../i18n';
+import { createSearchMatcher } from '../i18n';
 import { COLORS } from './types';
 import type { CircuitComponent, ComponentType, Point, Terminal } from './types';
 import * as g from './symbolGeometry';
@@ -676,15 +676,9 @@ export const componentRegistry: Record<ComponentType, ComponentDefinition> = {
   ),
 };
 export const catalog: ComponentDefinition[] = Object.values(componentRegistry);
-const normalized = (s: string) =>
-  s
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase();
-export const matchesComponent = (definition: ComponentDefinition, search: string) =>
-  normalized(searchText([definition.name, definition.group, ...definition.searchTerms])).includes(
-    normalized(search.trim()),
-  );
+export const matchesComponent = createSearchMatcher((definition: ComponentDefinition) =>
+  [definition.name, definition.group, ...definition.searchTerms],
+);
 export const makeId = () => crypto.randomUUID();
 export function terminalsFor(type: ComponentType): Terminal[] {
   return componentRegistry[type].terminals.map((t) => ({ ...t }));

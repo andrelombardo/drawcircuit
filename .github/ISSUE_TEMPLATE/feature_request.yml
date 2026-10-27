@@ -5,7 +5,7 @@ labels: [enhancement]
 body:
   - type: markdown
     attributes:
-      value: Please write in English and check existing proposals before opening a new one.
+      value: Please check existing proposals before opening a new one.
   - type: textarea
     id: problem
     attributes:
