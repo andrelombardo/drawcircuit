@@ -299,7 +299,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   beginGesture: () => set((s) => ({ gestureStart: s.gestureStart ?? s.document })),
   preview: (document) =>
     set((s) => ({
-      document: reconcileHighlights(
+      document: document === s.gestureStart ? document : reconcileHighlights(
         s.gestureStart ?? s.document,
         reconcileCurrentSegments(s.gestureStart ?? s.document, reconcileFrames(s.document, document)),
       ),

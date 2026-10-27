@@ -49,6 +49,7 @@ export function HelpDialog({ onClose }: { onClose: () => void }) {
       <details className="help-disclosure">
         <summary>{t('Drawing and editing tips')}</summary>
         <p>{t('Drag a terminal to start a new wire in Select. Drag a round endpoint handle to reconnect an existing wire. Filled handles are connected; hollow handles are free. Alt/Option temporarily disables snapping. A selection click never changes connections.')}</p>
+        <p>{t('Select a complete circuit, including its wires, then drag a corner to adjust its spacing without changing symbol sizes. Include all connected elements to show the corner handles.')}</p>
         <p>{t('Smart Placement can insert a component into a compatible wire when the preview shows both cuts. Highlighter follows circuit paths in Smart mode or draws freely in Freehand mode. Highlight eraser affects highlights only; each drag is one undo step.')}</p>
         <p>{t('Diagrams contains editable axes and a Gauss plane. Click two intersecting lines with Angle to measure their angle. Decorative lines can attach to shapes and use curved routing or arrowheads. Braces and brackets rotate with R.')}</p>
       </details>

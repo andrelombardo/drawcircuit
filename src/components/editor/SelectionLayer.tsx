@@ -14,6 +14,7 @@ import { arrowPath, isLooseEndpoint, lineAsWire, lineCurveGeometry, linePath, li
 import { unionBounds, contentBounds } from '../../utils/visualBounds';
 import { loopGeometry, loopPath } from '../../utils/loops';
 import { WIRE_ENDPOINT_HIT_PX } from '../../utils/wires';
+import { canResizeCircuit, circuitSelectionBounds } from '../../utils/resizeCircuit';
 function selectionBounds(object: CircuitObject, doc: CircuitDocument) {
   if (object.kind !== 'electrical' || object.mode !== 'current') return contentBounds(object, doc);
   const g = electricalDrawingGeometry(object, doc);
@@ -60,6 +61,7 @@ function Handle({
         <title>{t(decorative ? 'Drag to move or reconnect' : 'Drag to move or reconnect · W to add a wire')}</title>
       )}
       {name.startsWith('control:') && <title>{t('Drag to shape the curve')}</title>}
+      {name.startsWith('circuit') && <title>{t('Drag to resize the circuit while keeping symbols the same size')}</title>}
       <circle
         cx={p.x}
         cy={p.y}
@@ -95,11 +97,13 @@ export function SelectionLayer({
   const selected = new Set(selection);
   const objects = doc.objects.filter((object) => selected.has(object.id));
   const single = objects.length === 1;
+  const resizable = canResizeCircuit(doc, selection);
+  const groupBounds = resizable ? circuitSelectionBounds(doc, selection) : unionBounds(objects.map((o) => selectionBounds(o, doc)));
   return (
     <g data-layer="selection">
       {selection.length > 1 && (
         <rect
-          {...unionBounds(objects.map((o) => selectionBounds(o, doc)))}
+          {...groupBounds}
           className="selection-box"
           data-selection="group"
           pointerEvents="none"
@@ -268,6 +272,13 @@ export function SelectionLayer({
           </g>
         );
       })}
+      {resizable && <g data-object={objects[0].id}>
+        {(['NW', 'NE', 'SW', 'SE'] as const).map((corner) => <Handle key={corner}
+          name={`circuit${corner}`} zoom={zoom} square p={{
+            x: groupBounds.x + (corner.endsWith('E') ? groupBounds.width : 0),
+            y: groupBounds.y + (corner.startsWith('S') ? groupBounds.height : 0),
+          }} />)}
+      </g>}
     </g>
   );
 }

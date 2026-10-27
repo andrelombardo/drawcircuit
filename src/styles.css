@@ -489,6 +489,8 @@ svg {
   stroke-width: 1.4;
   cursor: crosshair;
 }
+.handle-circuitNW, .handle-circuitSE, .handle-circuitNW .control-handle, .handle-circuitSE .control-handle { cursor: nwse-resize; }
+.handle-circuitNE, .handle-circuitSW, .handle-circuitNE .control-handle, .handle-circuitSW .control-handle { cursor: nesw-resize; }
 .handle-line {
   fill: none;
   stroke: var(--ui-accent);

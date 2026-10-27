@@ -303,7 +303,7 @@ export function createCurrent(
   return o;
 }
 
-function currentAttachment(
+export function currentAttachment(
   wire: Wire,
   point: Point,
   doc: CircuitDocument,

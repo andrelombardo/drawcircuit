@@ -482,6 +482,8 @@ export const italian: Readonly<Record<string, string>> = {
   'Zoom in / out': 'Zoom avanti / indietro',
   'Pan / select': 'Pan / selezione',
   'Select all': 'Seleziona tutto',
+  'Drag to resize the circuit while keeping symbols the same size': 'Trascina per ridimensionare il circuito mantenendo invariata la dimensione dei simboli',
+  'Select a complete circuit, including its wires, then drag a corner to adjust its spacing without changing symbol sizes. Include all connected elements to show the corner handles.': 'Seleziona un circuito completo, inclusi i fili, poi trascina un angolo per regolare gli spazi senza cambiare la dimensione dei simboli. Includi tutti gli elementi collegati per mostrare le maniglie agli angoli.',
   'Select / cancel wire': 'Selezione / annulla filo',
   'Show / hide Components': 'Mostra / nascondi Componenti',
   'for a subscript.': 'per un pedice.',

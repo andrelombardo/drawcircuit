@@ -58,6 +58,8 @@ import {
   lineFromWire,
 } from '../../utils/geometry';
 import { moveSelection } from '../../utils/operations';
+import { createCircuitResizeContext, resizeCircuit } from '../../utils/resizeCircuit';
+import type { CircuitCorner, CircuitResizeContext } from '../../utils/resizeCircuit';
 import { inlineTextTarget, moveLabel, replaceInlineText } from '../../utils/labels';
 import {
   splitWireAtPoint,
@@ -108,6 +110,7 @@ type Drag =
       ids: string[];
       handle?: string;
       moveContext?: MoveContext;
+      resizeContext?: CircuitResizeContext;
     }
   | { type: 'marquee'; origin: Point; additive: boolean }
   | {
@@ -1026,6 +1029,14 @@ export function useCanvasInteractions(
         : hitHandle === 'wireStart' || hitHandle === 'wireEnd'
           ? undefined
           : hitHandle;
+    if (handle?.startsWith('circuit') && s.selection.length > 1) {
+      const resizeContext = createCircuitResizeContext(s.document, s.selection);
+      if (!resizeContext) return;
+      s.beginGesture();
+      svg.setPointerCapture(e.pointerId);
+      drag.current = { type: 'handle', origin: p, doc: s.document, ids: s.selection, handle, resizeContext };
+      return;
+    }
     const quickWire = s.tool === 'select' && !e.shiftKey && !e.altKey && !groupDrag;
     if (quickWire && terminalId && component?.kind === 'component') {
       const terminal = component.terminals.find((t) => t.id === terminalId);
@@ -1336,6 +1347,11 @@ export function useCanvasInteractions(
       setDragging(d.type === 'handle' ? 'handle' : 'move');
       const selected = new Set(d.ids);
       const raw = { x: p.x - d.origin.x, y: p.y - d.origin.y };
+      if (d.resizeContext) {
+        s.preview(resizeCircuit(d.resizeContext, d.handle!.slice(7) as CircuitCorner, raw));
+        setOverlay(blank);
+        return;
+      }
       const feedback =
         d.type === 'move' && d.moveContext
           ? computeMoveGuides(
@@ -1657,7 +1673,9 @@ export function useCanvasInteractions(
           d.doc.objects.some(
             (o) => d.ids.includes(o.id) && ['wire', 'component', 'junction'].includes(o.kind),
           ));
-      if (doc !== d.doc && changesWireGeometry) {
+      // Resizing preserves route ownership and connections. Endpoint healing or
+      // route simplification here can change segment indices and hosted arrows.
+      if (!d.resizeContext && doc !== d.doc && changesWireGeometry) {
         const abandoned = new Set<string>();
         if (d.handle === 'wireStart' || d.handle === 'wireEnd') {
           const original = d.doc.objects.find((o) => o.id === d.ids[0]);
@@ -1669,7 +1687,7 @@ export function useCanvasInteractions(
         s.preview(normalizeDocumentWires(healWireConnections(doc, abandoned)));
       }
       const edited = useEditorStore.getState().document;
-      if (edited !== d.doc && d.doc.objects.some((o) => d.ids.includes(o.id) &&
+      if (!d.resizeContext && edited !== d.doc && d.doc.objects.some((o) => d.ids.includes(o.id) &&
         (o.kind === 'line' || o.kind === 'component' || o.kind === 'junction')))
         s.preview({ ...edited, objects: edited.objects.map((o) => o.kind === 'line' ? normalizeLine(o, edited) : o) });
       wireSnapRef.current = null;
