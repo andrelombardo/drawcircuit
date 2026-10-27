@@ -12,7 +12,6 @@ import { objectCenter } from '../../utils/selectionGeometry';
 import { commonValue } from './commonValue';
 import { InspectorSection, PropertyField, PropertySelect } from './PropertyControls';
 import { ColorControl } from './SelectionStyle';
-import { SelectionGeometry } from './SelectionGeometry';
 import { ObjectPaintSection } from './PaintSections';
 
 /** Reuse the inspector's standard color, opacity and numeric controls. */
@@ -201,11 +200,6 @@ export function HighlightProperties({ objects = [] }: { objects?: Highlight[] })
             </p>
           )}
           {single.mode !== 'free' && detachButton}
-        </InspectorSection>
-      )}
-      {objects.length > 1 && objects.every((o) => o.mode === 'free') && (
-        <InspectorSection title={t('Geometry')}>
-          <SelectionGeometry objects={objects} />
         </InspectorSection>
       )}
       {objects.length > 1 && objects.some((o) => o.mode !== 'free') && (

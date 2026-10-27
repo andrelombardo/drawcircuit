@@ -2742,44 +2742,10 @@ summary:focus-visible {
   flex: 1;
   height: var(--property-height);
 }
-.inspector-geometry-group + .inspector-geometry-group {
-  margin-top: 4px;
-  padding-top: 12px;
-}
-.inspector-geometry-group > .property-row:first-of-type {
-  margin-top: 0;
-}
-.inspector-geometry-group h4,
 .inspector-offsets h4 {
   font-size: 12px;
   font-weight: 500;
   margin: 0 0 var(--property-gap);
-}
-.inspector-axis-group + .inspector-axis-group {
-  margin-top: var(--property-gap);
-}
-.inspector-alignment-buttons {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 6px;
-  margin-top: 6px;
-}
-.inspector-alignment-buttons .inspector-property-action {
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  min-height: 52px;
-  height: auto;
-  gap: 5px;
-  padding: 8px 4px;
-  line-height: 1.2;
-  text-align: center;
-}
-.inspector-axis-actions {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 138px), 1fr));
-  gap: var(--property-gap);
-  margin-top: var(--property-gap);
 }
 .inspector-property-action svg {
   flex: none;
@@ -2790,19 +2756,6 @@ summary:focus-visible {
 }
 .inspector-property-action:active:not(:disabled) {
   background: var(--ui-hover);
-}
-.inspector-exact-spacing {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 32px;
-  gap: 6px var(--property-gap);
-  align-items: center;
-  margin-top: 12px;
-}
-.inspector-exact-spacing > label {
-  grid-column: 1 / -1;
-}
-.inspector-exact-spacing .inspector-property-action {
-  padding: 6px;
 }
 .inspector-offsets {
   margin-top: var(--property-gap);
@@ -2818,9 +2771,6 @@ summary:focus-visible {
 }
 .inspector-annotation > .inspector-property-action {
   margin-top: 8px;
-}
-.inspector-note.inspector-scope {
-  margin-bottom: 0;
 }
 /* Reserve independent tracks for digits and unit, including at large UI zoom.
    At narrow widths the caption gets its own row, leaving HEX and % intact. */
@@ -3719,8 +3669,7 @@ summary:focus-visible {
   line-height: 18px;
 }
 .inspector-layout > .inspector-section-heading h3,
-.inspector-text > .inspector-section-heading h3,
-.inspector-arrangement > .inspector-section-heading h3 { color: #29292b; }
+.inspector-text > .inspector-section-heading h3 { color: #29292b; }
 .inspector-section-actions {
   display: flex;
   align-items: center;
@@ -4118,8 +4067,7 @@ summary:focus-visible {
   text-transform: uppercase;
 }
 .inspector-layout > .inspector-section-heading h3,
-.inspector-text > .inspector-section-heading h3,
-.inspector-arrangement > .inspector-section-heading h3 { color: #606069; }
+.inspector-text > .inspector-section-heading h3 { color: #606069; }
 .inspector-subheading { color: var(--property-muted); font-size: 11px; font-weight: 500; }
 .inspector-position-help { margin: 0; }
 .inspector-transform-layout { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
@@ -4211,10 +4159,6 @@ summary:focus-visible {
 .inspector-rotation-controls > .property-row { max-width: 90px; padding-left: 0; }
 .inspector-rotation-controls > .property-row > .inspector-field-caption { display: none; }
 .inspector-mirror-controls { display: flex; align-items: center; gap: 5px; flex: 1 1 100%; }
-.inspector-geometry-group h4 { margin-bottom: 8px; }
-.inspector-alignment-buttons { gap: 4px; margin-top: 4px; }
-.inspector-alignment-buttons .inspector-property-action { min-height: var(--property-height); height: var(--property-height); padding: 4px; }
-.inspector-alignment-buttons .inspector-property-action span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .inspector-line-style { display: grid; gap: 6px; min-width: 0; }
 .inspector-line-segments { display: flex; min-width: 0; height: var(--property-height); border: 1px solid var(--property-border); border-radius: var(--property-radius); background: #fff; overflow: hidden; }
 .inspector-line-segments button { display: grid; place-items: center; flex: 1; min-width: 0; color: #666670; border-right: 1px solid var(--property-border); }

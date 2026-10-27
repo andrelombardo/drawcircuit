@@ -25,7 +25,6 @@ import { inlineTextTarget, replaceInlineText } from '../../utils/labels';
 import { LabelAppearance, SelectionStyle, SelectionTypography } from './SelectionStyle';
 import { rotateObjects } from '../../utils/operations';
 import { AnnotationReverseAction, ElectricalProperties } from './ElectricalProperties';
-import { SelectionGeometry } from './SelectionGeometry';
 import { reverseLoop } from '../../utils/loops';
 import { InspectorDisclosure, InspectorSection, PropertyField, PropertySelect, PropertyRow } from './PropertyControls';
 export function PropertiesContent() {
@@ -450,11 +449,6 @@ export function PropertiesContent() {
         )}
       </InspectorSection>
       {!labelTarget && o?.kind === 'rectangle' && o.frame && <FrameSettings key={o.id} object={o} />}
-      {!labelTarget && objects.length > 1 && (
-        <InspectorSection title={t('Arrangement')} className="inspector-arrangement">
-          <SelectionGeometry objects={objects} />
-        </InspectorSection>
-      )}
       {!labelTarget && hasAdditionalAppearance && (
         <InspectorSection title={t('Appearance')} className="inspector-additional-appearance">
           {!fillSelection && !strokeSelection && <SelectionStyle
