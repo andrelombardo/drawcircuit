@@ -4,7 +4,7 @@ import { canvasArrowHead } from '../tikz/arrowheads';
 import { canvasTextLayout } from '../tikz/canvasText';
 import { angleGeometry } from '../annotations/angle';
 import { braceGeometry } from '../annotations/brace';
-import { connectionWires, lineCurveGeometry, linePoints, midpoint, moveObject, objectBounds, rotatePoint, wirePoints } from './geometry';
+import { connectionWires, lineCurveGeometry, linePoints, midpoint, moveObject, objectBounds, resolveEndpoint, rotatePoint, wirePoints } from './geometry';
 import { unionBounds, visualBounds } from './visualBounds';
 import type { Bounds } from './visualBounds';
 
@@ -133,10 +133,16 @@ function axisMap(plan: AxisPlan, displacement: number, fromEnd: boolean) {
   const { start, length, fixed } = plan;
   const flexible = Math.max(0, length - fixed);
   const desired = length + (fromEnd ? displacement : -displacement);
-  const factor = flexible > 1e-6 ? Math.max(0, (desired - fixed) / flexible) : 1;
+  // A fully packed projection must still be expandable. Its objects retain
+  // their own size; incident wire bends are reconciled with their actual pins.
+  if (flexible <= 1e-6 && desired > length && length > 1e-6) {
+    const factor = desired / length, anchor = fromEnd ? start : start + length;
+    return { identity: false, affine: true, map: (value: number) => anchor + (value - anchor) * factor };
+  }
+  const factor = flexible > 1e-6 ? Math.max(0.0001, (desired - fixed) / flexible) : 1;
   const origin = fromEnd ? start : start + length - fixed - flexible * factor;
   const initialRigid = rigidDistance(plan, start);
-  return { identity: Math.abs(factor - 1) < 1e-12, map: (value: number) => {
+  return { identity: Math.abs(factor - 1) < 1e-12, affine: false, map: (value: number) => {
     const rigid = rigidDistance(plan, value) - initialRigid;
     return origin + rigid + (value - start - rigid) * factor;
   } };
@@ -150,15 +156,23 @@ export interface CircuitResizeContext {
   y: AxisPlan;
   routes: Map<string, Point[]>;
   dependents: Set<string>;
+  expansionX: AxisPlan;
+  expansionY: AxisPlan;
+  obstacles: { id: string; bounds: Bounds; anchor: Point }[];
 }
 /** Precompute constraints and resolved routes once per gesture, not per pointer event. */
 export function createCircuitResizeContext(doc: CircuitDocument, ids: string[]): CircuitResizeContext | null {
   if (!canResizeCircuit(doc, ids)) return null;
   const selected = new Set(ids), bounds = circuitSelectionBounds(doc, ids);
-  const xs: Interval[] = [], ys: Interval[] = [], routes = new Map<string, Point[]>(), dependents = new Set<string>();
+  const xs: Interval[] = [], ys: Interval[] = [], expansionXs: Interval[] = [], expansionYs: Interval[] = [];
+  const routes = new Map<string, Point[]>(), dependents = new Set<string>();
+  const obstacles: CircuitResizeContext['obstacles'] = [];
+  const index = new Map(doc.objects.map((o) => [o.id, o]));
   const protect = (b: Bounds, padding: number) => {
     xs.push([b.x - padding, b.x + b.width + padding]);
     ys.push([b.y - padding, b.y + b.height + padding]);
+    expansionXs.push([b.x, b.x + b.width]);
+    expansionYs.push([b.y, b.y + b.height]);
   };
   for (const o of doc.objects) {
     const attached = o.kind === 'electrical' && ((o.wireId && selected.has(o.wireId)) ||
@@ -166,6 +180,10 @@ export function createCircuitResizeContext(doc: CircuitDocument, ids: string[]):
     if (attached) dependents.add(o.id);
     if (!selected.has(o.id) && !attached) continue;
     if (o.kind === 'highlight' && o.mode !== 'free') continue;
+    if (o.kind !== 'wire' && (o.kind !== 'line' || o.controlPoints || o.arrowhead)) {
+      const host = o.kind === 'electrical' && o.componentId ? index.get(o.componentId) : undefined;
+      obstacles.push({ id: o.id, bounds: resizeBounds(o, doc), anchor: resizeAnchor(host ?? o, doc) });
+    }
     if (o.kind === 'wire' || o.kind === 'line') {
       const route = o.kind === 'wire' ? wirePoints(o, doc) : linePoints(o, doc);
       routes.set(o.id, route);
@@ -181,17 +199,57 @@ export function createCircuitResizeContext(doc: CircuitDocument, ids: string[]):
             protect(pointsBounds([a, b]), ROUTE_CLEARANCE);
         }
       }
-    } else protect(resizeBounds(o, doc), CLEARANCE);
+    } else {
+      // Labels remain rigid with their owner, but their projection across an
+      // entire axis must not lock unrelated rows/branches. Check their actual
+      // two-dimensional clearance separately below.
+      const geometry = o.kind === 'component' ? visualBounds(o, doc) : o.kind === 'junction' ? objectBounds(o, doc) :
+        o.kind === 'electrical' ? (() => {
+          const g = electricalDrawingGeometry(o, doc);
+          return pointsBounds([g.start, g.end, ...g.head]);
+        })() : resizeBounds(o, doc);
+      protect(geometry, CLEARANCE);
+    }
   }
+  // Outer label/stroke margins are not spaces between circuit elements. Allocating
+  // expansion to those margins would translate the whole diagram without growing it.
+  const expansionPlan = (start: number, length: number, intervals: Interval[]) => {
+    const first = Math.min(...intervals.map(([a]) => a)), last = Math.max(...intervals.map(([, b]) => b));
+    return axisPlan(start, length, [...intervals, [start, first], [last, start + length]]);
+  };
   return { doc, selected, bounds, x: axisPlan(bounds.x, bounds.width, xs),
-    y: axisPlan(bounds.y, bounds.height, ys), routes, dependents };
+    y: axisPlan(bounds.y, bounds.height, ys), routes, dependents, obstacles,
+    expansionX: expansionPlan(bounds.x, bounds.width, expansionXs), expansionY: expansionPlan(bounds.y, bounds.height, expansionYs) };
 }
 
 export function resizeCircuit(context: CircuitResizeContext, corner: CircuitCorner, delta: Point): CircuitDocument {
   const { doc, selected, routes, dependents } = context;
   if (!Number.isFinite(delta.x) || !Number.isFinite(delta.y)) return doc;
-  const x = axisMap(context.x, delta.x, corner.endsWith('E'));
-  const y = axisMap(context.y, delta.y, corner.startsWith('S'));
+  const fromEndX = corner.endsWith('E'), fromEndY = corner.startsWith('S');
+  const expandingX = delta.x * (fromEndX ? 1 : -1) > 0;
+  const expandingY = delta.y * (fromEndY ? 1 : -1) > 0;
+  const maps = (ratioX: number, ratioY: number) => ({
+    x: axisMap(expandingX ? context.expansionX : context.x, delta.x * ratioX, fromEndX),
+    y: axisMap(expandingY ? context.expansionY : context.y, delta.y * ratioY, fromEndY),
+  });
+  let { x, y } = maps(1, 1);
+  if ((!expandingX || !expandingY) && introducesOverlap(context.obstacles, x.map, y.map)) {
+    const safeRatio = (candidateAt: (ratio: number) => ReturnType<typeof maps>) => {
+      let lo = 0, hi = 1;
+      const full = candidateAt(1);
+      if (!introducesOverlap(context.obstacles, full.x.map, full.y.map)) return 1;
+      for (let i = 0; i < 18; i++) {
+        const mid = (lo + hi) / 2, candidate = candidateAt(mid);
+        if (introducesOverlap(context.obstacles, candidate.x.map, candidate.y.map)) hi = mid;
+        else lo = mid;
+      }
+      return lo;
+    };
+    // A blocked horizontal contraction must not block vertical resizing too.
+    const ratioX = expandingX ? 1 : safeRatio((ratio) => maps(ratio, expandingY ? 1 : 0));
+    const ratioY = expandingY ? 1 : safeRatio((ratio) => maps(ratioX, ratio));
+    ({ x, y } = maps(ratioX, ratioY));
+  }
   if (x.identity && y.identity) return doc;
   const map = (p: Point): Point => ({ x: x.map(p.x), y: y.map(p.y) });
   const endpoint = (ep: Endpoint): Endpoint => ep.kind === 'free' ? { ...ep, point: map(ep.point) } : ep;
@@ -208,9 +266,10 @@ export function resizeCircuit(context: CircuitResizeContext, corner: CircuitCorn
     if (o.kind === 'highlight' && o.mode !== 'free') return o;
     // Every visible annotation, including short current arrows, is rigid. Only
     // wires and unadorned line routes change length; heads/curves/text never scale.
-    const b = resizeBounds(o, doc), center = { x: b.x + b.width / 2, y: b.y + b.height / 2 }, moved = map(center);
-    return moveObject(o, { x: moved.x - center.x, y: moved.y - center.y }, selected);
+    const anchor = resizeAnchor(o, doc), moved = map(anchor);
+    return moveObject(o, { x: moved.x - anchor.x, y: moved.y - anchor.y }, selected);
   }) };
+  if (x.affine || y.affine) resized = reconcileExpandedRoutes(context, resized, map);
   const index = new Map(resized.objects.map((o) => [o.id, o]));
   resized = { ...resized, objects: resized.objects.map((o) => {
     if (!dependents.has(o.id) || o.kind !== 'electrical' || !o.wireId || o.mode !== 'current') return o;
@@ -226,5 +285,67 @@ export function resizeCircuit(context: CircuitResizeContext, corner: CircuitCorn
       start: { x: center.x - half.x, y: center.y - half.y },
       end: { x: center.x + half.x, y: center.y + half.y } };
   }) };
+  // Fixed-size labels can extend past an affinely expanded anchor. Keep the
+  // opposite visible corner stationary, including in fully packed circuits.
+  const nextBounds = circuitSelectionBounds(resized, [...selected]);
+  const before = context.bounds;
+  const correction = {
+    x: (fromEndX ? before.x : before.x + before.width) - (fromEndX ? nextBounds.x : nextBounds.x + nextBounds.width),
+    y: (fromEndY ? before.y : before.y + before.height) - (fromEndY ? nextBounds.y : nextBounds.y + nextBounds.height),
+  };
+  if (Math.abs(correction.x) + Math.abs(correction.y) > 1e-7)
+    resized = { ...resized, objects: resized.objects.map((o) => selected.has(o.id) ? moveObject(o, correction, selected) : o) };
   return resized;
+}
+
+/** Transform the semantic anchor, never an off-centre label's bounding-box centre. */
+function resizeAnchor(o: CircuitObject, doc: CircuitDocument): Point {
+  if (o.kind === 'component' || o.kind === 'junction' || o.kind === 'text' || o.kind === 'angle') return o;
+  if (o.kind === 'arrow' || o.kind === 'brace' || o.kind === 'line') return midpoint(o.start, o.end);
+  if (o.kind === 'electrical') {
+    const g = electricalDrawingGeometry(o, doc);
+    return midpoint(g.start, g.end);
+  }
+  const b = visualBounds(o, doc);
+  return { x: b.x + b.width / 2, y: b.y + b.height / 2 };
+}
+
+function overlaps(a: Bounds, b: Bounds) {
+  const margin = 2;
+  return a.x < b.x + b.width + margin - 1e-6 && b.x < a.x + a.width + margin - 1e-6 &&
+    a.y < b.y + b.height + margin - 1e-6 && b.y < a.y + a.height + margin - 1e-6;
+}
+/** A sweep checks only nearby boxes; existing overlaps never freeze the gesture. */
+function introducesOverlap(obstacles: CircuitResizeContext['obstacles'], x: (v: number) => number, y: (v: number) => number) {
+  const boxes = obstacles.map((o) => ({ source: o.bounds, bounds: { ...o.bounds,
+    x: o.bounds.x + x(o.anchor.x) - o.anchor.x, y: o.bounds.y + y(o.anchor.y) - o.anchor.y } }))
+    .sort((a, b) => a.bounds.x - b.bounds.x);
+  for (let i = 0; i < boxes.length; i++) {
+    const a = boxes[i];
+    for (let j = i + 1; j < boxes.length && boxes[j].bounds.x < a.bounds.x + a.bounds.width + 2; j++) {
+      const b = boxes[j];
+      if (overlaps(a.bounds, b.bounds) && !overlaps(a.source, b.source)) return true;
+    }
+  }
+  return false;
+}
+
+/** When overlapping projections leave no elastic interval, expanding symbol
+ * centres still works. Preserve real pin references and align the incident bends. */
+function reconcileExpandedRoutes(context: CircuitResizeContext, next: CircuitDocument, map: (p: Point) => Point): CircuitDocument {
+  return { ...next, objects: next.objects.map((o) => {
+    if (!context.selected.has(o.id) || (o.kind !== 'wire' && o.kind !== 'line') || (o.kind === 'line' && o.controlPoints)) return o;
+    const original = context.routes.get(o.id)!;
+    const route = original.map(map);
+    const start = o.kind === 'wire' || o.startEndpoint ? resolveEndpoint(o.startEndpoint!, next) : o.start;
+    const end = o.kind === 'wire' || o.endEndpoint ? resolveEndpoint(o.endEndpoint!, next) : o.end;
+    const vertices = route.slice(1, -1);
+    if (vertices.length) {
+      if (Math.abs(original[0].x - original[1].x) < 1e-7) vertices[0].x = start.x;
+      if (Math.abs(original[0].y - original[1].y) < 1e-7) vertices[0].y = start.y;
+      if (Math.abs(original.at(-1)!.x - original.at(-2)!.x) < 1e-7) vertices.at(-1)!.x = end.x;
+      if (Math.abs(original.at(-1)!.y - original.at(-2)!.y) < 1e-7) vertices.at(-1)!.y = end.y;
+    }
+    return o.kind === 'wire' ? { ...o, vertices } : { ...o, start, end, vertices };
+  }) };
 }
