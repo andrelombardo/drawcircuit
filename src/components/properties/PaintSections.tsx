@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react';
+import type { ReactNode } from 'react';
 import { ArrowDown, ArrowUp, Blend, ChevronDown, CirclePlus, Layers2, Settings2, Trash2 } from 'lucide-react';
 import { t } from '../../i18n';
 import { makeId } from '../../model/catalog';
@@ -12,8 +13,9 @@ import { ColorControl } from './SelectionStyle';
 import { InspectorSection, PropertyField, PropertySelect } from './PropertyControls';
 import { InspectorPopover } from './InspectorPopover';
 
-export function ObjectPaintSection({ objects, apply, border = false }: {
+export function ObjectPaintSection({ objects, apply, border = false, children }: {
   objects: CircuitObject[]; apply: (fn: (o: CircuitObject) => CircuitObject) => void; border?: boolean;
+  children?: ReactNode;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [activeBorder, setActiveBorder] = useState(0);
@@ -93,5 +95,6 @@ export function ObjectPaintSection({ objects, apply, border = false }: {
         </InspectorPopover>}
       </div>;
     })}
+    {children}
   </InspectorSection>;
 }

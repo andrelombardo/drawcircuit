@@ -1,7 +1,8 @@
 import { memo } from 'react';
 import type { LoopArrow } from '../../model/types';
 import { loopPath } from '../../utils/loops';
-import { canvasArrowHeadPath } from '../../tikz/arrowheads';
+import { arrowHeadStyle, canvasArrowHeadPath } from '../../tikz/arrowheads';
+import { ArrowShaftPath } from './ArrowShaftPath';
 export const LoopArrowView = memo(function LoopArrowView({
   object: o,
   zoom = 1,
@@ -26,8 +27,8 @@ export const LoopArrowView = memo(function LoopArrowView({
         strokeLinecap="round"
         strokeLinejoin="round"
       >
-        <path d={loopPath(o)} />
-        <path d={canvasArrowHeadPath(o)} fill={o.headFilled ? o.color : 'none'} />
+        <ArrowShaftPath object={o} d={loopPath(o)} />
+        <path d={canvasArrowHeadPath(o)} fill={arrowHeadStyle(o) === 'filled' ? o.color : 'none'} />
       </g>
     </g>
   );

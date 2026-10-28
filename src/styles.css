@@ -4099,7 +4099,11 @@ summary:focus-visible {
 .properties-inspector .inspector-hex-field > input { border: 0; }
 .inspector-pair .inspector-input,
 .properties-inspector .property-row-embedded .inspector-input,
-.inspector-dimensions .inspector-input { border: 0; }
+.inspector-dimensions .inspector-input {
+  border: 0;
+  background: transparent;
+  height: calc(var(--property-height) - 2px);
+}
 .inspector-heading-action { width: 24px; height: 24px; border-radius: 6px; }
 .inspector-heading-action:hover:not(:disabled) { background: #e6e6e9; }
 
@@ -4109,6 +4113,7 @@ summary:focus-visible {
   border: 0;
   background: transparent;
   border-radius: 0;
+  height: 100%;
 }
 .inspector-electrical-enable { display: flex; align-items: center; justify-content: space-between; width: 100%; }
 .inspector-rotation-controls .inspector-field-caption { gap: 5px; }
@@ -4156,6 +4161,11 @@ summary:focus-visible {
 .inspector-line-segments button[aria-pressed='true'] { color: var(--ui-accent); background: var(--ui-accent-soft); }
 .inspector-line-segments button:hover:not([aria-pressed='true']) { background: var(--ui-hover); }
 .inspector-line-segments button:focus-visible { outline-offset: -2px; }
+.inspector-arrowhead { display: grid; gap: 6px; min-width: 0; }
+.inspector-arrowhead-caption { display: flex; align-items: center; justify-content: space-between; min-height: 16px; }
+.inspector-arrowhead-segments { width: 100%; height: 30px; gap: 8px; border: 0; border-radius: 0; background: transparent; overflow: visible; }
+.inspector-arrowhead-segments button { flex: 1; border: 1px solid var(--property-border); border-radius: var(--property-radius); background: #fff; }
+.inspector-arrowhead-segments button:last-child { border-right: 1px solid var(--property-border); }
 
 /* Component inspector: larger identity and grouped, directly editable controls. */
 .inspector-header[data-contextual] .inspector-header-bar { display: none; }

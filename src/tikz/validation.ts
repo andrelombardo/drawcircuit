@@ -43,8 +43,8 @@ export function isExportableObject(o: CircuitObject): boolean {
   if (!opacity(o.opacity) || ('label' in o && o.label && !opacity(o.label.opacity))) return false;
   if (
     (o.kind === 'arrow' || o.kind === 'loop-arrow') &&
-    o.headFilled !== undefined &&
-    typeof o.headFilled !== 'boolean'
+    ((o.headFilled !== undefined && typeof o.headFilled !== 'boolean') ||
+      (o.headStyle !== undefined && !['open', 'outlined', 'filled'].includes(o.headStyle)))
   )
     return false;
   switch (o.kind) {
@@ -199,7 +199,7 @@ export function isExportableObject(o: CircuitObject): boolean {
       );
     case 'line':
       return finitePoint(o.start) && finitePoint(o.end) && positive(o.width) && validStroke(o) &&
-        (o.arrowhead === undefined || ['open', 'filled'].includes(o.arrowhead)) &&
+        (o.arrowhead === undefined || ['open', 'outlined', 'filled'].includes(o.arrowhead)) &&
         (o.reversed === undefined || typeof o.reversed === 'boolean') &&
         (o.controlPoints === undefined || (Array.isArray(o.controlPoints) && o.controlPoints.length === 2 && o.controlPoints.every(finitePoint))) &&
         (o.routing === undefined || ['orthogonal', '45', 'free'].includes(o.routing)) &&

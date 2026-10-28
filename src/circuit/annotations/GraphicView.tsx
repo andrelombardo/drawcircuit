@@ -5,6 +5,7 @@ import type { CircuitDocument, LineAnnotation, ShapeAnnotation } from '../../mod
 import { dashPattern } from '../../utils/strokeStyle';
 import { linePath } from '../../utils/geometry';
 import { lineArrowHeadPath } from '../../tikz/arrowheads';
+import { ArrowShaftPath } from './ArrowShaftPath';
 export const GraphicView = memo(function GraphicView({
   object: o,
   doc,
@@ -60,7 +61,7 @@ export const GraphicView = memo(function GraphicView({
             vectorEffect="non-scaling-stroke"
           />
           <g opacity={o.opacity}>
-            <path d={linePath(o, doc)} {...stroke} pointerEvents="none" />
+            <ArrowShaftPath object={o} doc={doc} d={linePath(o, doc)} {...stroke} pointerEvents="none" />
             {o.arrowhead && (
               <path
                 d={lineArrowHeadPath(o, doc)}

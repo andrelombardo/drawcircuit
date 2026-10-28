@@ -1,6 +1,10 @@
-import type { ArrowAnnotation, CircuitDocument, LineAnnotation, LoopArrow, Point } from '../model/types';
-import { distance, arcGeometry, lineCurveGeometry, linePoints, rotatePoint } from '../utils/geometry';
+import type { ArrowAnnotation, ArrowheadStyle, CircuitDocument, LineAnnotation, LoopArrow, Point } from '../model/types';
+import { distance, arcGeometry, lineCurveGeometry, linePoints, objectBounds, rotatePoint } from '../utils/geometry';
 import { loopGeometry } from '../utils/loops';
+
+export function arrowHeadStyle(arrow: ArrowAnnotation | LoopArrow): ArrowheadStyle {
+  return arrow.headStyle ?? (arrow.headFilled ? 'filled' : 'open');
+}
 
 /** Compact chevron for electrical annotations integrated into the circuit. */
 export function chevron(tip: Point, tangent: Point): Point[] {
@@ -64,10 +68,12 @@ export function canvasArrowHead(arrow: ArrowAnnotation | LoopArrow): Point[] {
   return handwrittenHead(tip, { x: tip.x - from.x, y: tip.y - from.y }, arrow.width);
 }
 
-function headPath(points: Point[], filled: boolean): string {
+function headPath(points: Point[], style: ArrowheadStyle): string {
   if (!points.length) return '';
   const [start, upper, tip, lower, end] = points;
-  return `M ${start.x} ${start.y} Q ${upper.x} ${upper.y} ${tip.x} ${tip.y} Q ${lower.x} ${lower.y} ${end.x} ${end.y}${filled ? ' Z' : ''}`;
+  return style === 'open'
+    ? `M ${start.x} ${start.y} Q ${upper.x} ${upper.y} ${tip.x} ${tip.y} Q ${lower.x} ${lower.y} ${end.x} ${end.y}`
+    : `M ${start.x} ${start.y} L ${tip.x} ${tip.y} L ${end.x} ${end.y} Z`;
 }
 
 /** Follow the final route segment or the exact Bezier endpoint tangent. */
@@ -84,10 +90,22 @@ export function lineArrowHead(line: LineAnnotation, doc?: CircuitDocument): Poin
 }
 
 export function lineArrowHeadPath(line: LineAnnotation, doc?: CircuitDocument): string {
-  return headPath(lineArrowHead(line, doc), line.arrowhead === 'filled');
+  return headPath(lineArrowHead(line, doc), line.arrowhead ?? 'open');
 }
 
 /** Shared by the editor, placement previews and SVG/PNG output. */
 export function canvasArrowHeadPath(arrow: ArrowAnnotation | LoopArrow): string {
-  return headPath(canvasArrowHead(arrow), !!arrow.headFilled);
+  return headPath(canvasArrowHead(arrow), arrowHeadStyle(arrow));
+}
+
+/** Cut only the shaft out of hollow tips, preserving transparency and underlying objects. */
+export function arrowShaftClipPath(arrow: ArrowAnnotation | LoopArrow | LineAnnotation, doc?: CircuitDocument): string | undefined {
+  const style = arrow.kind === 'line' ? arrow.arrowhead : arrowHeadStyle(arrow);
+  if (style !== 'outlined') return;
+  const head = arrow.kind === 'line' ? lineArrowHeadPath(arrow, doc) : canvasArrowHeadPath(arrow);
+  if (!head) return;
+  const bounds = objectBounds(arrow, doc ?? { version: 1, title: '', objects: [] });
+  const padding = 2 * (arrow.kind === 'loop-arrow' ? arrow.strokeWidth : arrow.width);
+  const x = bounds.x - padding, y = bounds.y - padding;
+  return `M ${x} ${y} h ${bounds.width + 2 * padding} v ${bounds.height + 2 * padding} H ${x} Z ${head}`;
 }

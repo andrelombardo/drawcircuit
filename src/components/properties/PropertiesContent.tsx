@@ -3,6 +3,8 @@ import { EraserProperties } from './EraserProperties';
 import { t } from '../../i18n';
 import { HighlightProperties } from './HighlightProperties';
 import { commonValue } from './commonValue';
+import { ArrowheadControl } from './ArrowheadControl';
+import { arrowHeadStyle } from '../../tikz/arrowheads';
 import { fixedWireConnection, linePoints } from '../../utils/geometry';
 import { useShallow } from 'zustand/react/shallow';
 import { RotateCw, RotateCcw, ArrowLeftRight, FlipHorizontal, FlipVertical } from 'lucide-react';
@@ -73,7 +75,6 @@ export function PropertiesContent() {
   );
   const arrows = objects.filter((o) => o.kind === 'arrow' || o.kind === 'loop-arrow');
   const hasAdditionalAppearance = (!fillSelection && !strokeSelection) ||
-    arrows.length === objects.length || objects.every((o) => o.kind === 'line') ||
     (!strokeSelection && !shapeSelection && lineObjects.length === objects.length);
   const independentRotation = rotatables.length === objects.length;
   const selectedIds = new Set(objects.map((object) => object.id));
@@ -283,7 +284,71 @@ export function PropertiesContent() {
         </div>
       </InspectorSection>}
       {fillSelection && !labelTarget && <ObjectPaintSection objects={objects} apply={apply} />}
-      {strokeSelection && !labelTarget && <ObjectPaintSection objects={objects} apply={apply} border />}
+      {strokeSelection && !labelTarget && <ObjectPaintSection objects={objects} apply={apply} border>
+        {arrows.length === objects.length && (
+          <ArrowheadControl
+            value={commonValue(arrows.map(arrowHeadStyle))}
+            onChange={(value) =>
+              apply((arrow) =>
+                arrow.kind === 'arrow' || arrow.kind === 'loop-arrow'
+                  ? { ...arrow, headStyle: value === 'none' ? 'open' : value, headFilled: value === 'filled' }
+                  : arrow,
+              )
+            }
+          />
+        )}
+        {objects.every((o) => o.kind === 'line') && (
+          <ArrowheadControl
+            allowNone
+            value={commonValue(
+              objects.map((o) => o.kind === 'line' ? o.arrowhead ?? 'none' : 'none'),
+            )}
+            onChange={(value) =>
+              apply((o) => o.kind === 'line'
+                ? { ...o, arrowhead: value === 'none' ? undefined : value }
+                : o,
+              )
+            }
+          />
+        )}
+        {o?.kind === 'arrow' && (
+          <PropertySelect
+            label={t('Arrow type')}
+            caption={t('Shape')}
+            value={o.type}
+            onChange={(v) =>
+              apply((o) =>
+                o.kind === 'arrow' ? { ...o, type: v as 'straight' | 'curve' | 'arc' } : o,
+              )
+            }
+          >
+            <option value="straight">{t('Straight')}</option>
+            <option value="curve">{t('Curved')}</option>
+            <option value="arc">{t('Loop')}</option>
+          </PropertySelect>
+        )}
+        {objects.every((item) =>
+          item.kind === 'arrow' || item.kind === 'loop-arrow' ||
+          (item.kind === 'line' && item.arrowhead),
+        ) && (
+          <PropertyRow caption={t('Direction')}>
+            <button
+              className="inspector-property-action"
+              onClick={() =>
+                apply((item) =>
+                  item.kind === 'arrow' || item.kind === 'electrical' || item.kind === 'line'
+                    ? { ...item, reversed: !item.reversed }
+                    : item.kind === 'loop-arrow'
+                      ? reverseLoop(item)
+                      : item,
+                )
+              }
+            >
+              <ArrowLeftRight size={14} /> {t('Reverse arrow')}{' '}
+            </button>
+          </PropertyRow>
+        )}
+      </ObjectPaintSection>}
       <InspectorSection title={t('Position')} className="inspector-position">
         {objects.length > 1 && <p className="inspector-note inspector-position-help">
           {t('X/Y: top-left corner · u')}
@@ -325,27 +390,6 @@ export function PropertiesContent() {
                   }
                 >
                   <FlipHorizontal size={14} /> {t('Flip side')}{' '}
-                </button>
-              </PropertyRow>
-            )}
-            {objects.every((item) =>
-              item.kind === 'arrow' || item.kind === 'loop-arrow' ||
-              (item.kind === 'line' && item.arrowhead),
-            ) && (
-              <PropertyRow caption={t('Direction')}>
-                <button
-                  className="inspector-property-action"
-                  onClick={() =>
-                    apply((item) =>
-                      item.kind === 'arrow' || item.kind === 'electrical' || item.kind === 'line'
-                        ? { ...item, reversed: !item.reversed }
-                        : item.kind === 'loop-arrow'
-                          ? reverseLoop(item)
-                          : item,
-                    )
-                  }
-                >
-                  <ArrowLeftRight size={14} /> {t('Reverse arrow')}{' '}
                 </button>
               </PropertyRow>
             )}
@@ -409,22 +453,6 @@ export function PropertiesContent() {
                 {objects.every((o) => o.kind === 'line') && <option value="curve">{t('Curved')}</option>}
               </PropertySelect>
             )}
-            {o?.kind === 'arrow' && (
-              <PropertySelect
-                label={t('Arrow type')}
-                caption={t('Shape')}
-                value={o.type}
-                onChange={(v) =>
-                  apply((o) =>
-                    o.kind === 'arrow' ? { ...o, type: v as 'straight' | 'curve' | 'arc' } : o,
-                  )
-                }
-              >
-                <option value="straight">{t('Straight')}</option>
-                <option value="curve">{t('Curved')}</option>
-                <option value="arc">{t('Loop')}</option>
-              </PropertySelect>
-            )}
             {o?.kind === 'line' && <InspectorDisclosure title={t('Endpoints')}>
               {(['start', 'end'] as const).map((end) => (
                 <div className="inspector-style-fields" key={end}>
@@ -457,40 +485,6 @@ export function PropertiesContent() {
             labelOnly={!!labelTarget}
             labelAppearance={false}
           />}
-          {!labelTarget && arrows.length === objects.length && (
-            <PropertySelect
-              label={t('Arrowhead')}
-              value={commonValue(arrows.map((arrow) => (arrow.headFilled ? 'filled' : 'open')))}
-              onChange={(value) =>
-                apply((arrow) =>
-                  arrow.kind === 'arrow' || arrow.kind === 'loop-arrow'
-                    ? { ...arrow, headFilled: value === 'filled' }
-                    : arrow,
-                )
-              }
-            >
-              <option value="open">{t('Open arrowhead')}</option>
-              <option value="filled">{t('Filled arrowhead')}</option>
-            </PropertySelect>
-          )}
-          {!labelTarget && objects.every((o) => o.kind === 'line') && (
-            <PropertySelect
-              label={t('Arrowhead')}
-              value={commonValue(
-                objects.map((o) => o.kind === 'line' ? o.arrowhead ?? 'none' : 'none'),
-              )}
-              onChange={(value) =>
-                apply((o) => o.kind === 'line'
-                  ? { ...o, arrowhead: value === 'none' ? undefined : value as 'open' | 'filled' }
-                  : o,
-                )
-              }
-            >
-              <option value="none">{t('None')}</option>
-              <option value="open">{t('Open arrowhead')}</option>
-              <option value="filled">{t('Filled arrowhead')}</option>
-            </PropertySelect>
-          )}
           {!strokeSelection && !shapeSelection && !labelTarget && lineObjects.length === objects.length && (
             <PropertySelect
               label={t('Line style')}

@@ -9,10 +9,10 @@ import { braceGeometry } from '../annotations/brace';
 import { componentRegistry } from '../model/catalog';
 import { symbolText } from '../model/symbolGeometry';
 import { bridgePaths, wireCrossings } from '../utils/crossings';
-import type { CircuitDocument, CircuitObject, Point, Rotation } from '../model/types';
+import type { ArrowAnnotation, CircuitDocument, CircuitObject, LineAnnotation, LoopArrow, Point, Rotation } from '../model/types';
 import { canvasTextLayout, xmlText } from '../tikz/canvasText';
 import { isExportableObject } from '../tikz/validation';
-import { canvasArrowHead, canvasArrowHeadPath, lineArrowHeadPath } from '../tikz/arrowheads';
+import { arrowHeadStyle, arrowShaftClipPath, canvasArrowHead, canvasArrowHeadPath, lineArrowHeadPath } from '../tikz/arrowheads';
 import { arrowPath, pointsPath, linePath, wirePoints } from '../utils/geometry';
 import { loopPath } from '../utils/loops';
 import { visualBounds, unionBounds } from '../utils/visualBounds';
@@ -101,6 +101,14 @@ export function exportSVG(
     fill = 'none',
   ) =>
     `<path d="${attr(d)}" fill="${fill}" stroke="${color}" stroke-width="${f(width)}" stroke-linecap="${cap}" stroke-linejoin="round"${dashPattern(style, width) ? ` stroke-dasharray="${dashPattern(style, width)!.map(f).join(' ')}"` : ''}/>`;
+  let shaftClipIndex = 0;
+  const shaft = (o: ArrowAnnotation | LoopArrow | LineAnnotation, d: string, width: number, style: StrokeStyle = {}) => {
+    const markup = path(d, o.color, width, 'round', style);
+    const clip = arrowShaftClipPath(o, doc);
+    if (!clip) return markup;
+    const id = `arrowhead-shaft-${shaftClipIndex++}`;
+    return `<defs><clipPath id="${id}"><path d="${attr(clip)}" clip-rule="evenodd"/></clipPath></defs><g clip-path="url(#${id})">${markup}</g>`;
+  };
   const paintMarkup = (o: CircuitObject, content: string): string => {
     const variants = paintVariants(o), borders = [...objectBorders(o)].reverse().filter((p) => p.enabled);
     const painted = variants === null ? `<g opacity="${f(o.opacity ?? 1)}">${content}</g>` : variants.map((variant, i) => {
@@ -109,12 +117,12 @@ export function exportSVG(
       if (width !== undefined) markup = markup.replace(/stroke-width="[^"]*"/g, `stroke-width="${f(width/(variant.kind === 'component' ? variant.scale ?? 1 : 1))}"`);
       if (variant.kind === 'arrow' || variant.kind === 'loop-arrow') {
         const weight = variant.kind === 'arrow' ? variant.width : variant.strokeWidth;
-        markup = path(variant.kind === 'arrow' ? arrowPath(variant) : loopPath(variant), variant.color, weight)+
-          path(canvasArrowHeadPath(variant), variant.color, weight, 'round', {}, variant.headFilled ? variant.color : 'none');
+        markup = shaft(variant, variant.kind === 'arrow' ? arrowPath(variant) : loopPath(variant), weight)+
+          path(canvasArrowHeadPath(variant), variant.color, weight, 'round', {}, arrowHeadStyle(variant) === 'filled' ? variant.color : 'none');
         boxes.push(unionBounds(canvasArrowHead(variant).map((p) => ({ x: p.x-weight/2, y: p.y-weight/2, width: weight, height: weight }))));
       } else if (variant.kind === 'line') {
         const head = lineArrowHeadPath(variant, doc);
-        markup = path(linePath(variant, doc), variant.color, variant.width)+
+        markup = shaft(variant, linePath(variant, doc), variant.width)+
           (head ? path(head, variant.color, variant.width, 'round', {}, variant.arrowhead === 'filled' ? variant.color : 'none') : '');
         boxes.push(visualBounds(variant, doc));
       }
@@ -158,7 +166,7 @@ export function exportSVG(
       });
       const head = lineArrowHeadPath(o, doc);
       parts.push(
-        paintMarkup(o, path(linePath(o, doc), o.color, o.width, 'round', o)+(head ? path(head, o.color, o.width, 'round', {}, o.arrowhead === 'filled' ? o.color : 'none') : '')),
+        paintMarkup(o, shaft(o, linePath(o, doc), o.width, o)+(head ? path(head, o.color, o.width, 'round', {}, o.arrowhead === 'filled' ? o.color : 'none') : '')),
       );
     }
     capture(o.id, firstPart);
@@ -263,8 +271,8 @@ export function exportSVG(
         ),
       );
       parts.push(
-        path(o.kind === 'arrow' ? arrowPath(o) : loopPath(o), o.color, width),
-        path(canvasArrowHeadPath(o), o.color, width, 'round', {}, o.headFilled ? o.color : 'none'),
+        shaft(o, o.kind === 'arrow' ? arrowPath(o) : loopPath(o), width),
+        path(canvasArrowHeadPath(o), o.color, width, 'round', {}, arrowHeadStyle(o) === 'filled' ? o.color : 'none'),
       );
     } else if (o.kind === 'angle') {
       const g = angleGeometry(o);

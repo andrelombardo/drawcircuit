@@ -83,8 +83,8 @@ export function deserializeDocument(raw: string): CircuitDocument {
       (o.styleId !== undefined && (!str(o.styleId) || !o.styleId))) fail();
     if (
       (o.kind === 'arrow' || o.kind === 'loop-arrow') &&
-      o.headFilled !== undefined &&
-      typeof o.headFilled !== 'boolean'
+      ((o.headFilled !== undefined && typeof o.headFilled !== 'boolean') ||
+        (o.headStyle !== undefined && o.headStyle !== 'open' && o.headStyle !== 'outlined' && o.headStyle !== 'filled'))
     )
       fail();
     if (
@@ -230,7 +230,7 @@ export function deserializeDocument(raw: string): CircuitDocument {
         fail();
     } else if (o.kind === 'line') {
       if (!point(o.start) || !point(o.end) || !color(o.color) || !positive(o.width, MAX_LINE_WIDTH) ||
-        (o.arrowhead !== undefined && o.arrowhead !== 'open' && o.arrowhead !== 'filled') ||
+        (o.arrowhead !== undefined && o.arrowhead !== 'open' && o.arrowhead !== 'outlined' && o.arrowhead !== 'filled') ||
         (o.reversed !== undefined && typeof o.reversed !== 'boolean') ||
         (o.controlPoints !== undefined && (!Array.isArray(o.controlPoints) || o.controlPoints.length !== 2 || !o.controlPoints.every(point))) ||
         (o.routing !== undefined && !['orthogonal', '45', 'free'].includes(String(o.routing))) ||

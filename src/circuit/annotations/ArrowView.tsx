@@ -1,7 +1,8 @@
 import { memo } from 'react';
 import type { ArrowAnnotation } from '../../model/types';
 import { arrowPath } from '../../utils/geometry';
-import { canvasArrowHeadPath } from '../../tikz/arrowheads';
+import { arrowHeadStyle, canvasArrowHeadPath } from '../../tikz/arrowheads';
+import { ArrowShaftPath } from './ArrowShaftPath';
 export const ArrowView = memo(function ArrowView({
   object: o,
   zoom = 1,
@@ -26,8 +27,8 @@ export const ArrowView = memo(function ArrowView({
         strokeLinecap="round"
         strokeLinejoin="round"
       >
-        <path d={arrowPath(o)} />
-        <path d={canvasArrowHeadPath(o)} fill={o.headFilled ? o.color : 'none'} />
+        <ArrowShaftPath object={o} d={arrowPath(o)} />
+        <path d={canvasArrowHeadPath(o)} fill={arrowHeadStyle(o) === 'filled' ? o.color : 'none'} />
       </g>
     </g>
   );

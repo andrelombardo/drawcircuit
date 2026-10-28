@@ -170,6 +170,7 @@ export interface TextAnnotation {
   align: 'start' | 'middle' | 'end';
   rotation: Rotation;
 }
+export type ArrowheadStyle = 'open' | 'outlined' | 'filled';
 export interface ArrowAnnotation {
   kind: 'arrow';
   id: string;
@@ -185,7 +186,8 @@ export interface ArrowAnnotation {
   opacity?: number;
   width: number;
   reversed: boolean;
-  /** Missing in existing documents means an open arrowhead. */
+  headStyle?: ArrowheadStyle;
+  /** Legacy fill flag, used when headStyle is missing. */
   headFilled?: boolean;
 }
 export interface LoopArrow {
@@ -204,7 +206,8 @@ export interface LoopArrow {
   /** Independent of HEX color; missing means fully opaque. */
   opacity?: number;
   strokeWidth: number;
-  /** Missing in existing documents means an open arrowhead. */
+  headStyle?: ArrowheadStyle;
+  /** Legacy fill flag, used when headStyle is missing. */
   headFilled?: boolean;
 }
 export interface ElectricalAnnotation {
@@ -335,7 +338,7 @@ export interface LineAnnotation extends StrokeStyle, ObjectAppearance {
   /** Legacy decorative lines remain straight. */
   routing?: WireRouting;
   /** Missing keeps legacy decorative lines without a tip. */
-  arrowhead?: 'open' | 'filled';
+  arrowhead?: ArrowheadStyle;
   /** Point the tip at the start instead of the end. */
   reversed?: boolean;
   color: string;
