@@ -77,7 +77,6 @@ interface EditorState {
   setWireRouting: (routing: WireRouting) => void;
   lineCurve: boolean;
   setLineCurve: (curve: boolean) => void;
-  grid: boolean;
   snapEnabled: boolean;
   toggleSnap: () => void;
   splittingWireId: string | null;
@@ -91,7 +90,6 @@ interface EditorState {
   select: (ids: string[]) => void;
   setActiveLabel: (id: string | null) => void;
   setArrowType: (type: ArrowAnnotation['type']) => void;
-  toggleGrid: () => void;
   commit: (doc: CircuitDocument, options?: { preserveFrameChildren?: boolean }) => boolean;
   add: (objects: CircuitObject[]) => void;
   updateSelection: (fn: (o: CircuitObject) => CircuitObject) => void;
@@ -168,7 +166,6 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   setWireRouting: (wireRouting) => set({ wireRouting }),
   lineCurve: false,
   setLineCurve: (lineCurve) => set({ lineCurve }),
-  grid: true,
   snapEnabled: true,
   toggleSnap: () => set((s) => ({ snapEnabled: !s.snapEnabled })),
   splittingWireId: null,
@@ -190,7 +187,6 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   select: (selection) => set({ selection, activeLabel: null }),
   setActiveLabel: (activeLabel) => set({ activeLabel }),
   setArrowType: (arrowType) => set({ arrowType }),
-  toggleGrid: () => set((s) => ({ grid: !s.grid })),
   commit: (document, options) => {
     const s = get();
     const next = reconcileHighlights(

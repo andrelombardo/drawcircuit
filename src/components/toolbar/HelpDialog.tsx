@@ -26,7 +26,6 @@ export function HelpDialog({ onClose }: { onClose: () => void }) {
     ['Shift + Delete / Backspace', t('Delete the object from its label')],
     [shortcut('Z'), t('Undo')],
     [shortcut('Z', true), t('Redo')],
-    ['G', t('Show / hide grid')],
     ['T', t('Show / hide components')],
     ['1', t('Fit to view')],
     ['+ / −', t('Zoom in / out')],
@@ -56,7 +55,7 @@ export function HelpDialog({ onClose }: { onClose: () => void }) {
       <details className="help-disclosure">
         <summary>{t('Projects and images')}</summary>
         <p>{t('The drawing is saved automatically in this browser. Project, beside Help, downloads an editable .drawcircuit file or opens a .drawcircuit / JSON project. Opening asks before replacing your work and can be undone.')}</p>
-        <p>{t('Select elements and choose Copy as image from the right-click menu for a transparent PNG. Use Select all to include the whole circuit. Grid, guides and handles stay out of the image.')}</p>
+        <p>{t('Select elements and choose Copy as image from the right-click menu for a transparent PNG. Use Select all to include the whole circuit. Guides and handles stay out of the image.')}</p>
       </details>
       <a className="help-guide-link" href="https://github.com/andrelombardo/drawcircuit/blob/main/docs/guide.md" target="_blank" rel="noreferrer">{t('Read the complete guide')}</a>
     </section>

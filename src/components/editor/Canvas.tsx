@@ -10,10 +10,10 @@ import { ActionMenu } from '../toolbar/ActionMenu';
 import { useEditActions } from '../toolbar/useEditActions';
 import { useEffect, useRef, useState } from 'react';
 import type { CSSProperties } from 'react';
-import { CircleAlert, Grid2X2, Magnet, Maximize, Minus, Plus } from 'lucide-react';
+import { CircleAlert, Magnet, Maximize, Minus, Plus } from 'lucide-react';
 import { useEditorStore } from '../../store/editorStore';
 import { catalog } from '../../model/catalog';
-import { componentTypes, GRID } from '../../model/types';
+import { componentTypes } from '../../model/types';
 import { wirePoints, pointsPath } from '../../utils/geometry';
 import type { ComponentType } from '../../model/types';
 import { wirePreview } from '../../utils/wires';
@@ -79,7 +79,6 @@ function CanvasContent({
     doc = useEditorStore((s) => s.document),
     tool = useEditorStore((s) => s.tool),
     pendingPresetId = useEditorStore((s) => s.pendingPresetId),
-    grid = useEditorStore((s) => s.grid),
     snapEnabled = useEditorStore((s) => s.snapEnabled),
     selection = useEditorStore((s) => s.selection),
     gestureActive = useEditorStore((s) => Boolean(s.gestureStart)),
@@ -95,8 +94,7 @@ function CanvasContent({
   const editedObject = editing ? doc.objects.find((o) => o.id === editing.id) : null;
   const editTarget = inlineTextTarget(editedObject, doc);
   const nudgeDistances = useKeyboardNudge(v.zoom);
-  const isComponent = componentTypes.includes(tool as ComponentType),
-    gridSize = GRID * v.zoom * (v.zoom < 0.4 ? 2 : 1);
+  const isComponent = componentTypes.includes(tool as ComponentType);
   const placementType =
     interactions.paletteDragType ?? (isComponent ? (tool as ComponentType) : null);
   const smart = interactions.smart;
@@ -309,19 +307,6 @@ function CanvasContent({
             });
           }}
         >
-          <defs>
-            <pattern
-              id="grid"
-              width={gridSize}
-              height={gridSize}
-              patternUnits="userSpaceOnUse"
-              x={(v.x % gridSize) - gridSize / 2}
-              y={(v.y % gridSize) - gridSize / 2}
-            >
-              <circle cx={gridSize / 2} cy={gridSize / 2} r={0.7} fill="#ceced2" />
-            </pattern>
-          </defs>
-          <rect width="100%" height="100%" fill={grid ? 'url(#grid)' : 'transparent'} />
           <g transform={`translate(${v.x} ${v.y}) scale(${v.zoom})`}>
             {!doc.objects.length && (
               <foreignObject x={-175} y={-110} width={350} height={250} pointerEvents="none">
@@ -507,13 +492,6 @@ function CanvasContent({
             <div className="toolbar-divider" />
             <IconButton label={t('Fit to view (1)')} onClick={() => interactions.fit()}>
               <Maximize size={15} />
-            </IconButton>
-            <IconButton
-              label={t('Grid (G)')}
-              active={grid}
-              onClick={() => useEditorStore.getState().toggleGrid()}
-            >
-              <Grid2X2 size={15} />
             </IconButton>
             <IconButton
               label={t('Snapping · hold Alt/Option to bypass')}

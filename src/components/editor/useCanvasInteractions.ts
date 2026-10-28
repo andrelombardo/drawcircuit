@@ -585,7 +585,6 @@ export function useCanvasInteractions(
       else if (!mod && e.key.toLowerCase() === 'a') s.setTool('arrow');
       else if (!mod && e.key.toLowerCase() === 'l') s.setTool('loop-arrow');
       else if (!mod && e.key.toLowerCase() === 'h') s.setTool('pan');
-      else if (!mod && e.key.toLowerCase() === 'g') s.toggleGrid();
       else if (e.key === '+' || e.key === '=') zoomAt(1.2);
       else if (e.key === '-') zoomAt(1 / 1.2);
       else if (e.key === '1') fit();

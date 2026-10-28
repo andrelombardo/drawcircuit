@@ -18,7 +18,7 @@ Your circuit saves automatically after 400 ms of inactivity and before reload or
 4. Double-click a label or text to edit it inline. **Enter** or clicking outside confirms; **Esc** cancels. Choose **Text** in the toolbar for standalone text.
 5. Select elements, right-click, and choose **Copy as image**. Use **Cmd/Ctrl A** first to copy the whole circuit.
 
-The toolbar grip lets you move the tools; its position is remembered. **Help** is at the bottom right. Zoom and grid controls are at the bottom left. Components and Properties each have a show/hide button and a draggable resize edge; double-click an edge to reset its width. At widths up to 800 px, both panels start closed and open one at a time. Choosing a component or block closes the mobile library. Desktop panel preferences are restored when returning to a wider layout.
+The toolbar grip lets you move the tools; its position is remembered. **Help** is at the bottom right. Zoom and snapping controls are at the bottom left. The drawing sheet has a plain background. Components and Properties each have a show/hide button and a draggable resize edge; double-click an edge to reset its width. At widths up to 800 px, both panels start closed and open one at a time. Choosing a component or block closes the mobile library. Desktop panel preferences are restored when returning to a wider layout.
 
 ## Select, move, and edit
 
@@ -36,7 +36,7 @@ Choose **Orthogonal**, **45°**, or **Free** routing while using W. **Shift + W*
 
 In Select mode, drag a terminal to start a new connected wire; a click simply selects. Drag a round wire endpoint to move or reconnect that existing wire. Use **W** to add a branch or extend a wire. Filled round handles indicate connected endpoints, hollow handles indicate free endpoints. Drag a connected wire body to slide its segment while preserving connections; free endpoints follow. Include a connected wire in a multiple selection to translate its route as a whole.
 
-The **magnet** beside the grid toggles snapping for wires, object movement, and component placement. **Alt/Option** temporarily bypasses snapping, including while drawing or editing a wire. Free routing keeps exact pointer positions while still offering nearby connection targets. Targets are chosen by proximity and remain stable through small pointer movements; the chosen wire is highlighted before a click connects it. Orthogonal segments use grid steps when snapping is enabled.
+The **magnet** beside the zoom controls toggles snapping for wires, object movement, and component placement. **Alt/Option** temporarily bypasses snapping, including while drawing or editing a wire. Free routing keeps exact pointer positions while still offering nearby connection targets. Targets are chosen by proximity and remain stable through small pointer movements; the chosen wire is highlighted before a click connects it. Orthogonal segments use 20 u steps when snapping is enabled.
 
 Deleting a junction removes its dot and label while preserving the shared connection of its incident wires. Removing a branch heals its remaining two straight, identically styled fragments without changing their visible route, currents, or highlights. Explicit style splits remain separate until an attached branch is removed.
 
@@ -68,7 +68,7 @@ The inspector resizes from 252–440 px, initially 292 px; the component sidebar
 
 Select at least two independent objects and use the six alignment buttons for edges or centers. Distribution needs at least three objects and keeps the outermost objects fixed. Choose **Distance between centers** or **Clearance between edges**. Labels do not affect symbol measurements. Connected wires and annotations follow their hosts rather than moving twice; the panel indicates when only a subset can be arranged.
 
-For an exact distance, choose **Geometry → Exact spacing**, select centers or clearances, and enter **Horizontal (X)** or **Vertical (Y)** spacing. Confirm with Enter or the adjacent button. Fields start empty: they specify distances to apply, not current measurements. The first object on the axis stays fixed; others keep their geometric order. Units are document units (`u`); the grid is 20 u. Invalid or overlapping arrangements are disabled with an explanation. Unselected junctions stay fixed; wire routing may add bends to preserve connections.
+For an exact distance, choose **Geometry → Exact spacing**, select centers or clearances, and enter **Horizontal (X)** or **Vertical (Y)** spacing. Confirm with Enter or the adjacent button. Fields start empty: they specify distances to apply, not current measurements. The first object on the axis stays fixed; others keep their geometric order. Units are document units (`u`); snapping uses 20 u steps. Invalid or overlapping arrangements are disabled with an explanation. Unselected junctions stay fixed; wire routing may add bends to preserve connections.
 
 ## Labels, math, and annotations
 
@@ -142,9 +142,9 @@ Automatic saving still applies after opening. Keep separate downloads for projec
 
 **Cmd/Ctrl C/X/V** copies, cuts, and pastes editable objects. Cut obtains a validated copy before deleting; denied clipboard access still permits pasting in the same session. New IDs and internal references are remapped on paste. Browser-native clipboard events also work; text fields retain native clipboard behavior.
 
-**Right-click → Copy as image** copies a transparent PNG, normally at 4× resolution, from the internal SVG representation. It includes internal wires and annotations associated with selected hosts, plus highlights; it excludes the grid, guides, selection, and handles. Wires to outside objects are excluded unless explicitly selected. Large images keep bounded dimensions and memory use. The browser must support and permit image clipboard writing.
+**Right-click → Copy as image** copies a transparent PNG, normally at 4× resolution, from the internal SVG representation. It includes internal wires and annotations associated with selected hosts, plus highlights; it excludes guides, selection, and handles. Wires to outside objects are excluded unless explicitly selected. Large images keep bounded dimensions and memory use. The browser must support and permit image clipboard writing.
 
-Use **Space + drag** or **H** to pan, the wheel/trackpad or +/− to zoom, **1** to fit, **G** to toggle the grid, and **T** to show/hide Components. Shortcuts do not trigger while typing in text fields or dialogs. Properties menus support arrows, Home/End, Enter, Escape, and Tab. Controls preserve native Space/Enter activation.
+Use **Space + drag** or **H** to pan, the wheel/trackpad or +/− to zoom, **1** to fit, and **T** to show/hide Components. Shortcuts do not trigger while typing in text fields or dialogs. Properties menus support arrows, Home/End, Enter, Escape, and Tab. Controls preserve native Space/Enter activation.
 
 ## Local development and limits
 
