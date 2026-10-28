@@ -82,9 +82,6 @@ function CanvasContent({
     snapEnabled = useEditorStore((s) => s.snapEnabled),
     selection = useEditorStore((s) => s.selection),
     gestureActive = useEditorStore((s) => Boolean(s.gestureStart)),
-    wireRouting = useEditorStore((s) => s.wireRouting),
-    lineCurve = useEditorStore((s) => s.lineCurve),
-    arrowType = useEditorStore((s) => s.arrowType),
     storageError = useEditorStore((s) => s.storageError),
     eraserSize = useEditorStore((s) => s.eraserSize);
   const personalBlocks = usePersonalBlocks((s) => s.blocks);
@@ -200,40 +197,6 @@ function CanvasContent({
           <div className="persistence-error floating-surface" role="alert">
             <CircleAlert size={12} />
             {t('Local saving is unavailable. Keep this page open and use “Copy as image”.')}{' '}
-          </div>
-        )}
-        {(tool === 'wire' || tool === 'line') && (
-          <div className="arrow-tool-options" role="group" aria-label={t(tool === 'line' ? 'Line routing' : 'Wire routing')}>
-            {(['orthogonal', '45', 'free'] as const).map((routing, i) => (
-              <button
-                key={routing}
-                aria-pressed={wireRouting === routing && !(tool === 'line' && lineCurve)}
-                className={wireRouting === routing && !(tool === 'line' && lineCurve) ? 'selected' : ''}
-                onClick={() => {
-                  if (tool === 'line') useEditorStore.getState().setLineCurve(false);
-                  useEditorStore.getState().setWireRouting(routing);
-                }}
-                title={t('Shift+W changes routing')}
-              >
-                {[t('Orthogonal'), '45°', t('Free')][i]}
-              </button>
-            ))}
-            {tool === 'line' && <button aria-pressed={lineCurve}
-              className={lineCurve ? 'selected' : ''}
-              onClick={() => useEditorStore.getState().setLineCurve(true)}>{t('Curved')}</button>}
-          </div>
-        )}
-        {tool === 'arrow' && (
-          <div className="arrow-tool-options" aria-label={t('Arrow shape')}>
-            {(['straight', 'curve'] as const).map((type, i) => (
-              <button
-                key={type}
-                className={arrowType === type ? 'selected' : ''}
-                onClick={() => useEditorStore.getState().setArrowType(type)}
-              >
-                {[t('Straight'), t('Curved')][i]}
-              </button>
-            ))}
           </div>
         )}
         <svg

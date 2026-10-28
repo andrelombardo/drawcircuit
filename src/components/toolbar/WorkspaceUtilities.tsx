@@ -5,9 +5,9 @@ import { IconButton } from './IconButton';
 
 export function WorkspaceUtilities({ onHelp }: { onHelp?: () => void }) {
   return (
-    <div className="workspace-utilities">
+    <div className="workspace-utilities floating-surface">
       <ProjectMenu />
-      <IconButton label={t('Help')} className="help-control floating-surface" onClick={onHelp}>
+      <IconButton label={t('Help')} className="help-control" onClick={onHelp}>
         <HelpCircle size={18} />
       </IconButton>
     </div>

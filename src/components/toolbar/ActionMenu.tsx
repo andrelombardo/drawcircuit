@@ -228,6 +228,7 @@ export function ActionMenu({
   variant = 'actions',
   description,
   triggerId,
+  shortcut,
 }: {
   label: string;
   icon?: ReactNode;
@@ -241,6 +242,7 @@ export function ActionMenu({
   variant?: 'actions' | 'choices';
   description?: string;
   triggerId?: string;
+  shortcut?: string;
 }) {
   const id = useId();
   const choices = variant === 'choices';
@@ -399,6 +401,7 @@ export function ActionMenu({
           aria-label={label}
           aria-pressed={active}
           aria-description={description}
+          aria-keyshortcuts={shortcut}
           aria-haspopup="menu"
           aria-expanded={open}
           aria-controls={open ? id : undefined}
@@ -415,6 +418,7 @@ export function ActionMenu({
           }}
         >
           {icon}
+          {shortcut && <kbd className="toolbar-shortcut" aria-hidden="true">{shortcut}</kbd>}
           {showLabel && <span>{label}</span>}
         </button>
       )}
