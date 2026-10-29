@@ -48,7 +48,7 @@ export function extractSelection(doc: CircuitDocument, ids: string[]): CircuitDo
             : o.kind === 'line'
               ? detachLineEndpoints(o, ep, doc)
               : o.kind === 'wire'
-              ? detachWireEndpoints(o, ep, doc)
+              ? { ...detachWireEndpoints(o, ep, doc), vertices: wirePoints(o, doc).slice(1, -1) }
               : o,
       ),
   };
@@ -258,7 +258,11 @@ export function moveSelection(doc: CircuitDocument, ids: string[], delta: Point)
         const startFixed = fixed(o.startEndpoint),
           endFixed = fixed(o.endEndpoint);
         let source = o;
-        if (!o.vertices.length && (startFixed || endFixed)) {
+        if (!startFixed && !endFixed) {
+          // A rigid move must translate the visible route, including automatic
+          // detours, without choosing new bends against the absolute grid.
+          source = { ...o, vertices: wirePoints(o, doc).slice(1, -1) };
+        } else if (!o.vertices.length) {
           const pts = wirePoints(o, doc);
           const vertices =
             pts.length > 2 ? pts.slice(1, -1) : [midpoint(pts[0], pts[pts.length - 1])];

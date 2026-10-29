@@ -120,15 +120,13 @@ export function getExportSelection(doc: CircuitDocument, ids: readonly string[])
       if (o.kind !== 'wire') return o;
       const startEndpoint = endpoint(o.startEndpoint),
         endEndpoint = endpoint(o.endEndpoint);
-      // Preserve an explicitly selected wire's route when external pins become free.
+      // Capture every visible bend before removing obstacles or translating the
+      // selection. Implicit routing depends on the source document and grid.
       return {
         ...o,
         startEndpoint,
         endEndpoint,
-        vertices:
-          startEndpoint !== o.startEndpoint || endEndpoint !== o.endEndpoint
-            ? wirePoints(o, doc).slice(1, -1)
-            : o.vertices,
+        vertices: wirePoints(o, doc).slice(1, -1),
       };
     });
   if (!objects.length) return { ...doc, objects: [] };
